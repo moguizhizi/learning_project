@@ -136,14 +136,14 @@ def test_multimodal_model_for_nvidia(image_path, text, model_url, model_name):
 if __name__ == "__main__":
     name = "qwen_1_c7b3def3"
     model_url = "http://10.20.42.147/qwen_1_c7b3def3/v1/chat/completions"
-    pic_path = "learning_project/images/phone/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch.jpg"
-    text = read_txt_file("learning_project/prompt_template/phone/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch.txt")
+    pic_path = "learning_project/images/phone/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key.jpg"
+    text = read_txt_file("learning_project/prompt_template/phone/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key.txt")
     try:
         result = test_multimodal_model_for_ascend(pic_path, text, model_url, name)
         print(f"result:>>>{result}")
         
         # 将 result 保存到 txt 文件
-        output_file = "learning_project/output/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch_10_20_42_147.txt"
+        output_file = "learning_project/output/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key_10_20_42_147.txt"
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write(str(result))  # 将 result 转换为字符串并写入
         print(f"结果已保存到 {output_file}")
@@ -153,14 +153,14 @@ if __name__ == "__main__":
     
     name = "/opt/models/qwen/Qwen2__5-VL-32B-Instruct"
     model_url = "http://10.20.42.106:7013/v1/chat/completions"
-    pic_path = "learning_project/images/phone/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch.jpg"
-    text = read_txt_file("learning_project/prompt_template/phone/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch.txt")
+    pic_path = "learning_project/images/phone/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key.jpg"
+    text = read_txt_file("learning_project/prompt_template/phone/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key.txt")
     try:
         result = test_multimodal_model_for_nvidia(pic_path, text, model_url, name)
         print(f"result:>>>{result}")
         
         # 将 result 保存到 txt 文件
-        output_file = "learning_project/output/Turn_on_the_Dark_theme_by_tapping_the_toggle_switch_10_20_42_106.txt"
+        output_file = "learning_project/output/The_current_subgoal_which_aims_to_the_next_step_is_to_tap_the_home_key_10_20_42_106.txt"
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write(str(result))  # 将 result 转换为字符串并写入
         print(f"结果已保存到 {output_file}")

@@ -1,0 +1,1 @@
+The current subgoal which aims to the next step is to tap the home key.。给定图片左上角坐标为[0, 0]，右下角坐标为[720, 1600]。请直接输出点击的坐标，以json格式输出,例如{'coordinate': [654, 234]}
