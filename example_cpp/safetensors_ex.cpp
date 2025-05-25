@@ -488,11 +488,13 @@ struct SafeTensors
             configString[configBytes] = 0;
             
             auto config = json11::Json::parse(configString, error);
-            std::cout << "config: " << config.dump() << std::endl;
+            
             for (auto it : config.object_items())
             {
                 if (it.first != "__metadata__")
                 {
+                    // std::cout << "it.first: " << it.first << std::endl;
+                    // std::cout << "it.second: " << it.second.dump() << std::endl;
                     itmeDict[it.first] = SafeTensorItem(it.first, fileName, it.second, 8 + configBytes);
                 }
             }
@@ -515,6 +517,7 @@ struct SafeTensors
         std::vector<std::string> ret;
         for (int i = 0; i < v.size(); i++)
         {
+            
             ret.push_back(v[i].second);
         }
         return ret;
@@ -529,11 +532,13 @@ int main()
 
     for (auto &it : loraTensors->GetSortedItemNames())
     {
+        std::cout << "it: " << it << std::endl;
         if (it.size() >= 31 &&
             it.substr(0, 17) == "base_model.model." &&
             (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight"))
         {
             std::string originalName = it.substr(17, it.size() - 31) + ".weight";
+            std::cout << "originalName: " << originalName << std::endl;
             if (it.substr(it.size() - 14) == ".lora_A.weight")
             {
                 loraDicts[originalName].first = it;
