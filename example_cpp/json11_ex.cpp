@@ -42,5 +42,12 @@ int main() {
         std::cout << "JSON is not an object." << std::endl;
     }
 
+    float loraScaling;
+    loraScaling = loraConfig["lora_alpha"].number_value() / loraConfig["r"].number_value();
+    std::cout << loraScaling << std::endl;
+    std::cout << loraConfig["lora_alpha"].number_value() << std::endl;
+    std::cout << loraConfig["r"].number_value() << std::endl;
+
+
     return 0; // 成功返回 0
 }
