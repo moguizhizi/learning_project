@@ -793,6 +793,7 @@ class VisionArenaDataset(HuggingFaceDataset):
     SUPPORTED_DATASET_PATHS = {
         "lmarena-ai/VisionArena-Chat": lambda x: x["conversation"][0][0]["content"],
         "lmarena-ai/vision-arena-bench-v0.1": lambda x: x["turns"][0][0]["content"],
+        "/home/project/dataset/VisionArena_Chat": lambda x: x["conversation"][0][0]["content"],
     }
     IS_MULTIMODAL = True
 
@@ -813,7 +814,8 @@ class VisionArenaDataset(HuggingFaceDataset):
             if parser_fn is None:
                 raise ValueError(f"Unsupported dataset path: {self.dataset_path}")
             prompt = parser_fn(item)
-            mm_content = process_image(item["images"][0])
+            image = Image.open(item["images"])
+            mm_content = process_image(image)
             prompt_len = len(tokenizer(prompt).input_ids)
             if enable_multimodal_chat:
                 # Note: when chat is enabled the request prompt_len is no longer
