@@ -55,6 +55,7 @@ class SampleRequest:
     multi_modal_data: Optional[Union[MultiModalDataDict, dict]] = None
     lora_request: Optional[LoRARequest] = None
     ground_truth: Optional[Union[str, Any]] = None
+    dataset_name: Optional[str] = None
 
 
 # -----------------------------------------------------------------------------
@@ -915,6 +916,7 @@ class PhoneTestDataset(BenchmarkDataset):
                     expected_output_len=output_len,
                     multi_modal_data=mm_content,
                     ground_truth=ground_truth,
+                    dataset_name=self.dataset_name,
                 )
             )
         self.maybe_oversample_requests(sampled_requests, num_requests)

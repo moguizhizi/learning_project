@@ -14,6 +14,9 @@ import aiohttp
 import huggingface_hub.constants
 from tqdm.asyncio import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
+from typing import Any
+
+from benchmark_utils import calculate_accuracy
 
 # NOTE(simon): do not import vLLM here so the benchmark script
 # can run without vLLM installed.
@@ -34,6 +37,8 @@ class RequestFuncInput:
     multi_modal_content: Optional[dict] = None
     ignore_eos: bool = False
     language: Optional[str] = None
+    ground_truth: Optional[Union[str, Any]] = None
+    dataset_name: Optional[str] = None
 
 
 @dataclass
@@ -47,7 +52,7 @@ class RequestFuncOutput:
     tpot: float = 0.0  # avg next-token latencies
     prompt_len: int = 0
     error: str = ""
-
+    accuracy: float = 0.0  
 
 async def async_request_tgi(
     request_func_input: RequestFuncInput,
@@ -390,6 +395,8 @@ async def async_request_openai_chat_completions(
 
         output = RequestFuncOutput()
         output.prompt_len = request_func_input.prompt_len
+        ground_truth = request_func_input.ground_truth
+        dataset_name = request_func_input.dataset_name
 
         generated_text = ""
         ttft = 0.0
@@ -428,6 +435,7 @@ async def async_request_openai_chat_completions(
                             most_recent_timestamp = timestamp
 
                     output.generated_text = generated_text
+                    output.accuracy = calculate_accuracy(generated_text, ground_truth, dataset_name)
                     output.success = True
                     output.latency = most_recent_timestamp - st
                 else:
