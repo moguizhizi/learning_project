@@ -72,6 +72,7 @@ from benchmark_dataset import (
     ShareGPTDataset,
     SonnetDataset,
     VisionArenaDataset,
+    PhoneTestDataset,
 )
 from benchmark_utils import convert_to_pytorch_benchmark_format, write_to_json
 
@@ -664,6 +665,24 @@ def main(args: argparse.Namespace):
                 return_prompt_formatted=True,
             )
 
+    elif args.dataset_name == "phonetest":
+        dataset = PhoneTestDataset(dataset_path=args.dataset_path, dataset_name=args.dataset_name)
+
+        if dataset.IS_MULTIMODAL and backend not in [
+            "openai-chat",
+            "openai-audio",
+        ]:
+            # multi-modal benchmark is only available on OpenAI Chat backend.
+            raise ValueError(
+                "Multi-modal content is only supported on 'openai-chat' and "
+                "'openai-audio' backend."
+            )
+        input_requests = dataset.sample(
+            num_requests=args.num_prompts,
+            tokenizer=tokenizer,
+            output_len=args.hf_output_len,
+        )
+    
     elif args.dataset_name == "hf":
         # all following datasets are implemented from the
         # HuggingFaceDataset base class
@@ -912,7 +931,7 @@ def create_argument_parser():
         "--dataset-name",
         type=str,
         default="sharegpt",
-        choices=["sharegpt", "burstgpt", "sonnet", "random", "hf", "custom"],
+        choices=["sharegpt", "burstgpt", "sonnet", "random", "hf", "custom", "phonetest"],
         help="Name of the dataset to benchmark on.",
     )
     parser.add_argument(
