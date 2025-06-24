@@ -54,6 +54,7 @@ class SampleRequest:
     expected_output_len: int
     multi_modal_data: Optional[Union[MultiModalDataDict, dict]] = None
     lora_request: Optional[LoRARequest] = None
+    ground_truth: Optional[Union[str, Any]] = None
 
 
 # -----------------------------------------------------------------------------
@@ -68,6 +69,7 @@ class BenchmarkDataset(ABC):
     def __init__(
         self,
         dataset_path: Optional[str] = None,
+        dataset_name: Optional[str] = None,
         random_seed: int = DEFAULT_SEED,
     ) -> None:
         """
@@ -79,6 +81,7 @@ class BenchmarkDataset(ABC):
             sampling. Defaults to DEFAULT_SEED.
         """
         self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
         # Set the random seed, ensuring that a None value is replaced with the
         # default seed.
         self.random_seed = random_seed if random_seed is not None else self.DEFAULT_SEED
@@ -828,6 +831,90 @@ class VisionArenaDataset(HuggingFaceDataset):
                     prompt_len=prompt_len,
                     expected_output_len=output_len,
                     multi_modal_data=mm_content,
+                )
+            )
+        self.maybe_oversample_requests(sampled_requests, num_requests)
+        return sampled_requests
+    
+class PhoneTestDataset(BenchmarkDataset):
+    """
+    PhoneTestDataset.
+    """
+
+    DEFAULT_OUTPUT_LEN = 1024
+    SUPPORTED_DATASET_PATHS = {
+        "phonetest": lambda x: x["messages"][0]["content"],
+    }
+
+    SUPPORTED_DATASET_GROUND_TRUTH = {
+        "phonetest": lambda x: x["messages"][1]["content"],
+    }
+
+    IS_MULTIMODAL = True
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.load_data()
+
+    def load_data(self) -> None:
+        if self.dataset_path is None:
+            raise ValueError("dataset_path must be provided for loading data.")
+
+        self.data = []
+
+        # Load the JSON file
+        if self.dataset_path.endswith(".json"):
+            json_data = pd.read_json(path_or_buf=self.dataset_path, lines=False)
+
+            for _, row in json_data.iterrows():
+                self.data.append(row.to_dict())
+        else:
+            raise NotImplementedError(
+                "Only JSON format is supported for PhoneTestDataset."
+            )
+
+        random.seed(self.random_seed)
+        random.shuffle(self.data)
+
+    def sample(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        num_requests: int,
+        output_len: Optional[int] = None,
+        enable_multimodal_chat: bool = False,
+        **kwargs,
+    ) -> list:
+        output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
+        sampled_requests = []
+        for item in self.data:
+            if len(sampled_requests) >= num_requests:
+                break
+            parser_fn = self.SUPPORTED_DATASET_PATHS.get(self.dataset_name)
+            if parser_fn is None:
+                raise ValueError(f"Unsupported dataset name: {self.dataset_name}")
+            prompt = parser_fn(item)
+            prompt_len = len(tokenizer(prompt).input_ids)
+
+            ground_truth_parser_fn = self.SUPPORTED_DATASET_GROUND_TRUTH.get(self.dataset_name)
+            if ground_truth_parser_fn is None:
+                raise ValueError(f"Unsupported dataset name for ground truth: {self.dataset_name}")
+            ground_truth = ground_truth_parser_fn(item)
+
+            image = Image.open(item["images"][0])
+            mm_content = process_image(image)
+
+            if enable_multimodal_chat:
+                # Note: when chat is enabled the request prompt_len is no longer
+                # accurate and we will be using request output to count the
+                # actual prompt len
+                prompt = self.apply_multimodal_chat_transformation(prompt, mm_content)
+            sampled_requests.append(
+                SampleRequest(
+                    prompt=prompt,
+                    prompt_len=prompt_len,
+                    expected_output_len=output_len,
+                    multi_modal_data=mm_content,
+                    ground_truth=ground_truth,
                 )
             )
         self.maybe_oversample_requests(sampled_requests, num_requests)
