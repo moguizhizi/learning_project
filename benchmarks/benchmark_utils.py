@@ -6,6 +6,11 @@ import json
 import math
 import os
 from typing import Any
+import re
+import ast
+from typing import Dict
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def convert_to_pytorch_benchmark_format(
@@ -72,3 +77,44 @@ def write_to_json(filename: str, records: list) -> None:
             cls=InfEncoder,
             default=lambda o: f"<{type(o).__name__} object is not JSON serializable>",
         )
+
+def extract_json_block(text: str) -> str:
+    """
+    从包含 Markdown 格式 ```json 代码块的文本中提取 JSON 字符串。
+
+    参数:
+        text (str): 包含 JSON 代码块的字符串文本。
+
+    返回:
+        str: 提取到的 JSON 内容字符串（原始格式，未解析）。
+
+    异常:
+        ValueError: 如果未找到 JSON 代码块。
+    """
+    match = re.search(r"```json\n(.*?)\n```", text, re.DOTALL)
+    if not match:
+        raise ValueError("未找到 json 代码块")
+
+    return match.group(1).strip()
+
+
+def cosine_similarity_between_texts(text1: str, text2: str) -> float:
+    # 向量化两个文本
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform([text1, text2])
+
+    # 计算余弦相似度
+    sim_matrix = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+    return sim_matrix[0][0]  # 返回一个浮点数：0 ~ 1
+
+
+def calculate_accuracy(prediction, ground_true, dataset_name):
+    if  ground_true is None:
+        return 0.0
+    
+    if dataset_name == "phonetest": 
+       json_block = extract_json_block(prediction)
+       
+       return cosine_similarity_between_texts(json_block, ground_true)
+    else:
+        return 0.0

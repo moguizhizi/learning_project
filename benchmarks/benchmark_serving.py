@@ -107,6 +107,10 @@ class BenchmarkMetrics:
     median_e2el_ms: float
     std_e2el_ms: float
     percentiles_e2el_ms: list[tuple[float, float]]
+    mean_accuracy: float
+    std_accuracy: float
+    median_accuracy: float
+    percentiles_accuracy: list[tuple[float, float]]
 
 
 async def get_request(
@@ -153,7 +157,6 @@ async def get_request(
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
 
-
 def calculate_metrics(
     input_requests: list[SampleRequest],
     outputs: list[RequestFuncOutput],
@@ -172,6 +175,7 @@ def calculate_metrics(
     all_tpots: list[float] = []
     ttfts: list[float] = []
     e2els: list[float] = []
+    accuracies: list[float] = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = outputs[i].output_tokens
@@ -200,6 +204,8 @@ def calculate_metrics(
             ttfts.append(outputs[i].ttft)
             e2els.append(outputs[i].latency)
             completed += 1
+
+            accuracies.append(outputs[i].accuracy)
         else:
             actual_output_lens.append(0)
 
@@ -266,6 +272,12 @@ def calculate_metrics(
         median_e2el_ms=np.median(e2els or 0) * 1000,
         percentiles_e2el_ms=[
             (p, np.percentile(e2els or 0, p) * 1000) for p in selected_percentiles
+        ],
+        mean_accuracy=np.mean(accuracies or 0) * 100,
+        std_accuracy=np.std(accuracies or 0),
+        median_accuracy=np.median(accuracies or 0) * 100,
+        percentiles_accuracy=[
+            (p, np.percentile(accuracies or 0, p) * 100) for p in selected_percentiles
         ],
     )
 
@@ -376,11 +388,13 @@ async def benchmark(
     benchmark_start_time = time.perf_counter()
     tasks: list[asyncio.Task] = []
     async for request in get_request(input_requests, request_rate, burstiness):
-        prompt, prompt_len, output_len, mm_content = (
+        prompt, prompt_len, output_len, mm_content, ground_truth, dataset_name = (
             request.prompt,
             request.prompt_len,
             request.expected_output_len,
             request.multi_modal_data,
+            request.ground_truth,
+            request.dataset_name
         )
         req_model_id, req_model_name = model_id, model_name
         if lora_modules:
@@ -398,6 +412,8 @@ async def benchmark(
             multi_modal_content=mm_content,
             ignore_eos=ignore_eos,
             extra_body=extra_body,
+            ground_truth=ground_truth,
+            dataset_name=dataset_name,
         )
         tasks.append(
             asyncio.create_task(
@@ -522,6 +538,45 @@ async def benchmark(
     process_one_metric("tpot", "TPOT", "Time per Output Token (excl. 1st token)")
     process_one_metric("itl", "ITL", "Inter-token Latency")
     process_one_metric("e2el", "E2EL", "End-to-end Latency")
+
+
+    def process_two_metric(
+        metric_attribute_name: str,
+        metric_name: str,
+        metric_header: str,
+    ):
+        # This function prints and adds statistics of the specified
+        # metric.
+        if metric_attribute_name not in selected_percentile_metrics:
+            return
+        print("{s:{c}^{n}}".format(s=metric_header, n=50, c="-"))
+        print(
+            "{:<40} {:<10.2f}".format(
+                f"Mean {metric_name} (%):",
+                getattr(metrics, f"mean_{metric_attribute_name}"),
+            )
+        )
+        print(
+            "{:<40} {:<10.2f}".format(
+                f"Median {metric_name} (%):",
+                getattr(metrics, f"median_{metric_attribute_name}"),
+            )
+        )
+        result[f"mean_{metric_attribute_name}"] = getattr(
+            metrics, f"mean_{metric_attribute_name}"
+        )
+        result[f"median_{metric_attribute_name}"] = getattr(
+            metrics, f"median_{metric_attribute_name}"
+        )
+        result[f"std_{metric_attribute_name}"] = getattr(
+            metrics, f"std_{metric_attribute_name}"
+        )
+        for p, value in getattr(metrics, f"percentiles_{metric_attribute_name}"):
+            p_word = str(int(p)) if int(p) == p else str(p)
+            print("{:<40} {:<10.2f}".format(f"P{p_word} {metric_name} (%):", value))
+            result[f"p{p_word}_{metric_attribute_name}"] = value
+    
+    process_two_metric("accuracy", "Accuracy", "Accuracy")
 
     print("=" * 50)
 
@@ -680,7 +735,7 @@ def main(args: argparse.Namespace):
         input_requests = dataset.sample(
             num_requests=args.num_prompts,
             tokenizer=tokenizer,
-            output_len=args.hf_output_len,
+            output_len=args.phonetest_output_len,
         )
     
     elif args.dataset_name == "hf":
@@ -1072,7 +1127,7 @@ def create_argument_parser():
     parser.add_argument(
         "--percentile-metrics",
         type=str,
-        default="ttft,tpot,itl",
+        default="ttft,tpot,itl,accuracy",
         help="Comma-separated list of selected metrics to report percentils. "
         "This argument specifies the metrics to report percentiles. "
         'Allowed metric names are "ttft", "tpot", "itl", "e2el". '
@@ -1112,6 +1167,15 @@ def create_argument_parser():
         "--custom-skip-chat-template",
         action="store_true",
         help="Skip applying chat template to prompt, used only for custom dataset.",
+    )
+
+    # group for dataset specific arguments
+    custom_group = parser.add_argument_group("phonetest dataset options")
+    custom_group.add_argument(
+        "--phonetest_output_len",
+        type=int,
+        default=1024,
+        help="Number of output tokens per request, used only for custom dataset.",
     )
 
     sonnet_group = parser.add_argument_group("sonnet dataset options")
