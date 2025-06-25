@@ -643,12 +643,17 @@ def main(args: argparse.Namespace):
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
     tokenizer_mode = args.tokenizer_mode
 
-    if args.base_url is not None:
-        api_url = f"{args.base_url}{args.endpoint}"
-        base_url = f"{args.base_url}"
+    if args.ascend is False:
+        if args.base_url is not None:
+            api_url = f"{args.base_url}{args.endpoint}"
+            base_url = f"{args.base_url}"
+        else:
+            api_url = f"http://{args.host}:{args.port}{args.endpoint}"
+            base_url = f"http://{args.host}:{args.port}"
     else:
-        api_url = f"http://{args.host}:{args.port}{args.endpoint}"
-        base_url = f"http://{args.host}:{args.port}"
+        api_url = f"http://{args.host}/{model_name}{args.endpoint}"
+        base_url = f"http://{args.host}/{model_name}"
+        
 
     tokenizer = get_tokenizer(
         tokenizer_id,
@@ -1042,6 +1047,11 @@ def create_argument_parser():
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
+    )
+    parser.add_argument(
+        "--ascend",
+        action="store_true",
+        help="Ascend environment",
     )
     parser.add_argument(
         "--disable-tqdm",
