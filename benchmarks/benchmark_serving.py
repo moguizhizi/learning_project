@@ -107,10 +107,7 @@ class BenchmarkMetrics:
     median_e2el_ms: float
     std_e2el_ms: float
     percentiles_e2el_ms: list[tuple[float, float]]
-    mean_accuracy: float
-    std_accuracy: float
-    median_accuracy: float
-    percentiles_accuracy: list[tuple[float, float]]
+    accuracy_rate: float
 
 
 async def get_request(
@@ -273,12 +270,7 @@ def calculate_metrics(
         percentiles_e2el_ms=[
             (p, np.percentile(e2els or 0, p) * 1000) for p in selected_percentiles
         ],
-        mean_accuracy=np.mean(accuracies or 0) * 100,
-        std_accuracy=np.std(accuracies or 0),
-        median_accuracy=np.median(accuracies or 0) * 100,
-        percentiles_accuracy=[
-            (p, np.percentile(accuracies or 0, p) * 100) for p in selected_percentiles
-        ],
+        accuracy_rate=np.mean(accuracies or 0) * 100, #A hit is represented as 1, and a miss is represented as 0.
     )
 
     return metrics, actual_output_lens
@@ -552,31 +544,15 @@ async def benchmark(
         print("{s:{c}^{n}}".format(s=metric_header, n=50, c="-"))
         print(
             "{:<40} {:<10.2f}".format(
-                f"Mean {metric_name} (%):",
-                getattr(metrics, f"mean_{metric_attribute_name}"),
+                f"{metric_name} Rate (%):",
+                getattr(metrics, f"{metric_attribute_name}"),
             )
         )
-        print(
-            "{:<40} {:<10.2f}".format(
-                f"Median {metric_name} (%):",
-                getattr(metrics, f"median_{metric_attribute_name}"),
-            )
+        result[f"{metric_attribute_name}"] = getattr(
+            metrics, f"{metric_attribute_name}"
         )
-        result[f"mean_{metric_attribute_name}"] = getattr(
-            metrics, f"mean_{metric_attribute_name}"
-        )
-        result[f"median_{metric_attribute_name}"] = getattr(
-            metrics, f"median_{metric_attribute_name}"
-        )
-        result[f"std_{metric_attribute_name}"] = getattr(
-            metrics, f"std_{metric_attribute_name}"
-        )
-        for p, value in getattr(metrics, f"percentiles_{metric_attribute_name}"):
-            p_word = str(int(p)) if int(p) == p else str(p)
-            print("{:<40} {:<10.2f}".format(f"P{p_word} {metric_name} (%):", value))
-            result[f"p{p_word}_{metric_attribute_name}"] = value
     
-    process_two_metric("accuracy", "Accuracy", "Accuracy")
+    process_two_metric("accuracy_rate", "Accuracy", "Accuracy")
 
     print("=" * 50)
 
@@ -1127,7 +1103,7 @@ def create_argument_parser():
     parser.add_argument(
         "--percentile-metrics",
         type=str,
-        default="ttft,tpot,itl,accuracy",
+        default="ttft,tpot,itl,accuracy_rate",
         help="Comma-separated list of selected metrics to report percentils. "
         "This argument specifies the metrics to report percentiles. "
         'Allowed metric names are "ttft", "tpot", "itl", "e2el". '
