@@ -43,7 +43,8 @@ def convert_to_pytorch_benchmark_format(
             },
         }
 
-        tp = record["benchmark"]["extra_info"]["args"].get("tensor_parallel_size")
+        tp = record["benchmark"]["extra_info"]["args"].get(
+            "tensor_parallel_size")
         # Save tensor_parallel_size parameter if it's part of the metadata
         if not tp and "tensor_parallel_size" in extra_info:
             record["benchmark"]["extra_info"]["args"]["tensor_parallel_size"] = (
@@ -78,6 +79,7 @@ def write_to_json(filename: str, records: list) -> None:
             default=lambda o: f"<{type(o).__name__} object is not JSON serializable>",
         )
 
+
 def extract_json_block(text: str) -> str:
     """
     从包含 Markdown 格式 ```json 代码块的文本中提取 JSON 字符串。
@@ -108,16 +110,21 @@ def cosine_similarity_between_texts(text1: str, text2: str) -> float:
     return sim_matrix[0][0]  # 返回一个浮点数：0 ~ 1
 
 
-def calculate_accuracy(prediction, ground_true, dataset_name):
-    if  ground_true is None:
+def calculate_accuracy(prediction:str, ground_true:str, dataset_name:str):
+    if ground_true is None:
         return 0.0
-    
-    if dataset_name == "phonetest": 
-       json_block = extract_json_block(prediction)
-       
-       if json_block == ground_true:
-           return 1.0
-       else:
-           return 0.0
+
+    if dataset_name == "phonetest":
+        json_block = extract_json_block(prediction)
+
+        # 将两个字符串解析为 JSON 对象
+        json_block = json.loads(json_block)
+        json_ground_true = json.loads(ground_true.replace("'", '"'))
+
+        # 比较两个 JSON 对象
+        if json_block == json_ground_true:
+            return 1.0
+        else:
+            return 0.0
     else:
         return 0.0
