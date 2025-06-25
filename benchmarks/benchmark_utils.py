@@ -115,6 +115,9 @@ def calculate_accuracy(prediction, ground_true, dataset_name):
     if dataset_name == "phonetest": 
        json_block = extract_json_block(prediction)
        
-       return cosine_similarity_between_texts(json_block, ground_true)
+       if json_block == ground_true:
+           return 1.0
+       else:
+           return 0.0
     else:
         return 0.0
