@@ -13,4 +13,17 @@ llm = LLM(
     max_model_len=64,
 )
 
-llm.llm_engine.model_executor.driver_worker.worker.compilation_config.static_forward_context
+ctx = llm.llm_engine.model_executor.driver_worker.worker.compilation_config.static_forward_context
+
+# layer_need_kv_cache = []
+# for layer_name in ctx:
+    # if ctx[layer_name].attn_type in (AttentionType.DECODER, AttentionType.ENCODER_DECODER):
+    #         layer_need_kv_cache.append(layer_name)
+    # print(layer_name)
+
+for layer_name in ctx:
+    layer_config = ctx[layer_name]
+    print(f"Layer: {layer_name}")
+    print(f"  Attention Type: {layer_config.attn_type}")  # 可能是DECODER/ENCODER等
+
+model = llm.llm_engine.model_executor.driver_worker.worker.model_runner.get_model()
