@@ -27,3 +27,8 @@ for layer_name in ctx:
     print(f"  Attention Type: {layer_config.attn_type}")  # 可能是DECODER/ENCODER等
 
 model = llm.llm_engine.model_executor.driver_worker.worker.model_runner.get_model()
+vllm_names = list(dict(model.named_parameters()).keys())
+print('\n'.join(vllm_names))
+
+for name, param in sorted(model.named_parameters()):
+    param
