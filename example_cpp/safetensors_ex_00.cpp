@@ -482,19 +482,22 @@ struct SafeTensors
             FILE *f = fopen(fileName.c_str(), "rb");
             uint64_t configBytes;
             int ret = fread(&configBytes, 8, 1, f);
-            std::cout << "configBytes: " << configBytes << std::endl;
+            
             char *configString = new char[configBytes + 5];
             ret = fread(configString, 1, configBytes, f);
             configString[configBytes] = 0;
             
             auto config = json11::Json::parse(configString, error);
-            
+
+            std::cout << "configBytes: " << configBytes << std::endl;
+            std::cout << "config: " << config.dump() << std::endl;
             for (auto it : config.object_items())
             {
                 if (it.first != "__metadata__")
                 {
-                    // std::cout << "it.first: " << it.first << std::endl;
-                    // std::cout << "it.second: " << it.second.dump() << std::endl;
+                    std::cout << "it.first: " << it.first << std::endl;
+                    std::cout << "it.second: " << it.second.dump() << std::endl;
+                    std::cout << "fileName: " << fileName << std::endl;
                     itmeDict[it.first] = SafeTensorItem(it.first, fileName, it.second, 8 + configBytes);
                 }
             }
@@ -528,27 +531,29 @@ int main()
 {
     std::map<std::string, std::pair<std::string, std::string>> loraDicts;
     SafeTensors *loraTensors = nullptr;
-    loraTensors = new SafeTensors({"/data1/temp/llm_lora/snshrivas10/sft-tiny-chatbot/adapter_model.safetensors"});
+    loraTensors = new SafeTensors({"/home/temp/llm_model/Qwen/Qwen2___5-VL-32B-Instruct-AWQ/model-00001-of-00006.safetensors"});
 
-    for (auto &it : loraTensors->GetSortedItemNames())
-    {
-        std::cout << "it: " << it << std::endl;
-        if (it.size() >= 31 &&
-            it.substr(0, 17) == "base_model.model." &&
-            (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight"))
-        {
-            std::string originalName = it.substr(17, it.size() - 31) + ".weight";
-            std::cout << "originalName: " << originalName << std::endl;
-            if (it.substr(it.size() - 14) == ".lora_A.weight")
-            {
-                loraDicts[originalName].first = it;
-            }
-            else
-            {
-                loraDicts[originalName].second = it;
-            }
-        }
-    }
+    // for (auto &it : loraTensors->GetSortedItemNames())
+    // {
+    //     std::cout << "it: " << it << std::endl;
+    //     // if (it.size() >= 31 &&
+    //     //     it.substr(0, 17) == "base_model.model." &&
+    //     //     (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight"))
+    //     // {
+    //     //     std::string originalName = it.substr(17, it.size() - 31) + ".weight";
+    //     //     std::cout << "originalName: " << originalName << std::endl;
+    //     //     std::cout << "it: " << it << std::endl;
+    //     //     if (it.substr(it.size() - 14) == ".lora_A.weight")
+    //     //     {
+    //     //         loraDicts[originalName].first = it;
+    //     //     }
+    //     //     else
+    //     //     {
+    //     //         loraDicts[originalName].second = it;
+    //     //     }
+    //     // }
+
+    // }
 
     return 0; // 成功返回 0
 }
