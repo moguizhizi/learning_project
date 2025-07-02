@@ -51,7 +51,7 @@ struct SafeTensors
             }
             std::string error;
             auto config = json11::Json::parse(layers_info, error);
-            for (auto it : config.object_items())
+            for (auto &it : config.object_items())
                 std::cout << it.first << ":" << it.second.dump() << std::endl;
         }
     }
