@@ -39,8 +39,9 @@ struct SafeTensors
                 fclose(file);
                 exit(0);
             }
-            
-            char *layers_info = new char[stlen+5];
+
+            char *layers_info = new char[stlen + 5];
+            layers_info[stlen] = 0;
             ret = fread(layers_info, 1, stlen, file);
             if (ret != stlen)
             {
@@ -49,7 +50,9 @@ struct SafeTensors
                 exit(0);
             }
             std::string error;
-            json11::Json::parse(layers_info, error);
+            auto config = json11::Json::parse(layers_info, error);
+            for (auto it : config.object_items())
+                std::cout << it.first << ":" << it.second.dump() << std::endl;
         }
     }
 };
