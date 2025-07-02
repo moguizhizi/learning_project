@@ -92,6 +92,7 @@ struct SafeTensors {
           this->itmeDict[it.first] = SafeTensorItem(it.first, fileName, stlen + 8, it.second);
         }
       }
+      delete[] layers_info;
     }
   }
 };
