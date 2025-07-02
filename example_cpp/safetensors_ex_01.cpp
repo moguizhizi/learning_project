@@ -18,6 +18,20 @@ typedef struct _IO_FILE FILE;
 #include "json11.hpp"
 #include <iostream>
 
+struct SafeTensorItem
+{
+    std::string tensorName;
+    std::string fileName;
+    std::string dtype;
+    std::vector<uint64_t> shape;
+    std::vector<uint64_t> intShape;
+
+    SafeTensorItem() {};
+    ~SafeTensorItem() {
+
+    };
+};
+
 struct SafeTensors
 {
 
