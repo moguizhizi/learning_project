@@ -33,10 +33,7 @@ struct SafeTensorItem {
   ~SafeTensorItem() {
 
   };
-  SafeTensorItem(const std::string &tensorName,
-                 const std::string &fileName,
-                 uint64_t baseOffset,
-                 const json11::Json &config) {
+  SafeTensorItem(const std::string &tensorName, const std::string &fileName, uint64_t baseOffset, const json11::Json &config) {
     this->tensorName = tensorName;
     this->fileName = fileName;
     this->dtype = config["dtype"].string_value();
