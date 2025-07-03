@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <set>
 
 
 struct SafeTensorItem {
@@ -31,7 +32,7 @@ struct SafeTensorItem {
 struct SafeTensors {
   std::map<std::string, SafeTensorItem> itmeDict;
 
-  SafeTensors(const std::vector<std::string> fileNames);
+  SafeTensors(const std::set<std::string> fileNames);
 
   std::vector<std::string> GetSortedItemNames();
 };
