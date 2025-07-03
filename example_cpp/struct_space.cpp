@@ -27,7 +27,7 @@ SafeTensorItem::SafeTensorItem(const std::string &tensorName, const std::string 
   this->bytesLen = this->dataOffsets[1] - this->dataOffsets[0];
 }
 
-SafeTensors::SafeTensors(const std::vector<std::string> fileNames) {
+SafeTensors::SafeTensors(const std::set<std::string> fileNames) {
   for (const std::string &fileName : fileNames) {
     FILE *file = fopen(fileName.c_str(), "rb");
     if (!file) {
