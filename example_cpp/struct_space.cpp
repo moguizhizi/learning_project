@@ -65,6 +65,24 @@ SafeTensors::SafeTensors(const std::vector<std::string> fileNames) {
   }
 }
 
-std::vector<std::string> GetSortedItemNames(){
-        
+std::vector<std::string> SafeTensors::GetSortedItemNames() {
+  std::vector<std::pair<std::pair<std::string, uint64_t>, std::string>> v;
+  for (auto &it : this->itmeDict) {
+    std::string fileName = it.second.fileName;
+    uint64_t baseOffset = it.second.dataOffsets[0];
+    std::string tensorName = it.first;
+
+    std::pair pair_1 = std::make_pair(fileName, baseOffset);
+    std::pair pair_2 = std::make_pair(pair_1, tensorName);
+
+    v.push_back(pair_2);
+  }
+
+  std::sort(v.begin(), v.end());
+  std::vector<std::string> ret;
+  for (auto &it : v) {
+    ret.push_back(it.second);
+  }
+
+  return ret;
 }

@@ -9,6 +9,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
+
 
 struct SafeTensorItem {
   std::string tensorName;
