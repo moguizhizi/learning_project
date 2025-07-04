@@ -1,5 +1,5 @@
-#include <string>
 #include "struct_space.hpp"
+#include <string>
 
 class basellm {
   public:
