@@ -18,5 +18,5 @@ int main() {
     basellm *model = CreateModelWithType(model_type);
     AddDictRecursion(model, "", config);
 
-    
+    model->InitParams();
 }
