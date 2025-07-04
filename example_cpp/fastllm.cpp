@@ -3,7 +3,7 @@
 
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
-    if (model_type == "Qwen3") {
+    if (model_type == "qwen3") {
         model = new Qwen3Model();
     }
 

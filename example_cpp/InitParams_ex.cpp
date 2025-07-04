@@ -4,7 +4,7 @@
 #include <string>
 
 int main() {
-    std::string config_path = "/home/temp/llm_model/Qwen/Qwen2___5-VL-7B-Instruct/config.json";
+    std::string config_path = "/home/temp/llm_model/Qwen/Qwen3-0___6B/config.json";
     std::string configError;
     std::string model_type;
     auto config = json11::Json::parse(ReadAllFile(config_path), configError);
