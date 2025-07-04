@@ -35,3 +35,10 @@ struct SafeTensors {
 
     std::vector<std::string> GetSortedItemNames();
 };
+
+struct Tokenizer {};
+
+struct WeightMap {
+    std::set<std::string> embeddingsNames;
+    std::set<std::string> linearNames;
+};
