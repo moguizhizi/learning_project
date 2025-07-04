@@ -9,15 +9,18 @@ class basellm {
     ~basellm();
 
     std::string model_type;
-    std::string model_struct;
 
-    std::string pre_prompt;
-    std::string user_role;
-    std::string bot_role;
-    std::string history_sep;
+    int block_cnt;
+    int rotary_dim;
+    int head_dim;
 
-    int block_cnt = 28;
-    int rotary_dim = 64;
+    int bos_token_id;
+    int eos_token_id;
+
+    int embed_dim;
+    int num_attention_heads;
 
     WeightMap weight;
+
+    void InitParams();
 };
