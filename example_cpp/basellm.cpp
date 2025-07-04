@@ -39,4 +39,9 @@ void basellm::InitParams(){
         this->num_attention_heads = atoi(this->weight.dicts["num_attention_heads"].c_str());
     }
 
+    this->num_key_value_heads = this->num_attention_heads;
+    if(this->weight.dicts.find("num_key_value_heads")!=this->weight.dicts.end()){
+        this->num_key_value_heads = atoi(this->weight.dicts["num_key_value_heads"].c_str());
+    }
+
 }

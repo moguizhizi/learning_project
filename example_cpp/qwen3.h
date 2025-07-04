@@ -11,5 +11,11 @@ class Qwen3Model : public basellm {
     std::string bot_role;
     std::string history_sep;
 
+    int max_positions;
+    float rms_norm_eps;
+    int rope_theta;
+
     Qwen3Model();
+
+    void InitParams();
 };
