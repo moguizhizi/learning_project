@@ -12,13 +12,13 @@ class basellm {
 
     int block_cnt;
     int rotary_dim;
-    int head_dim;
+    int head_dim = 0;
 
     int bos_token_id;
     int eos_token_id;
 
     int embed_dim;
-    int num_attention_heads;
+    int num_attention_heads = 0;
 
     int num_key_value_heads;
 

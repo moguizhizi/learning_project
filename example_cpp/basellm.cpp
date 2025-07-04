@@ -38,6 +38,8 @@ void basellm::InitParams(){
     if(this->weight.dicts.find("num_attention_heads")!=this->weight.dicts.end()){
         this->num_attention_heads = atoi(this->weight.dicts["num_attention_heads"].c_str());
     }
+    
+    this->embed_dim = this->head_dim * this->num_attention_heads;
 
     this->num_key_value_heads = this->num_attention_heads;
     if(this->weight.dicts.find("num_key_value_heads")!=this->weight.dicts.end()){
