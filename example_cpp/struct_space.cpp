@@ -91,3 +91,7 @@ std::vector<std::string> SafeTensors::GetSortedItemNames() {
 
     return ret;
 }
+
+void WeightMap::AddDict(const std::string &key, const std::string &value) { 
+    this->dicts[key] = value; 
+}

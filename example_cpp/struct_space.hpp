@@ -41,4 +41,7 @@ struct Tokenizer {};
 struct WeightMap {
     std::set<std::string> embeddingsNames;
     std::set<std::string> linearNames;
+    std::map<std::string, std::string> dicts;
+
+    void AddDict(const std::string &key, const std::string &value);
 };
