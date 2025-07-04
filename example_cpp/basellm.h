@@ -1,3 +1,5 @@
+#pragma once
+
 #include "struct_space.hpp"
 #include <string>
 
