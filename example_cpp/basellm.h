@@ -20,6 +20,8 @@ class basellm {
     int embed_dim;
     int num_attention_heads;
 
+    int num_key_value_heads;
+
     WeightMap weight;
 
     void InitParams();

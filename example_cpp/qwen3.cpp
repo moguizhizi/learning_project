@@ -27,3 +27,19 @@ Qwen3Model::Qwen3Model() {
                                 "model.layers.*.self_attn.mergeqkv.weight",
                                 "model.layers.*.self_attn.W_pack.weight"};
 }
+
+void Qwen3Model::InitParams() {
+    basellm::InitParams();
+
+    if (this->weight.dicts.find("max_position_embeddings") != this->weight.dicts.end()) {
+        this->max_positions = atoi(this->weight.dicts["max_position_embeddings"].c_str());
+    }
+
+    if (this->weight.dicts.find("rms_norm_eps") != this->weight.dicts.end()) {
+        this->rms_norm_eps = atoi(this->weight.dicts["rms_norm_eps"].c_str());
+    }
+
+    if (this->weight.dicts.find("rope_theta") != this->weight.dicts.end()) {
+        this->rope_theta = atoi(this->weight.dicts["rope_theta"].c_str());
+    }
+}
