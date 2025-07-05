@@ -89,3 +89,15 @@ void Data::Resize(const std::vector<int> &dims) {
         }
     }
 }
+
+uint64_t Data::Count(int i) const {
+    if (i >= this->stride.size()) {
+        return 1;
+    }
+
+    if ((i - 1 >= 0) && (i - 1 < this->stride.size())) {
+        return this->stride[i - 1];
+    }
+
+    return this->dims[i] * this->stride[i];
+}

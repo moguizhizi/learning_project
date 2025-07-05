@@ -49,4 +49,5 @@ class Data {
 
     void UpdateUnitSize();
     void Resize(const std::vector<int> &dims);
+    uint64_t Count(int i) const;
 };
