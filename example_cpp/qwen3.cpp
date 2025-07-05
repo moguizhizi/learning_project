@@ -36,10 +36,10 @@ void Qwen3Model::InitParams() {
     }
 
     if (this->weight.dicts.find("rms_norm_eps") != this->weight.dicts.end()) {
-        this->rms_norm_eps = atoi(this->weight.dicts["rms_norm_eps"].c_str());
+        this->rms_norm_eps = atof(this->weight.dicts["rms_norm_eps"].c_str());
     }
 
     if (this->weight.dicts.find("rope_theta") != this->weight.dicts.end()) {
-        this->rope_base = atoi(this->weight.dicts["rope_theta"].c_str());
+        this->rope_base = atof(this->weight.dicts["rope_theta"].c_str());
     }
 }
