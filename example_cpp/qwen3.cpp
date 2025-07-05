@@ -1,4 +1,5 @@
 #include "qwen3.h"
+#include <cmath>
 
 Qwen3Model::Qwen3Model() {
     this->model_type = "qwen3";
@@ -42,4 +43,35 @@ void Qwen3Model::InitParams() {
     if (this->weight.dicts.find("rope_theta") != this->weight.dicts.end()) {
         this->rope_base = atof(this->weight.dicts["rope_theta"].c_str());
     }
+
+    if (this->weight.dicts.find("rope_scaling.factor") != this->weight.dicts.end()) {
+        this->rope_factor = atof(this->weight.dicts["rope_scaling.factor"].c_str());
+    }
+}
+
+std::pair<std::vector<float>, std::vector<float>> Qwen3Model::UpdateRotaryPosEmb(float rope_base, float rope_factor, int seqlen) {
+    int positions = std::min(this->max_positions, seqlen);
+    this->sin.resize(positions);
+    this->cos.resize(positions);
+
+    std::vector<float> invFreq;
+    for (int i = 0; i < this->rotary_dim; i = i + 2) {
+        invFreq.push_back(1.0 / pow(rope_base, i * 1.0 / this->rotary_dim));
+    }
+
+    float scale = this->rope_type == RoPEType::LINEAR_SCALE ? rope_factor : 1.0;
+    for (int i = 0; i < positions; i++) {
+        for (int j = 0; j < invFreq.size(); j++) {
+            this->sin[i][j] = ::sin((float)i / scale * invFreq[j]);
+            this->cos[i][j] = ::cos((float)i / scale * invFreq[j]);
+        }
+    }
+
+    std::vector<float> fsin, fcos;
+    for (int i = 0; i < positions; i++) {
+        fsin.insert(fsin.end(), this->sin[i].begin(), this->sin[i].end());
+        fcos.insert(fcos.end(), this->cos[i].begin(), this->cos[i].end());
+    }
+
+    return std::make_pair(fsin, fcos);
 }
