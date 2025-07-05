@@ -1,6 +1,7 @@
 #pragma once
 
 #include "basellm.h"
+#include "enum_space.h"
 
 class Qwen3Model : public basellm {
   public:
@@ -17,7 +18,14 @@ class Qwen3Model : public basellm {
     Qwen3Model();
 
     void InitParams();
+    std::pair<std::vector<float>, std::vector<float>> UpdateRotaryPosEmb(float rope_base, float rope_factor, int seqlen);
 
   protected:
-    int rope_base;
+    float rope_base = 10000.f;
+    RoPEType rope_type = RoPEType::BASE;
+    float rope_scale = 1.0;
+    std::vector<std::vector<float>> sin;
+    std::vector<std::vector<float>> cos;
+
+    float rope_factor = 1.0;
 };
