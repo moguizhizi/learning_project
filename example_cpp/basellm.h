@@ -1,5 +1,6 @@
 #pragma once
 
+#include "enum_space.h"
 #include "struct_space.hpp"
 #include <string>
 
@@ -27,4 +28,24 @@ class basellm {
     std::vector<WeightMergeRule> weightMergeRules;
 
     void InitParams();
+};
+
+class Data {
+  public:
+    Data(DataType datatype);
+    Data(DataType datatype, const std::vector<int> &dims);
+
+    DataType dataType = DataType::FLOAT32;
+
+    uint64_t expansionSize;
+    uint64_t expansionBytes;
+
+    int unitSize;
+    int unitSizeDiv;
+
+    std::vector<int> expansionDims;
+    std::vector<uint64_t> stride;
+
+    void UpdateUnitSize();
+    void Resize(const std::vector<int> &dims);
 };

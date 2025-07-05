@@ -1,49 +1,72 @@
 #include "basellm.h"
 #include "qwen3.h"
 
-basellm::basellm(){
+basellm::basellm() {}
 
-}
+basellm::~basellm() {}
 
-basellm::~basellm(){
-    
-}
-
-void basellm::InitParams(){
-    if(this->weight.dicts.find("model_type")!=this->weight.dicts.end()){
+void basellm::InitParams() {
+    if (this->weight.dicts.find("model_type") != this->weight.dicts.end()) {
         this->model_type = this->weight.dicts["model_type"].c_str();
     }
 
-    if(this->weight.dicts.find("bos_token_id")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("bos_token_id") != this->weight.dicts.end()) {
         this->bos_token_id = atoi(this->weight.dicts["bos_token_id"].c_str());
     }
 
-    if(this->weight.dicts.find("eos_token_id")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("eos_token_id") != this->weight.dicts.end()) {
         this->eos_token_id = atoi(this->weight.dicts["eos_token_id"].c_str());
     }
 
-    if(this->weight.dicts.find("hidden_size")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("hidden_size") != this->weight.dicts.end()) {
         this->embed_dim = atoi(this->weight.dicts["hidden_size"].c_str());
     }
 
-    if(this->weight.dicts.find("num_hidden_layers")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("num_hidden_layers") != this->weight.dicts.end()) {
         this->block_cnt = atoi(this->weight.dicts["num_hidden_layers"].c_str());
     }
 
-    if(this->weight.dicts.find("head_dim")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("head_dim") != this->weight.dicts.end()) {
         this->head_dim = atoi(this->weight.dicts["head_dim"].c_str());
         this->rotary_dim = this->head_dim;
     }
 
-    if(this->weight.dicts.find("num_attention_heads")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("num_attention_heads") != this->weight.dicts.end()) {
         this->num_attention_heads = atoi(this->weight.dicts["num_attention_heads"].c_str());
     }
-    
+
     this->embed_dim = this->head_dim * this->num_attention_heads;
 
     this->num_key_value_heads = this->num_attention_heads;
-    if(this->weight.dicts.find("num_key_value_heads")!=this->weight.dicts.end()){
+    if (this->weight.dicts.find("num_key_value_heads") != this->weight.dicts.end()) {
         this->num_key_value_heads = atoi(this->weight.dicts["num_key_value_heads"].c_str());
     }
+}
 
+Data::Data(DataType datatype) { this->dataType = datatype; }
+
+Data::Data(DataType datatype, const std::vector<int> &dims) { this->dataType = datatype; }
+
+void Data::UpdateUnitSize() {
+    if (this->dataType == DataType::FLOAT32 || this->dataType == DataType::INT32PARAM) {
+        this->unitSize = 4;
+        this->unitSizeDiv = 1;
+    } else if (this->dataType == DataType::BFLOAT16 || this->dataType == DataType::INT16 || this->dataType == DataType::FLOAT16) {
+        this->unitSize = 2;
+        this->unitSizeDiv = 1;
+    } else if (this->dataType == DataType::INT8 || this->dataType == DataType::FP8_E4M3) {
+        this->unitSize = 1;
+        this->unitSizeDiv = 1;
+    } else if (this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO || this->dataType == DataType::INT4_GROUP) {
+        this->unitSize = 1;
+        this->unitSizeDiv = 2;
+    } else if (this->dataType == DataType::INT2 || this->dataType == DataType::INT2_GROUP) {
+        this->unitSize = 1;
+        this->unitSizeDiv = 4;
+    } else if (this->dataType == DataType::BIT) {
+        this->unitSize = 1;
+        this->unitSizeDiv = 8;
+    }
+
+    this->expansionBytes = (this->expansionSize * this->unitSize - 1) / this->unitSizeDiv + 1;
 }
