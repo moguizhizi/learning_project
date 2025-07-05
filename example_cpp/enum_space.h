@@ -9,3 +9,14 @@ enum RoPEType { // 位置编码外推类型
 enum DataDevice {
     CPU = 0, CUDA = 1
 };
+
+enum DataType {
+    FLOAT32 = 0, BFLOAT16 = 1, INT16 = 2, INT8 = 3, INT4 = 4, INT2 = 5, BIT = 6, FLOAT16 = 7,
+    INT4_NOZERO = 8, // 不用zeroPoint的int4, floatValue = min + uint4Value * scale
+    INT4_GROUP = 9, // 不用zeroPoint的int4, floatValue = min + uint4Value * scale, 且使用分组量化
+    FP8_E4M3 = 10,
+    INT2_GROUP = 11, // 不用zeroPoint的int2, floatValue = min + uint2Value * scale, 且使用分组量化
+    BASE3_GROUP = 12, // 三元量化，-1 0 1
+    INT32PARAM = 100, // int32的参数，这种类型的数据永远存在CPU上
+    DATA_AUTO_NONE = 99999, DATA_AUTO_LINEAR, DATA_AUTO_EMBEDDING, DATA_AUTO_CONV
+};
