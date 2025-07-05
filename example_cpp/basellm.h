@@ -34,8 +34,12 @@ class Data {
   public:
     Data(DataType datatype);
     Data(DataType datatype, const std::vector<int> &dims);
+    Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void* ptr);
 
     DataType dataType = DataType::FLOAT32;
+    DataDevice dataDevice = DataDevice::CPU;
+
+    bool isFake = false;
 
     uint64_t expansionSize;
     uint64_t expansionBytes;
@@ -43,9 +47,13 @@ class Data {
     int unitSize;
     int unitSizeDiv;
 
+    uint8_t *cpudata = nullptr;
+    void *cudadata = nullptr;
+
     std::vector<int> expansionDims;
     std::vector<uint64_t> stride;
     std::vector<int> dims;
+    std::vector<int> dataDeviceIds;
 
     void UpdateUnitSize();
     void Resize(const std::vector<int> &dims);
