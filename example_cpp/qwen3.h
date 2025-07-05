@@ -13,7 +13,7 @@ class Qwen3Model : public basellm {
 
     int max_positions;
     float rms_norm_eps;
-    int rope_theta;
+    int rope_base;
 
     Qwen3Model();
 
