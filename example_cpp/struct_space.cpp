@@ -94,13 +94,10 @@ std::vector<std::string> SafeTensors::GetSortedItemNames() {
 
 void WeightMap::AddDict(const std::string &key, const std::string &value) { this->dicts[key] = value; }
 
-WeightMergeRuleSingle::WeightMergeRuleSingle(std::vector<std::string> &inputs, std::string output, std::string type) {
-    this->inputs = inputs;
-    this->output = output;
-    this->type = type;
-}
+WeightMergeRuleSingle::WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type)
+    : inputs(inputs), output(output), type(type) {}
 
-WeightMergeRule::WeightMergeRule(std::vector<WeightMergeRuleSingle> &rules) {
+WeightMergeRule::WeightMergeRule(const std::vector<WeightMergeRuleSingle> &rules) {
     this->rules = rules;
     for (auto &rule : this->rules) {
         for (auto &input : rule.inputs) {
