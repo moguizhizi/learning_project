@@ -43,9 +43,15 @@ void basellm::InitParams() {
     }
 }
 
-Data::Data(DataType datatype) { this->dataType = datatype; }
+Data::Data(DataType datatype) {
+    this->dataType = datatype;
+    this->UpdateUnitSize();
+}
 
-Data::Data(DataType datatype, const std::vector<int> &dims) { this->dataType = datatype; }
+Data::Data(DataType datatype, const std::vector<int> &dims) {
+    this->dataType = datatype;
+    this->Resize(dims);
+}
 
 void Data::UpdateUnitSize() {
     if (this->dataType == DataType::FLOAT32 || this->dataType == DataType::INT32PARAM) {
@@ -69,4 +75,17 @@ void Data::UpdateUnitSize() {
     }
 
     this->expansionBytes = (this->expansionSize * this->unitSize - 1) / this->unitSizeDiv + 1;
+}
+
+void Data::Resize(const std::vector<int> &dims) {
+    this->dims = dims;
+    this->UpdateUnitSize();
+
+    if (this->expansionDims.size() == 0) {
+        this->stride.resize(this->dims.size(), 1);
+        this->stride.back() = 1;
+        for (int i = this->stride.size() - 2; i >= 0; i--) {
+            this->stride[i] = this->stride[i + 1] * this->dims[i + 1];
+        }
+    }
 }
