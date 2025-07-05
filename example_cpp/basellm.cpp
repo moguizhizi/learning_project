@@ -54,7 +54,7 @@ Data::Data(DataType datatype, const std::vector<int> &dims) {
     this->Resize(dims);
 }
 
-Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void *ptr) : Data(datatype, dims) {
+Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void *ptr) : Data::Data(datatype, dims) {
     this->isFake = true;
     this->expansionSize = this->Count(0);
     this->UpdateUnitSize();
