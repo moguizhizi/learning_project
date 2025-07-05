@@ -1,4 +1,5 @@
 #include "qwen3.h"
+#include "struct_space.hpp"
 #include <cmath>
 
 Qwen3Model::Qwen3Model() {
@@ -46,6 +47,26 @@ void Qwen3Model::InitParams() {
 
     if (this->weight.dicts.find("rope_scaling.factor") != this->weight.dicts.end()) {
         this->rope_factor = atof(this->weight.dicts["rope_scaling.factor"].c_str());
+    }
+
+    for (int i = 0; i < this->block_cnt; i++) {
+        std::string w1WeightName = "model.layers." + std::to_string(i) + ".mlp.gate_proj.weight";
+        std::string w3WeightName = "model.layers." + std::to_string(i) + ".mlp.up_proj.weight";
+        std::string swigluWeightName = "model.layers." + std::to_string(i) + ".mlp.gateup_proj.weight";
+        this->weightMergeRules.push_back(
+            {WeightMergeRule({WeightMergeRuleSingle({w1WeightName, w3WeightName}, swigluWeightName, std::string("linearSwiglu"))})});
+
+        std::string qWeightName = "model.layers." + std::to_string(i) + ".self_attn.q_proj.weight";
+        std::string qBiasName = "model.layers." + std::to_string(i) + ".self_attn.q_proj.bias";
+        std::string kWeightName = "model.layers." + std::to_string(i) + ".self_attn.k_proj.weight";
+        std::string kBiasName = "model.layers." + std::to_string(i) + ".self_attn.k_proj.bias";
+        std::string vWeightName = "model.layers." + std::to_string(i) + ".self_attn.v_proj.weight";
+        std::string vBiasName = "model.layers." + std::to_string(i) + ".self_attn.v_proj.bias";
+        std::string mergeQkvWeightName = "model.layers." + std::to_string(i) + ".self_attn.mergeqkv.weight";
+        std::string mergeQkvBiasName = "model.layers." + std::to_string(i) + ".self_attn.mergeqkv.bias";
+        this->weightMergeRules.push_back(
+            {WeightMergeRule({WeightMergeRuleSingle({qWeightName, kWeightName, vWeightName}, mergeQkvWeightName, std::string("linear")),
+                              WeightMergeRuleSingle({qBiasName, kBiasName, vBiasName}, mergeQkvBiasName, std::string("bias"))})});
     }
 }
 

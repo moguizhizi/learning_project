@@ -24,5 +24,7 @@ class basellm {
 
     WeightMap weight;
 
+    std::vector<WeightMergeRule> weightMergeRules;
+
     void InitParams();
 };

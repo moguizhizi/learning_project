@@ -51,12 +51,12 @@ struct WeightMergeRuleSingle {
     std::string output;
     std::string type;
 
-    WeightMergeRuleSingle(std::vector<std::string> &inputs, std::string output, std::string type);
+    WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type);
 };
 
 struct WeightMergeRule {
     std::vector<WeightMergeRuleSingle> rules;
     std::set<std::string> allInputs;
 
-    WeightMergeRule(std::vector<WeightMergeRuleSingle> &rules);
+    WeightMergeRule(const std::vector<WeightMergeRuleSingle> &rules);
 };
