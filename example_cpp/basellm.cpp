@@ -1,4 +1,5 @@
 #include "basellm.h"
+#include "file_utils.hpp"
 #include "qwen3.h"
 
 basellm::basellm() {}
@@ -51,6 +52,22 @@ Data::Data(DataType datatype) {
 Data::Data(DataType datatype, const std::vector<int> &dims) {
     this->dataType = datatype;
     this->Resize(dims);
+}
+
+Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void *ptr) : Data(datatype, dims) {
+    this->isFake = true;
+    this->expansionSize = this->Count(0);
+    this->UpdateUnitSize();
+    this->dataDevice = device;
+    if (this->dataDevice == DataDevice::CPU) {
+        this->cpudata = (uint8_t *)ptr;
+    } else if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+        this->cudadata = ptr;
+        this->dataDeviceIds = {0};
+#endif
+        ErrorInFastLLM("Error: cuda is not supported.\n");
+    }
 }
 
 void Data::UpdateUnitSize() {
