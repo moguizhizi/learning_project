@@ -45,3 +45,18 @@ struct WeightMap {
 
     void AddDict(const std::string &key, const std::string &value);
 };
+
+struct WeightMergeRuleSingle {
+    std::vector<std::string> inputs;
+    std::string output;
+    std::string type;
+
+    WeightMergeRuleSingle(std::vector<std::string> &inputs, std::string output, std::string type);
+};
+
+struct WeightMergeRule {
+    std::vector<WeightMergeRuleSingle> rules;
+    std::set<std::string> allInputs;
+
+    WeightMergeRule(std::vector<WeightMergeRuleSingle> &rules);
+};
