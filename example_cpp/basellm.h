@@ -45,6 +45,7 @@ class Data {
 
     std::vector<int> expansionDims;
     std::vector<uint64_t> stride;
+    std::vector<int> dims;
 
     void UpdateUnitSize();
     void Resize(const std::vector<int> &dims);
