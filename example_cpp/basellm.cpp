@@ -1,6 +1,7 @@
 #include "basellm.h"
 #include "file_utils.hpp"
 #include "qwen3.h"
+#include <cstring>
 
 basellm::basellm() {}
 
@@ -70,6 +71,13 @@ Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, v
     }
 }
 
+Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, const std::vector<float> data) : Data::Data(datatype, dims) {
+    this->Allocate();
+    if (datatype == DataType::FLOAT32) {
+        std::memcpy(this->cpudata, data.data(), this->GetBytes());
+    }
+}
+
 void Data::UpdateUnitSize() {
     if (this->dataType == DataType::FLOAT32 || this->dataType == DataType::INT32PARAM) {
         this->unitSize = 4;
@@ -117,4 +125,32 @@ uint64_t Data::Count(int i) const {
     }
 
     return this->dims[i] * this->stride[i];
+}
+
+uint64_t Data::GetBytes() const { return (this->dims[0] * this->stride[0] * this->unitSize - 1) / this->unitSizeDiv - 1; }
+
+void Data::FreeSpace() {
+    this->expansionSize = 0;
+    this->expansionBytes = 0;
+    delete[] this->cpudata;
+    delete[] this->cudadata;
+
+    this->cpudata = nullptr;
+    this->cudadata = nullptr;
+}
+
+void Data::Allocate() {
+    if (!this->isFake && this->Count(0) > this->expansionSize) {
+        this->FreeSpace();
+        this->MallocSpace(this->Count(0));
+    }
+}
+
+void Data::MallocSpace(uint64_t size_t) {
+    this->expansionSize = size_t;
+    this->expansionBytes = (this->expansionSize * this->unitSize - 1) / this->unitSizeDiv + 1;
+    if (this->dataDevice == DataDevice::CPU) {
+        this->cpudata = new uint8_t[this->expansionBytes];
+        std::memset(this->cpudata, 0, this->expansionBytes * sizeof(uint8_t));
+    }
 }
