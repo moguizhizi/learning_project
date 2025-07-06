@@ -34,7 +34,8 @@ class Data {
   public:
     Data(DataType datatype);
     Data(DataType datatype, const std::vector<int> &dims);
-    Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void* ptr);
+    Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void *ptr);
+    Data(DataType datatype, const std::vector<int> &dims, DataDevice device, const std::vector<float> data);
 
     DataType dataType = DataType::FLOAT32;
     DataDevice dataDevice = DataDevice::CPU;
@@ -58,4 +59,8 @@ class Data {
     void UpdateUnitSize();
     void Resize(const std::vector<int> &dims);
     uint64_t Count(int i) const;
+    uint64_t GetBytes() const;
+    void Allocate();
+    void FreeSpace();
+    void MallocSpace(uint64_t size_t);
 };
