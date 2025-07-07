@@ -20,3 +20,9 @@ std::string ReadAllFile(const std::string &fileName) {
     t.close();
     return ret;
 }
+
+void AssertInFastLLM(bool condition, const std::string &error) {
+    if (!condition) {
+        ErrorInFastLLM(error);
+    }
+}

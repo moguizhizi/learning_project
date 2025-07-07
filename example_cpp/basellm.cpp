@@ -156,3 +156,55 @@ void Data::MallocSpace(uint64_t size_t) {
         std::memset(this->cpudata, 0, this->expansionBytes * sizeof(uint8_t));
     }
 }
+
+void Data::Expansion(const std::vector<int> &dims) {
+    if (this->dims.size() == 0) {
+        this->directMemory = true;
+        this->expansionDims = dims;
+        this->stride.resize(dims.size(), 1);
+        this->stride.back() = 1;
+        for (int i = this->stride.size() - 2; i >= 0; i--) {
+            this->stride[i] = this->stride[i + 1] * this->dims[i + 1];
+        }
+        this->MallocSpace(dims[0] * this->stride[0]);
+        return;
+    }
+
+    AssertInFastLLM(dims.size() == this->dims.size(), "Expansion error: real dims's size should equal to expansion dims's size.\n");
+    for (int i = 0; i < dims.size(); i++) {
+        AssertInFastLLM(dims[i] == -1 || dims[i] >= this->dims[i], "Expansion error: real size should <= expansion size.\n");
+    }
+
+    int axis = -1;
+    for (int i = 0; i < this->dims.size(); i++) {
+        if (this->dims[i] < dims[i]) {
+            axis = i;
+            break;
+        }
+    }
+
+    int input0stride = this->Count(axis);
+    this->expansionDims = dims;
+
+    this->stride.resize(dims.size(), 1);
+    this->stride.back() = 1;
+    for (int i = this->stride.size() - 2; i >= 0; i--) {
+        this->stride[i] = this->stride[i + 1] * dims[i + 1];
+    }
+
+    if (this->expansionBytes != 0) {
+        if (this->dataDevice == DataDevice::CPU) {
+            uint8_t *old = this->cpudata;
+            this->MallocSpace(dims[0] * this->stride[0]);
+            int outer = this->Count(0) / this->Count(axis);
+            int input1stride = this->Count(axis);
+            int unitSize = this->unitSize;
+            int inner = this->stride[axis];
+            for (int o = 0; o < outer; o++) {
+                std::memcpy(this->cpudata + o * input1stride * unitSize, old + o * input0stride * unitSize, this->dims[axis] * inner * unitSize);
+            }
+        }
+    } else {
+        this->MallocSpace(dims[0] * this->stride[0]);
+    }
+}
