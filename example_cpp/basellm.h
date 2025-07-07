@@ -41,6 +41,7 @@ class Data {
     DataDevice dataDevice = DataDevice::CPU;
 
     bool isFake = false;
+    bool directMemory = false;
 
     uint64_t expansionSize;
     uint64_t expansionBytes;
@@ -63,4 +64,5 @@ class Data {
     void Allocate();
     void FreeSpace();
     void MallocSpace(uint64_t size_t);
+    void Expansion(const std::vector<int> &dims); //dims的格式[num_head, seqlen, head_dim]，且必须与原data的dims只保持seqlen的不同
 };
