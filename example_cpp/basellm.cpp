@@ -132,6 +132,8 @@ uint64_t Data::GetBytes() const { return (this->dims[0] * this->stride[0] * this
 void Data::FreeSpace() {
     this->expansionSize = 0;
     this->expansionBytes = 0;
+    this->dims.resize(0);
+    this->stride.resize(0);
     delete[] this->cpudata;
     delete[] this->cudadata;
 
