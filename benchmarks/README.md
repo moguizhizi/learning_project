@@ -10,7 +10,7 @@ vllm serve /home/temp/llm_model/nm-testing/Qwen2.5-VL-72B-Instruct-quantized.w8a
 ```
 
 ```bash
-python3 learning_project/benchmarks/benchmark_serving.py --backend openai-chat --model /home/temp/llm_model/nm-testing/Qwen2___5-VL-72B-Instruct-quantized___w8a8 --served-model-name qwen2_5_vl_72B_quant --endpoint /v1/chat/completions --dataset-name phonetest --dataset-path /home/project/dataset/phonetest/web_nj_action_0426_grpo.json --num-prompts 10
+python3 learning_project/benchmarks/benchmark_serving.py --backend openai-chat --model /home/temp/llm_model/nm-testing/Qwen2___5-VL-72B-Instruct-quantized___w8a8 --served-model-name qwen2_5_vl_72B_quant --endpoint /v1/chat/completions --dataset-name phonetest --dataset-path /home/project/dataset/phonetest/web_nj_action_0426_grpo.json --num-prompts 10 --result_dir /home/project/learning_project/benchmarks/output/qwen2_5_vl_72B --save-result
 ```
 
 If successful, you will see the following output
