@@ -933,7 +933,11 @@ def main(args: argparse.Namespace):
         df = pd.DataFrame([result_json])
 
         # 保存为 CSV 文件
-        df.to_csv(f"{backend}-{args.request_rate}qps{max_concurrency_str}-{base_model_id}-{current_dt}.csv", index=False, encoding='utf-8')    
+        file_name = f"{backend}-{args.request_rate}qps{max_concurrency_str}-{base_model_id}-{current_dt}.csv"
+        if args.result_dir:
+            os.makedirs(args.result_dir, exist_ok=True)
+            file_name = os.path.join(args.result_dir, file_name)
+        df.to_csv(file_name, index=False, encoding='utf-8')    
 
         save_to_pytorch_benchmark_format(args, result_json, file_name)
 
