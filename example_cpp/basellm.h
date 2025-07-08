@@ -42,15 +42,18 @@ class Data {
 
     bool isFake = false;
     bool directMemory = false;
+    bool isKVCache = false;
 
     uint64_t expansionSize;
     uint64_t expansionBytes;
+    uint64_t cacheUid;
 
     int unitSize;
     int unitSizeDiv;
+    std::string name;
 
-    uint8_t *cpudata = nullptr;
-    void *cudadata = nullptr;
+    uint8_t *cpuData = nullptr;
+    void *cudaData = nullptr;
 
     std::vector<int> expansionDims;
     std::vector<uint64_t> stride;
@@ -65,4 +68,6 @@ class Data {
     void FreeSpace();
     void MallocSpace(uint64_t size_t);
     void Expansion(const std::vector<int> &dims); //dims的格式[num_head, seqlen, head_dim]，且必须与原data的dims只保持seqlen的不同
+    void ToDevice(DataDevice device);
+    void CopyFrom(Data &ori);
 };
