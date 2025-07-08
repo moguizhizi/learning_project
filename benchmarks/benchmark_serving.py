@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 import pandas as pd
+import torch
 
 import numpy as np
 from tqdm.asyncio import tqdm
@@ -865,10 +866,15 @@ def main(args: argparse.Namespace):
     if args.save_result or args.append_result:
         result_json: dict[str, Any] = {}
 
+        gpu_name = ""
+        if torch.cuda.is_available():
+           gpu_name = torch.cuda.get_device_name(0)
+
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
         result_json["date"] = current_dt
         result_json["backend"] = backend
+        result_json["hardware"] = gpu_name
         result_json["model_id"] = model_id
         result_json["tokenizer_id"] = tokenizer_id
         result_json["num_prompts"] = args.num_prompts
