@@ -60,3 +60,12 @@ struct WeightMergeRule {
 
     WeightMergeRule(const std::vector<WeightMergeRuleSingle> &rules);
 };
+
+struct CudaMemoryBuffer {
+    void *data;
+    size_t size;
+    bool busy;
+
+    CudaMemoryBuffer();
+    CudaMemoryBuffer(void *data, size_t size, bool busy);
+};
