@@ -69,3 +69,13 @@ void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size) {
     cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice);
     checkCudaErrors("Error: CUDA error when copy from memory to GPU!", state);
 }
+
+void FastllmCudaCopyFromDeviceToHost(void *dst, void *src, size_t size) {
+    cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost);
+    checkCudaErrors("Error: CUDA error when copy from GPU to memory!", state);
+}
+
+void FastllmCudaCopyFromDeviceToDevice(void *dst, void *src, size_t size) {
+    cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice);
+    checkCudaErrors("Error: CUDA error when copy on GPU!", state);
+}
