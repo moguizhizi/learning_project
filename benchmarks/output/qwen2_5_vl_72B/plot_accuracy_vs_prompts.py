@@ -6,7 +6,7 @@ from collections import defaultdict
 
 # ========= 解析命令行参数 =========
 parser = argparse.ArgumentParser(description="绘制 accuracy vs num_prompts 曲线")
-parser.add_argument("--hardware_filter", type=str, required=True, help="筛选的 GPU 硬件名称，例如 'NVIDIA_RTX_A6000'")
+parser.add_argument("--hardware_filter", type=str, required=True, help="筛选的 GPU 硬件名称，例如 'NVIDIA RTX A6000'")
 args = parser.parse_args()
 hardware_filter = args.hardware_filter
 # =================================
