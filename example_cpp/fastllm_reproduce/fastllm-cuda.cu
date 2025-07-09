@@ -65,6 +65,61 @@ void *FastllmCudaMalloc(size_t size) {
     return ret;
 }
 
+void FastllmCudaFree(void *ret) {
+    if (ret == nullptr) {
+        return;
+    }
+    if (cudaBuffersMap.empty()) {
+        return;
+    }
+
+    cudaError state = cudaSuccess;
+
+    for (auto &it : cudaBuffersMap) {
+        if (noBusyCnt[it.first] > 1024 * 1024 * 1024) {
+            auto &cudaBuffers = it.second;
+            std::vector<CudaMemoryBuffer> temp;
+            for (int i = 0; i < cudaBuffers.size(); i++) {
+                if (!cudaBuffers[i].busy) {
+                    state = cudaSetDevice(it.first);
+                    state = cudaFree(cudaBuffers[i].data);
+                    if (state != cudaSuccess) {
+                        printf("Error: CUDA error when release memory on device %d!", it.first);
+                    }
+                    checkCudaErrors("", state);
+                } else {
+                    temp.push_back(cudaBuffers[i]);
+                }
+            }
+            cudaBuffers.clear();
+            it.second = temp;
+            noBusyCnt[it.first] = 0;
+        }
+    }
+
+    for (auto &it : cudaBuffersMap) {
+        auto &cudaBuffers = it.second;
+        for (int i = 0; i < cudaBuffers.size(); i++) {
+            if (cudaBuffers[i].data == ret) {
+                noBusyCnt[it.first] += cudaBuffers[i].size;
+                cudaBuffers[i].busy = false;
+                cudaBuffersMinId[it.first] = std::min(cudaBuffersMinId[it.first], i);
+                return;
+            }
+        }
+        auto &bigBuffers = bigBuffersMap[it.first];
+        for (int i = 0; i < bigBuffers.size(); i++) {
+            if (bigBuffers[i].data == ret) {
+                bigBuffers[i].busy = false;
+                return;
+            }
+        }
+    }
+
+    state = cudaFree(ret);
+    checkCudaErrors("CUDA error when release memory!", state);
+}
+
 void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size) {
     cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice);
     checkCudaErrors("Error: CUDA error when copy from memory to GPU!", state);
