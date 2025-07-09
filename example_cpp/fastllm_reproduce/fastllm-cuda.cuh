@@ -14,3 +14,4 @@ void showError(cudaError_t result, char const *const message, const char *const 
 void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size);
 void FastllmCudaCopyFromDeviceToHost(void *dst, void *src, size_t size);
 void FastllmCudaCopyFromDeviceToDevice(void *dst, void *src, size_t size);
+void FastllmCudaFree(void *ret);
