@@ -105,3 +105,6 @@ WeightMergeRule::WeightMergeRule(const std::vector<WeightMergeRuleSingle> &rules
         }
     }
 }
+
+CudaMemoryBuffer::CudaMemoryBuffer() {}
+CudaMemoryBuffer::CudaMemoryBuffer(void *data, size_t size, bool busy) : data(data), size(size), busy(busy) {}
