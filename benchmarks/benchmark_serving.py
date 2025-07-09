@@ -718,6 +718,7 @@ def main(args: argparse.Namespace):
             num_requests=args.num_prompts,
             tokenizer=tokenizer,
             output_len=args.phonetest_output_len,
+            same=args.same,
         )
     
     elif args.dataset_name == "hf":
@@ -929,8 +930,12 @@ def main(args: argparse.Namespace):
         if args.result_filename:
             file_name = args.result_filename
         if args.result_dir:
-            os.makedirs(args.result_dir, exist_ok=True)
-            file_name = os.path.join(args.result_dir, file_name)
+            if args.same is True:
+                result_dir = os.path.join(args.result_dir, "same")
+            else:
+                result_dir = os.path.join(args.result_dir, "differ")
+            os.makedirs(result_dir, exist_ok=True)
+            file_name = os.path.join(result_dir, file_name)
         with open(
             file_name, mode="a+" if args.append_result else "w", encoding="utf-8"
         ) as outfile:
@@ -945,8 +950,12 @@ def main(args: argparse.Namespace):
         # 保存为 CSV 文件
         file_name = f"{backend}-{args.request_rate}qps{max_concurrency_str}-{base_model_id}-{current_dt}.csv"
         if args.result_dir:
-            os.makedirs(args.result_dir, exist_ok=True)
-            file_name = os.path.join(args.result_dir, file_name)
+            if args.same is True:
+                result_dir = os.path.join(args.result_dir, "same")
+            else:
+                result_dir = os.path.join(args.result_dir, "differ")
+            os.makedirs(result_dir, exist_ok=True)
+            file_name = os.path.join(result_dir, file_name)
         df.to_csv(file_name, index=False, encoding='utf-8')    
 
         save_to_pytorch_benchmark_format(args, result_json, file_name)
@@ -1078,6 +1087,13 @@ def create_argument_parser():
         help="Use Torch Profiler. The endpoint must be launched with "
         "VLLM_TORCH_PROFILER_DIR to enable profiler.",
     )
+
+    parser.add_argument(
+        "--same",
+        action="store_true",
+        help="The samples are all the same.",
+    )
+
     parser.add_argument(
         "--save-result",
         action="store_true",

@@ -883,13 +883,25 @@ class PhoneTestDataset(BenchmarkDataset):
         num_requests: int,
         output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
+        same: bool = False,  
         **kwargs,
     ) -> list:
         output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
         sampled_requests = []
-        for item in self.data:
+
+        # 如果 same=True，从 self.data 中随机选一个样本复制 num_requests 次
+        if same:
+            if not self.data:
+                raise ValueError("self.data 为空，无法采样")
+            selected_item = random.choice(self.data)
+            data_source = [selected_item] * num_requests
+        else:
+            data_source = self.data
+
+        for item in data_source:
             if len(sampled_requests) >= num_requests:
                 break
+
             parser_fn = self.SUPPORTED_DATASET_PATHS.get(self.dataset_name)
             if parser_fn is None:
                 raise ValueError(f"Unsupported dataset name: {self.dataset_name}")
@@ -905,10 +917,8 @@ class PhoneTestDataset(BenchmarkDataset):
             mm_content = process_image(image)
 
             if enable_multimodal_chat:
-                # Note: when chat is enabled the request prompt_len is no longer
-                # accurate and we will be using request output to count the
-                # actual prompt len
                 prompt = self.apply_multimodal_chat_transformation(prompt, mm_content)
+
             sampled_requests.append(
                 SampleRequest(
                     prompt=prompt,
@@ -919,8 +929,10 @@ class PhoneTestDataset(BenchmarkDataset):
                     dataset_name=self.dataset_name,
                 )
             )
+
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
+
 
 
 # -----------------------------------------------------------------------------
