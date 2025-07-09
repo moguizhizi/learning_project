@@ -12,7 +12,7 @@ hardware_filter = args.hardware_filter
 # =================================
 
 # 固定路径
-folder_path = "/home/project/learning_project/benchmarks/output/qwen2_5_vl_72B"
+folder_path = "/home/project/learning_project/benchmarks/output/qwen2_5_vl_72B/differ"
 output_image = os.path.join(folder_path, f"{hardware_filter}_accuracy_vs_num_prompts.png")
 
 # {model_name: {num_prompts: accuracy_rate}}
