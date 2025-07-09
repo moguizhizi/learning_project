@@ -64,3 +64,8 @@ void *FastllmCudaMalloc(size_t size) {
     cudaBuffers.push_back(CudaMemoryBuffer(ret, size, true));
     return ret;
 }
+
+void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size) {
+    cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice);
+    checkCudaErrors("Error: CUDA error when copy from memory to GPU!", state);
+}
