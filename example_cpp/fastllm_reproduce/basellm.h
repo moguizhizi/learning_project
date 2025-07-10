@@ -27,15 +27,19 @@ class basellm {
 
     std::vector<WeightMergeRule> weightMergeRules;
 
+    Data sinData;
+    Data cosData;
+
     void InitParams();
 };
 
 class Data {
   public:
+    Data();
     Data(DataType datatype);
     Data(DataType datatype, const std::vector<int> &dims);
     Data(DataType datatype, const std::vector<int> &dims, DataDevice device, void *ptr);
-    Data(DataType datatype, const std::vector<int> &dims, DataDevice device, const std::vector<float> data);
+    Data(DataType datatype, const std::vector<int> &dims, const std::vector<float> data);
 
     DataType dataType = DataType::FLOAT32;
     DataDevice dataDevice = DataDevice::CPU;
@@ -70,5 +74,5 @@ class Data {
     void Expansion(const std::vector<int> &dims); // dims的格式[num_head, seqlen, head_dim]，且必须与原data的dims只保持seqlen的不同
     void ToDevice(DataDevice device);
     void ToDevice(DataDevice device, std::vector<int> &deviceIds);
-    void CopyFrom(Data &ori);
+    void CopyFrom(const Data &ori);
 };
