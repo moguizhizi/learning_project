@@ -210,7 +210,14 @@ void Data::Expansion(const std::vector<int> &dims) {
     }
 }
 
-void Data::ToDevice(DataDevice device) {}
+void Data::ToDevice(DataDevice device) {
+    if (device == DataDevice::CUDA) {
+
+    } else if (device == DataDevice::CPU) {
+        std::vector<int> deviceIds = {0};
+        this->ToDevice(device, deviceIds);
+    }
+}
 
 void Data::ToDevice(DataDevice device, std::vector<int> &deviceIds) {
     if (this->dataType == DataType::INT32PARAM) {
