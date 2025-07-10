@@ -152,6 +152,14 @@ void FastllmCudaMemcpyBetweenDevices(int dstId, void *dst, int srcId, void *src,
     DeviceSync();
 }
 
+void FastllmCudaSetDevice(int gpu_id) { cudaSetDevice(gpu_id); }
+
+int FastllmCudaGetDevice() {
+    int id = -1;
+    cudaGetDevice(&id);
+    return id;
+}
+
 void DeviceSync() {
     // cudaDeviceSynchronize();
 }
