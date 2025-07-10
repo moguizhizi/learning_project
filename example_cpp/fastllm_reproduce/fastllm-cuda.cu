@@ -134,3 +134,24 @@ void FastllmCudaCopyFromDeviceToDevice(void *dst, void *src, size_t size) {
     cudaError state = cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice);
     checkCudaErrors("Error: CUDA error when copy on GPU!", state);
 }
+
+void FastllmCudaMemcpyBetweenDevices(int dstId, void *dst, int srcId, void *src, size_t size) {
+    int canAccess = 0;
+    cudaError state = cudaDeviceCanAccessPeer(&canAccess, dstId, srcId);
+    if (state == cudaSuccess && canAccess) {
+        cudaMemcpyPeer(dst, dstId, src, srcId, size);
+    } else {
+        uint8_t *cpudata = new uint8_t[size];
+        cudaSetDevice(srcId);
+        cudaMemcpy(cpudata, src, size, cudaMemcpyDeviceToHost);
+        cudaSetDevice(dstId);
+        cudaMemcpy(dst, cpudata, size, cudaMemcpyHostToDevice);
+        delete[] cpudata;
+    }
+    checkCudaErrors("Error: CUDA error when copy Between GPUs!", state);
+    DeviceSync();
+}
+
+void DeviceSync() {
+    // cudaDeviceSynchronize();
+}
