@@ -46,6 +46,8 @@ void basellm::InitParams() {
     }
 }
 
+Data::Data() {}
+
 Data::Data(DataType datatype) {
     this->dataType = datatype;
     this->UpdateUnitSize();
@@ -72,7 +74,7 @@ Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, v
     }
 }
 
-Data::Data(DataType datatype, const std::vector<int> &dims, DataDevice device, const std::vector<float> data) : Data::Data(datatype, dims) {
+Data::Data(DataType datatype, const std::vector<int> &dims, const std::vector<float> data) : Data::Data(datatype, dims) {
     this->Allocate();
     if (datatype == DataType::FLOAT32) {
         std::memcpy(this->cpuData, data.data(), this->GetBytes());
@@ -279,7 +281,7 @@ void Data::ToDevice(DataDevice device, std::vector<int> &deviceIds) {
     }
 }
 
-void Data::CopyFrom(Data &ori) {
+void Data::CopyFrom(const Data &ori) {
 
     this->ToDevice(ori.dataDevice);
     this->name = ori.name;

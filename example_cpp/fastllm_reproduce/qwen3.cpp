@@ -49,6 +49,14 @@ void Qwen3Model::InitParams() {
         this->rope_factor = atof(this->weight.dicts["rope_scaling.factor"].c_str());
     }
 
+    std::pair<std::vector<float>, std::vector<float>> &&pair =
+        this->UpdateRotaryPosEmb(this->rope_base, this->rope_factor, std::max(this->max_positions, 16384));
+
+    this->sinData.ToDevice(DataDevice::CPU);
+    this->cosData.ToDevice(DataDevice::CPU);
+    this->sinData.CopyFrom(Data(DataType::FLOAT32, {(int)this->sin.size(), (int)this->sin[0].size()}, pair.first));
+    this->cosData.CopyFrom(Data(DataType::FLOAT32, {(int)this->sin.size(), (int)this->sin[0].size()}, pair.second));
+
     for (int i = 0; i < this->block_cnt; i++) {
         std::string w1WeightName = "model.layers." + std::to_string(i) + ".mlp.gate_proj.weight";
         std::string w3WeightName = "model.layers." + std::to_string(i) + ".mlp.up_proj.weight";
