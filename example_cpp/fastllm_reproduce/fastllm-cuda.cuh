@@ -16,4 +16,6 @@ void FastllmCudaCopyFromDeviceToHost(void *dst, void *src, size_t size);
 void FastllmCudaCopyFromDeviceToDevice(void *dst, void *src, size_t size);
 void FastllmCudaMemcpyBetweenDevices(int dstId, void *dst, int srcId, void *src, size_t size);
 void FastllmCudaFree(void *ret);
+void FastllmCudaSetDevice(int gpu_id);
+int FastllmCudaGetDevice();
 void DeviceSync();
