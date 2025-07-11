@@ -1,5 +1,10 @@
 #include "fastllm-cuda.cuh"
 
+std::map<int, std::vector<CudaMemoryBuffer>> cudaBuffersMap;
+std::map<int, int> cudaBuffersMinId;
+std::map<int, size_t> noBusyCnt;
+std::map<int, std::vector<CudaMemoryBuffer>> bigBuffersMap;
+
 #define checkCudaErrors(message, val) showError(val, message, __FILE__, __LINE__)
 
 void showError(cudaError_t result, char const *const message, const char *const file, int const line) {
@@ -55,7 +60,7 @@ void *FastllmCudaMalloc(size_t size) {
 
     void *ret;
 
-    cudaError state = cudaMalloc(&ret, size);
+    state = cudaMalloc(&ret, size);
     if (state != cudaSuccess) {
         printf("Error: CUDA error when allocating %lu KB memory! maybe there's no enough memory left on device.", size >> 10);
         checkCudaErrors("", state);

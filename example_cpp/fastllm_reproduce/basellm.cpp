@@ -138,7 +138,6 @@ void Data::FreeSpace() {
     this->dims.resize(0);
     this->stride.resize(0);
     delete[] this->cpuData;
-    delete[] this->cudaData;
 
     this->cpuData = nullptr;
     this->cudaData = nullptr;
