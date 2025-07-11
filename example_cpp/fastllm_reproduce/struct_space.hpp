@@ -44,6 +44,7 @@ struct WeightMap {
     std::map<std::string, std::string> dicts;
 
     void AddDict(const std::string &key, const std::string &value);
+    WeightType GetWeightType(const std::string &key);
 };
 
 struct WeightMergeRuleSingle {
