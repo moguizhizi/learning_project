@@ -1,6 +1,7 @@
 // safetensors.cpp
 
 #include "struct_space.hpp"
+#include "enum_space.h"
 
 SafeTensorItem::SafeTensorItem() {}
 
@@ -93,6 +94,45 @@ std::vector<std::string> SafeTensors::GetSortedItemNames() {
 }
 
 void WeightMap::AddDict(const std::string &key, const std::string &value) { this->dicts[key] = value; }
+
+WeightType WeightMap::GetWeightType(const std::string &key) {
+    if (this->embeddingsNames.find(key) != this->embeddingsNames.end()) {
+        return WeightType::EMBEDDING;
+    }
+
+    for (auto &linearName : this->linearNames) {
+        int n = key.size();
+        int m = linearName.size();
+        std::vector<std::vector<bool>> f = std::vector<std::vector<bool>>(n + 1, std::vector<bool>(m + 1, 0));
+        f[0][0] = 1;
+        for (int i = 0; i <= n; i++) {
+            for (int j = 0; j <= m; j++) {
+                if (f[i][j]) {
+                    if ((i + 1 <= n) && (j + 1 <= m) && key[i] == linearName[j]) {
+                        f[i + 1][j + 1] = 1;
+                    }
+
+                    if (j + 1 <= n && linearName[j] == '*') {
+                        for (int l = i; l <= n; l++) {
+                            f[l][j + 1] = 1;
+                        }
+                    }
+
+                    if (i + 1 <= m && key[i] == '*') {
+                        for (int l = j; l <= m; l++) {
+                            f[i + 1][l] = 1;
+                        }
+                    }
+                }
+            }
+        }
+        if (f[m][n]) {
+            return WeightType::LINEAR;
+        }
+    }
+
+    return WeightType::AUTO;
+}
 
 WeightMergeRuleSingle::WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type)
     : inputs(inputs), output(output), type(type) {}

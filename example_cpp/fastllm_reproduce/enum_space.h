@@ -30,3 +30,5 @@ enum DataType {
     DATA_AUTO_EMBEDDING,
     DATA_AUTO_CONV
 };
+
+enum WeightType { NONE = 0, LINEAR = 1, EMBEDDING = 2, CONV2D = 3, AUTO = 99999 };
