@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "enum_space.h"
 #include "json11.hpp"
 #include <algorithm>
 #include <cstdint>
