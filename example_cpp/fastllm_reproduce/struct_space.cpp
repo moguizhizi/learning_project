@@ -126,12 +126,12 @@ WeightType WeightMap::GetWeightType(const std::string &key) {
                 }
             }
         }
-        if (f[m][n]) {
+        if (f[n][m]) {
             return WeightType::LINEAR;
         }
     }
 
-    return WeightType::AUTO;
+    return WeightType::NONE;
 }
 
 WeightMergeRuleSingle::WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type)

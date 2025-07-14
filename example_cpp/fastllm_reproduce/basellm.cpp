@@ -56,6 +56,7 @@ std::map<std::string, std::vector<std::pair<std::string, DataType>>> basellm::Ge
         }
 
         WeightType weightType = this->weight.GetWeightType(realName);
+
         DataType dataType = DataType::DATA_AUTO_NONE;
         if (weightType == WeightType::LINEAR) {
             dataType = DataType::DATA_AUTO_LINEAR;
