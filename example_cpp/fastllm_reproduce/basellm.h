@@ -54,6 +54,7 @@ class basellm {
     ~basellm();
 
     std::string model_type;
+    std::set<std::string> cantQuantLinears;
 
     int block_cnt;
     int rotary_dim;
@@ -75,4 +76,5 @@ class basellm {
     Data cosData;
 
     void InitParams();
+    std::map<std::string, std::vector<std::pair<std::string, DataType>>> GetTensorMap(const std::vector<std::string> &tensorNames);
 };
