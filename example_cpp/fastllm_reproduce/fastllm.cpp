@@ -19,3 +19,5 @@ void AddDictRecursion(basellm *model, const std::string &prefix, const json11::J
         }
     }
 }
+
+bool StringEndWith(const std::string &s, const std::string &end) { return s.size() >= end.size() && s.substr(s.size() - end.size()) == end; }

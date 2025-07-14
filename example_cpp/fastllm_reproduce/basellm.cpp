@@ -1,5 +1,6 @@
 #include "basellm.h"
 #include "fastllm-cuda.cuh"
+#include "fastllm.h"
 #include "file_utils.hpp"
 #include "qwen3.h"
 #include <cstring>
@@ -44,6 +45,30 @@ void basellm::InitParams() {
     if (this->weight.dicts.find("num_key_value_heads") != this->weight.dicts.end()) {
         this->num_key_value_heads = atoi(this->weight.dicts["num_key_value_heads"].c_str());
     }
+}
+
+std::map<std::string, std::vector<std::pair<std::string, DataType>>> basellm::GetTensorMap(const std::vector<std::string> &tensorNames) {
+    std::map<std::string, std::vector<std::pair<std::string, DataType>>> ret;
+    for (auto &name : tensorNames) {
+        std::string realName = name;
+        if (StringEndWith(name, "qweight")) {
+            realName = name.substr(0, name.size() - 7) + "weight";
+        }
+
+        WeightType weightType = this->weight.GetWeightType(realName);
+        DataType dataType = DataType::DATA_AUTO_NONE;
+        if (weightType == WeightType::LINEAR) {
+            dataType = DataType::DATA_AUTO_LINEAR;
+            if (this->cantQuantLinears.find(realName) != this->cantQuantLinears.end()) {
+                dataType = DataType::BFLOAT16;
+            }
+        } else if (weightType == WeightType::EMBEDDING) {
+            dataType = DataType::DATA_AUTO_EMBEDDING;
+        }
+        ret[name].push_back(std::make_pair(realName, dataType));
+    }
+
+    return ret;
 }
 
 Data::Data() {}
