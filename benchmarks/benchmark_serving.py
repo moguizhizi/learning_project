@@ -867,10 +867,7 @@ def main(args: argparse.Namespace):
     if args.save_result or args.append_result:
         result_json: dict[str, Any] = {}
 
-        gpu_name = ""
-        if torch.cuda.is_available():
-           gpu_name = torch.cuda.get_device_name(0)
-        
+        gpu_name = args.gpuname        
         path = model_id
         model_name = os.path.basename(path)
 
@@ -1076,6 +1073,7 @@ def create_argument_parser():
         action="store_true",
         help="Ascend environment",
     )
+    parser.add_argument("--gpuname", type=str, default="")
     parser.add_argument(
         "--disable-tqdm",
         action="store_true",
