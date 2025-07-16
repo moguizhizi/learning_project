@@ -3,6 +3,33 @@
 #include "basellm.h"
 #include <string>
 
+#ifndef __CUDACC__
+#if defined(__GNUC__) && __GNUC__ < 8 && !defined(__clang__)
+#include <experimental/filesystem>
+#else
+#include <filesystem>
+#endif
+#endif
+
+#ifndef __CUDACC__
+#if (defined(_MSC_VER) && _MSC_VER <= 1900) || (defined(__GNUC__) && __GNUC__ < 8 && !defined(__clang__)) // VS 2015)
+namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
+#endif
+
+#ifndef __CUDACC__
+static bool FileExists(std::string filePath) {
+#if defined(__GNUC__) && __GNUC__ < 9
+    return access(filePath.c_str(), R_OK) == 0;
+#else
+    fs::path path(filePath);
+    return fs::exists(path);
+#endif
+}
+#endif
+
 static std::map<DataType, std::vector<std::string>> dataTypeNames = {{DataType::FLOAT32, {"float32", "fp32"}},
                                                                      {DataType::BFLOAT16, {"bfloat32", "bf32"}},
                                                                      {DataType::INT16, {"int16"}},

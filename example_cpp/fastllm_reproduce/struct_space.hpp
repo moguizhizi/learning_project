@@ -31,6 +31,7 @@ struct SafeTensorItem {
 
 struct SafeTensors {
     std::map<std::string, SafeTensorItem> itmeDict;
+    std::set<std::string> fileNames;
 
     SafeTensors(const std::set<std::string> fileNames);
 

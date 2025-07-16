@@ -29,6 +29,7 @@ SafeTensorItem::SafeTensorItem(const std::string &tensorName, const std::string 
 }
 
 SafeTensors::SafeTensors(const std::set<std::string> fileNames) {
+    this->fileNames = fileNames;
     for (const std::string &fileName : fileNames) {
         FILE *file = fopen(fileName.c_str(), "rb");
         if (!file) {
