@@ -1,6 +1,8 @@
 #include "fastllm.h"
+#include "file_utils.hpp"
 #include "qwen3.h"
 #include <algorithm>
+#include <cstring>
 #include <regex>
 
 basellm *CreateModelWithType(const std::string &model_type) {
@@ -52,5 +54,49 @@ void ParseDataType(std::string weightName, const std::vector<std::pair<std::stri
                 }
             }
         }
+    }
+}
+
+uint32_t as_uint(const float x) { return *(uint32_t *)&x; }
+float as_float(const uint32_t x) { return *(float *)&x; }
+
+float half_to_float(const uint16_t x) {         // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0,
+                                                // +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
+    const uint32_t e = (x & 0x7C00) >> 10;      // exponent
+    const uint32_t m = (x & 0x03FF) << 13;      // mantissa
+    const uint32_t v = as_uint((float)m) >> 23; // evil log2 bit hack to count leading zeros in denormalized format
+    return as_float((x & 0x8000) << 16 | (e != 0) * ((e + 112) << 23 | m) |
+                    ((e == 0) & (m != 0)) * ((v - 37) << 23 | ((m << (150 - v)) & 0x007FE000))); // sign : normalized : denormalized
+}
+void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dstDtype, uint64_t len) {
+    if (srcDtype == dstDtype) {
+        int unitSize = 4;
+        if (dstDtype == DataType::FLOAT32) {
+            unitSize = 4;
+        } else if (dstDtype == DataType::BFLOAT16 || dstDtype == DataType::FLOAT16) {
+            unitSize = 2;
+        } else {
+            ErrorInFastLLM("ConvertDataType Failed. (" + std::to_string(srcDtype) + " -> " + std::to_string(dstDtype) + ")");
+        }
+        std::memcpy(dst, src, unitSize * len);
+    } else if (srcDtype == DataType::FP8_E4M3 && dstDtype == DataType::FLOAT16) {
+        ErrorInFastLLM("ConvertDataType Failed. (" + std::to_string(srcDtype) + " -> " + std::to_string(dstDtype) + ")");
+    } else if (srcDtype == DataType::BFLOAT16 && dstDtype == DataType::FLOAT32) {
+        uint16_t *u16src = (uint16_t *)src;
+        uint16_t *u16dst = (uint16_t *)dst;
+
+        for (int i = 0; i < len; i++) {
+            u16dst[2 * i] = 0;
+            u16dst[2 * i + 1] = u16src[i];
+        }
+    } else if (srcDtype == DataType::FLOAT16 && dstDtype == DataType::FLOAT32) {
+        uint16_t *u16src = (uint16_t *)src;
+        float *fdst = (float *)dst;
+
+        for (int i = 0; i < len; i++) {
+            fdst[i] = half_to_float(u16src[i]);
+        }
+    } else {
+        ErrorInFastLLM("ConvertDataType Failed. (" + std::to_string(srcDtype) + " -> " + std::to_string(dstDtype) + ")");
     }
 }

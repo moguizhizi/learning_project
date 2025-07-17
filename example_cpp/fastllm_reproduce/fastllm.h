@@ -51,3 +51,7 @@ void AddDictRecursion(basellm *model, const std::string &prefix, const json11::J
 bool StringEndWith(const std::string &s, const std::string &end);
 bool StringStartWith(const std::string &s, const std::string &end);
 void ParseDataType(std::string weightName, const std::vector<std::pair<std::string, std::string>> &dtypeConfig, DataType &datatype, int &groupCnt);
+uint32_t as_uint(const float x);
+float half_to_float(const uint16_t x);
+float as_float(const uint32_t x);
+void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dstDtype, uint64_t len);
