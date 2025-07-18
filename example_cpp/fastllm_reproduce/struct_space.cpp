@@ -2,6 +2,8 @@
 
 #include "struct_space.hpp"
 #include "enum_space.h"
+#include "fastllm.h"
+#include "file_utils.hpp"
 
 SafeTensorItem::SafeTensorItem() {}
 
@@ -25,7 +27,72 @@ SafeTensorItem::SafeTensorItem(const std::string &tensorName, const std::string 
         this->len = this->len * it;
     }
 
-    this->bytesLen = this->dataOffsets[1] - this->dataOffsets[0];
+    this->bytes = this->dataOffsets[1] - this->dataOffsets[0];
+}
+
+void SafeTensorItem::ClearBuffer() {
+    delete[] this->buffer;
+    this->buffer = nullptr;
+    delete[] this->minsBuffer;
+    this->minsBuffer = nullptr;
+    delete[] this->scalesBuffer;
+    this->scalesBuffer = nullptr;
+}
+
+void SafeTensorItem::CreateBuffer(DataType dstType) {
+    FILE *fi = fopen(this->fileName.c_str(), "rb");
+#if defined(_WIN32) || defined(_WIN64)
+    _fseeki64(fi, this->dataOffsets[0], 0)
+#else
+    fseek(fi, this->dataOffsets[0], 0);
+#endif
+
+        this->ClearBuffer();
+    int ret;
+    DataType srcType;
+    if (this->dtype == "fastllm") {
+        this->buffer = new uint8_t[this->bytes];
+        ret = fread(this->buffer, 1, this->bytes, fi);
+        fclose(fi);
+        return;
+    } else if (this->dtype == "F32") {
+        srcType = DataType::FLOAT32;
+        if (dstType != DataType::FLOAT32) {
+            ErrorInFastLLM("SafeTensorItem.CreateBuffer: unsupport src dtype " + this->dtype + "\n");
+        }
+    } else if (this->dtype == "F16") {
+        srcType = DataType::FLOAT16;
+    } else if (this->dtype == "BF16") {
+        srcType = DataType::BFLOAT16;
+    } else if (this->dtype == "F8E4M3") {
+        srcType = DataType::FP8_E4M3;
+    } else if (this->dtype == "I64") {
+        printf("skip I64 tensor %s\n", this->tensorName.c_str());
+        return;
+    } else {
+        ErrorInFastLLM("SafeTensorItem.CreateBuffer: unsupport src dtype " + this->dtype + "\n");
+    }
+
+    int unitSize = 4;
+    if (dstType == DataType::FLOAT32) {
+        unitSize = 4;
+    } else if (dstType == DataType::BFLOAT16 || dstType == DataType::FLOAT16) {
+        unitSize = 2;
+    } else {
+        ErrorInFastLLM("SafeTensorItem.CreateBuffer: unsupport dst dtype " + std::to_string(dstType) + "\n");
+    }
+
+    this->buffer = new uint8_t[unitSize * (size_t)this->len];
+    if (srcType == dstType) {
+        ret = fread(this->buffer, 1, this->bytes, fi);
+    } else {
+        uint8_t *ori = new uint8_t[this->bytes];
+        ret = fread(ori, 1, this->bytes, fi);
+        ConvertDataType(ori, srcType, this->buffer, dstType, this->len);
+        delete[] ori;
+    }
+
+    fclose(fi);
 }
 
 SafeTensors::SafeTensors(const std::set<std::string> fileNames) {

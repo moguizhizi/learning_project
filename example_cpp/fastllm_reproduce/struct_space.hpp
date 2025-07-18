@@ -22,11 +22,16 @@ struct SafeTensorItem {
     std::vector<uint64_t> dataOffsets;
 
     uint64_t len = 1;
-    uint64_t bytesLen = 1;
+    uint64_t bytes = 1;
+
+    uint8_t *buffer = nullptr;
+    float *minsBuffer = nullptr, *scalesBuffer = nullptr;
 
     SafeTensorItem();
     ~SafeTensorItem();
     SafeTensorItem(const std::string &tensorName, const std::string &fileName, uint64_t baseOffset, const json11::Json &config);
+    void ClearBuffer();
+    void CreateBuffer(DataType dstType);
 };
 
 struct SafeTensors {
