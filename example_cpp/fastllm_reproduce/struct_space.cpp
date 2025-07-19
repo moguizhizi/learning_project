@@ -4,6 +4,7 @@
 #include "enum_space.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
+#include <cstring>
 
 SafeTensorItem::SafeTensorItem() {}
 
@@ -42,12 +43,12 @@ void SafeTensorItem::ClearBuffer() {
 void SafeTensorItem::CreateBuffer(DataType dstType) {
     FILE *fi = fopen(this->fileName.c_str(), "rb");
 #if defined(_WIN32) || defined(_WIN64)
-    _fseeki64(fi, this->dataOffsets[0], 0)
+    _fseeki64(fi, this->dataOffsets[0], 0);
 #else
     fseek(fi, this->dataOffsets[0], 0);
 #endif
 
-        this->ClearBuffer();
+    this->ClearBuffer();
     int ret;
     DataType srcType;
     if (this->dtype == "fastllm") {
@@ -89,6 +90,71 @@ void SafeTensorItem::CreateBuffer(DataType dstType) {
         uint8_t *ori = new uint8_t[this->bytes];
         ret = fread(ori, 1, this->bytes, fi);
         ConvertDataType(ori, srcType, this->buffer, dstType, this->len);
+        delete[] ori;
+    }
+
+    fclose(fi);
+}
+
+FP8E4M3ToFP32Manager fp8e4m3tofp32;
+void SafeTensorItem::CreateBufferWithScale(DataType dstType, SafeTensorItem &scale) {
+    AssertInFastLLM(this->shape.size() == 2 && scale.shape.size() == 2, "CreateBufferWithScale error: shape.size() should be 2.");
+    DataType srcType;
+    if (this->dtype == "F8_E4M3") {
+        srcType = DataType::FP8_E4M3;
+    } else {
+        ErrorInFastLLM("CreateBufferWithScale error: dtype should be FP8_E4M3");
+    }
+
+    int n = this->intShape[0];
+    int m = this->intShape[1];
+    int ns = scale.intShape[0];
+    int ms = scale.intShape[1];
+
+    int blockN = n / ns;
+    int blockM = m / ms;
+
+    while (blockN & -blockN != blockN) {
+        blockN++;
+    }
+
+    while (blockM & -blockM != blockM) {
+        blockM++;
+    }
+
+    this->ClearBuffer();
+
+    FILE *fi = fopen(this->fileName.c_str(), "rb");
+#if defined(_WIN32) || defined(_WIN64)
+    _fseeki64(fi, this->dataOffsets[0], 0);
+#else
+    fseek(fi, this->dataOffsets[0], 0);
+#endif
+
+    if (dstType == DataType::FP8_E4M3) {
+        this->blockN = blockN;
+        this->blockM = blockM;
+        this->buffer = new uint8_t[n * m];
+        fread(this->buffer, 1, this->bytes, fi);
+        this->scalesBuffer = new float[ns * ms];
+        std::memcpy(this->scalesBuffer, scale.buffer, ns * ms * sizeof(float));
+    } else {
+        uint8_t *ori = new uint8_t[this->bytes];
+        fread(ori, 1, this->bytes, fi);
+
+        this->buffer = new uint8_t[n * m * sizeof(uint32_t)];
+        float *floatbuffer = (float *)this->buffer;
+
+        for (int bi = 0; bi < ns; bi++) {
+            for (int bj = 0; bj < ms; bj++) {
+                float curScale = ((float *)scale.buffer)[bi * ms + bj];
+                for (int i = bi * blockN; i < (bi + 1) * blockN && i < n; i++) {
+                    for (int j = bj * blockM; j < (bj + 1) * blockM && j < m; j++) {
+                        floatbuffer[i * m + j] = curScale * fp8e4m3tofp32.dict[ori[i * m + j]];
+                    }
+                }
+            }
+        }
         delete[] ori;
     }
 
