@@ -161,6 +161,92 @@ void SafeTensorItem::CreateBufferWithScale(DataType dstType, SafeTensorItem &sca
     fclose(fi);
 }
 
+void SafeTensorItem::CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale, SafeTensorItem &qzero) {
+    const int groupCnt = this->intShape[0] / qzero.intShape[0];
+
+    AssertInFastLLM(this->shape.size() == 2 && scale.shape.size() == 2 && qzero.shape.size() == 2,
+                    "CreateBufferWithAWQ error: shape.size() should be 2.");
+    AssertInFastLLM(groupCnt * scale.shape[0] == this->shape[0] && groupCnt * qzero.shape[0] == this->shape[0] &&
+                        8 * this->shape[1] == scale.shape[1] && this->shape[1] == qzero.shape[1],
+                    "CreateBufferWithAWQ error: shape error.");
+    AssertInFastLLM(this->dtype == "I32" && qzero.dtype == "I32", "CreateBufferWithAWQ error: dtype shoud be I32.");
+
+    this->ClearBuffer();
+
+    FILE *fweight = fopen(this->fileName.c_str(), "rb");
+    FILE *fqzero = fopen(qzero.fileName.c_str(), "rb");
+
+#if defined(_WIN32) || defined(_WIN64)
+    _fseeki64(fqweight, this->dataOffsets[0], 0);
+    _fseeki64(fqzero, qzero.dataOffsets[0], 0);
+#else
+    fseek(fweight, this->dataOffsets[0], 0);
+    fseek(fqzero, qzero.dataOffsets[0], 0);
+#endif
+
+    uint8_t *ori_weight = new uint8_t[this->bytes];
+    uint8_t *ori_qzero = new uint8_t[qzero.bytes];
+
+    int ret;
+    ret = fread(ori_weight, 1, this->bytes, fweight);
+    ret = fread(ori_qzero, 1, qzero.bytes, fqzero);
+
+    int n = this->intShape[0];
+    int m = this->intShape[1];
+
+    unsigned int *weight_int32 = (unsigned int *)ori_weight;
+    unsigned int *qzero_int32 = (unsigned int *)ori_qzero;
+    float *scale_f32 = (float *)scale.buffer;
+
+    static const int awq_shift[8] = {0, 16, 4, 20, 8, 24, 12, 28}; // awq order = [0,2,4,8,1,3,5,7]
+
+    if (dstType == DataType::FLOAT32) {
+        this->buffer = new uint8_t[n * m * 8 * 4];
+        float *floatBuffer = (float *)this->buffer;
+        for (int x = 0; x < n; x++) {
+            for (int y = 0; y < m * 8; y++) {
+                int gx = x / groupCnt;
+                int gy = y >> 3;
+                unsigned int w = (weight_int32[x * m + gy] >> awq_shift[y & 7]) & 15;
+                unsigned int z = (qzero_int32[gx * m + gy] >> awq_shift[y & 7]) & 15;
+                float s = scale_f32[gx * m * 8 + y];
+                floatBuffer[y * n + x] = (w - z) * s;
+            }
+        }
+    } else if (dstType == DataType::INT4_GROUP) {
+        int group = (n - 1) / groupCnt + 1;
+        this->scalesBuffer = new float[m * 8 * group];
+        this->minsBuffer = new float[m * 8 * group];
+        for (int x = 0; x < n; x += groupCnt) {
+            for (int y = 0; y < m * 8; y++) {
+                int gx = x / groupCnt;
+                int gy = y >> 3;
+                unsigned int z = (qzero_int32[gx * m + gy] >> awq_shift[y & 7]) & 15;
+                float s = scale_f32[gx * m * 8 + y];
+                this->scalesBuffer[y * group + x] = s;
+                this->minsBuffer[y * group + x] = -z * s;
+            }
+        }
+        this->buffer = new uint8_t[n * m * 8 * 0.5];
+        std::memset(this->buffer, 0, n * m * 8 * 0.5);
+        for (int x = 0; x < n; x++) {
+            for (int y = 0; y < m * 8; y++) {
+                int gy = y >> 3;
+                int w = (weight_int32[x * m + gy] >> awq_shift[y & 7]) & 15;
+                buffer[y * n / 2 + x / 2] += (w << ((1 - (x & 1)) * 4));
+            }
+        }
+
+    } else {
+        ErrorInFastLLM("CreateBufferWithAWQ Error: dst type error.");
+    }
+
+    fclose(fweight);
+    fclose(fqzero);
+    delete[] ori_weight;
+    delete[] ori_qzero;
+}
+
 SafeTensors::SafeTensors(const std::set<std::string> fileNames) {
     this->fileNames = fileNames;
     for (const std::string &fileName : fileNames) {
