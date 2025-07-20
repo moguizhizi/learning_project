@@ -46,6 +46,14 @@ static std::map<DataType, std::vector<std::string>> dataTypeNames = {{DataType::
 
 static std::map<DataType, int> DefaultGroupCnts = {{DataType::INT4_GROUP, 128}, {DataType::INT2_GROUP, 128}, {DataType::BASE3_GROUP, 128}};
 
+template <typename T> void TransposeSimple(T *pDst, T *pSrc, int dstStride, int srcStride, int n, int m) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            pDst[j * dstStride + i] = pSrc[i * srcStride + j];
+        }
+    }
+}
+
 basellm *CreateModelWithType(const std::string &model_type);
 void AddDictRecursion(basellm *model, const std::string &prefix, const json11::Json &config);
 bool StringEndWith(const std::string &s, const std::string &end);
@@ -56,4 +64,4 @@ float half_to_float(const uint16_t x);
 float as_float(const uint32_t x);
 void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dstDtype, uint64_t len);
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
-void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
+void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
