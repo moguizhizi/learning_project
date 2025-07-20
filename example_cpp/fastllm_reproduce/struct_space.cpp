@@ -223,8 +223,8 @@ void SafeTensorItem::CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale
                 int gy = y >> 3;
                 unsigned int z = (qzero_int32[gx * m + gy] >> awq_shift[y & 7]) & 15;
                 float s = scale_f32[gx * m * 8 + y];
-                this->scalesBuffer[y * group + x] = s;
-                this->minsBuffer[y * group + x] = -z * s;
+                this->scalesBuffer[y * group + gx] = s;
+                this->minsBuffer[y * group + gx] = -s * z;
             }
         }
         this->buffer = new uint8_t[n * m * 8 * 0.5];
