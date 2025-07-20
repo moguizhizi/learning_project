@@ -55,3 +55,5 @@ uint32_t as_uint(const float x);
 float half_to_float(const uint16_t x);
 float as_float(const uint32_t x);
 void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dstDtype, uint64_t len);
+void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
+void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
