@@ -113,7 +113,7 @@ void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n,
     }
 }
 
-void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
+void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     int per = 4;
     for (int i = 0; i < n; i += per) {
         for (int j = 0; j < m; j += per) {

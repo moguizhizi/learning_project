@@ -247,6 +247,23 @@ void SafeTensorItem::CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale
     delete[] ori_qzero;
 }
 
+void SafeTensorItem::Transpose(DataType type) {
+    int n = intShape[0], m = intShape[1];
+    if (type == DataType::FLOAT32) {
+        float *temp = new float[len];
+        memcpy(temp, this->buffer, len * sizeof(float));
+        TransposeF32((float *)this->buffer, temp, n, m, n, m);
+        delete[] temp;
+    } else if (type == DataType::FLOAT16 || type == DataType::BFLOAT16) {
+        uint16_t *temp = new uint16_t[len];
+        memcpy(temp, this->buffer, len * sizeof(uint16_t));
+        TransposeSimple((uint16_t *)this->buffer, temp, n, m, n, m);
+        delete[] temp;
+    } else {
+        ErrorInFastLLM("SafeTensorItem.Transpose: unsupport dtype " + std::to_string(type) + "\n");
+    }
+}
+
 SafeTensors::SafeTensors(const std::set<std::string> fileNames) {
     this->fileNames = fileNames;
     for (const std::string &fileName : fileNames) {
