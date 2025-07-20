@@ -132,7 +132,7 @@ void SafeTensorItem::CreateBufferWithScale(DataType dstType, SafeTensorItem &sca
 #endif
 
     if (dstType == DataType::FP8_E4M3) {
-        this->blockN = blockN;
+        this->blockK = blockN;
         this->blockM = blockM;
         this->buffer = new uint8_t[n * m];
         fread(this->buffer, 1, this->bytes, fi);
