@@ -35,6 +35,7 @@ struct SafeTensorItem {
     void ClearBuffer();
     void CreateBuffer(DataType dstType);
     void CreateBufferWithScale(DataType dstType, SafeTensorItem &scale);
+    void CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale, SafeTensorItem &qzero);
 };
 
 struct SafeTensors {
