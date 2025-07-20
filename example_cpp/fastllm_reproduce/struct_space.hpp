@@ -23,7 +23,7 @@ struct SafeTensorItem {
 
     uint64_t len = 1;
     uint64_t bytes = 1;
-    int blockN;
+    int blockK;
     int blockM;
 
     uint8_t *buffer = nullptr;
