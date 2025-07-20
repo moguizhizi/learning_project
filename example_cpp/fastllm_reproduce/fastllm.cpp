@@ -100,3 +100,24 @@ void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dst
         ErrorInFastLLM("ConvertDataType Failed. (" + std::to_string(srcDtype) + " -> " + std::to_string(dstDtype) + ")");
     }
 }
+
+void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
+    if (n < 4 || m < 4) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                pDst[j * dstStride + i] = pSrc[i * srcStride + j];
+            }
+        }
+
+        return;
+    }
+}
+
+void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
+    int per = 4;
+    for (int i = 0; i < n; i += per) {
+        for (int j = 0; j < m; j += per) {
+            Transpose4x4(pDst + j * dstStride + i, pSrc + i * srcStride + j, dstStride, srcStride, std::min(per, n - i), std::min(per, m - j));
+        }
+    }
+}
