@@ -112,3 +112,19 @@ struct FP8E4M3ToFP32Manager {
         -128.0,      -144.0,       -160.0,      -176.0,       -192.0,      -208.0,       -224.0,     -240.0,       -256.0,      -288.0,
         -320.0,      -352.0,       -384.0,      -416.0,       -448.0,      -480};
 };
+
+struct LowBitConfig {
+    float max;
+    float min;
+    int type;
+    int bit;
+    uint8_t zeroPoint;
+    float scale;
+
+    LowBitConfig();
+    LowBitConfig(float max, float min, int type, uint8_t bit);
+
+    void Reset();
+    uint8_t quantization(const float &realNumber) const;
+    float invQuantization(const uint8_t &qNumber) const;
+};
