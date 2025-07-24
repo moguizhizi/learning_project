@@ -113,6 +113,11 @@ struct FP8E4M3ToFP32Manager {
         -320.0,      -352.0,       -384.0,      -416.0,       -448.0,      -480};
 };
 
+struct BF16ToFP32Manager {
+    float dict[65536];
+    BF16ToFP32Manager();
+};
+
 struct LowBitConfig {
     float max;
     float min;
@@ -142,5 +147,17 @@ struct MultiThreadGroupQuantizationOp : MultiThreadBaseOp {
     int group, groupCnt;
 
     MultiThreadGroupQuantizationOp(int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8);
+    void Run() override;
+};
+
+struct MultiThreadGroupQuantizationBF16Op : MultiThreadBaseOp {
+    int st, end, m;
+    uint16_t *bf;
+    uint8_t *u8;
+    LowBitConfig *configs;
+    int bit;
+    int group, groupCnt;
+
+    MultiThreadGroupQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt);
     void Run() override;
 };
