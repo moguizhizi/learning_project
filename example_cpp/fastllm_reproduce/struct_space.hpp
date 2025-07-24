@@ -128,3 +128,19 @@ struct LowBitConfig {
     uint8_t quantization(const float &realNumber) const;
     float invQuantization(const uint8_t &qNumber) const;
 };
+
+struct MultiThreadBaseOp {
+    virtual void Run() = 0;
+};
+
+struct MultiThreadGroupQuantizationOp : MultiThreadBaseOp {
+    int st, end, m;
+    float *f;
+    uint8_t *u8;
+    LowBitConfig *configs;
+    int bit;
+    int group, groupCnt;
+
+    MultiThreadGroupQuantizationOp(int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8);
+    void Run() override;
+};
