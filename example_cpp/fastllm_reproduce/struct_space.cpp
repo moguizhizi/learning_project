@@ -497,3 +497,74 @@ void MultiThreadGroupQuantizationOp::Run() {
         }
     }
 }
+
+BF16ToFP32Manager::BF16ToFP32Manager() {
+    for (uint16_t i = 0; i < 65535; i++) {
+        uint32_t x = (i << 16);
+        dict[i] = *((float *)&x);
+    }
+}
+
+BF16ToFP32Manager bf16tofp32;
+
+MultiThreadGroupQuantizationBF16Op::MultiThreadGroupQuantizationBF16Op(
+    int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt) {
+    this->st = st;
+    this->end = end;
+    this->m = m;
+    this->bf = bf;
+    this->u8 = u8;
+    this->configs = configs;
+    this->bit = bit;
+    this->group = group;
+    this->groupCnt = groupCnt;
+}
+
+void MultiThreadGroupQuantizationBF16Op::Run() {
+
+    int type = (this->bit == 4 || this->bit == 2) ? 1 : 0;
+
+    int cid = 0, groupStart, groupEnd;
+    for (int i = this->st; i < this->end; i++) {
+        for (int g = 0; g < this->group; g++) {
+            cid = i * group + g;
+            groupStart = g * this->groupCnt;
+            groupEnd = std::min((g + 1) * this->groupCnt, this->m);
+
+            float minValue = 1e9, maxValue = -1e9;
+            for (int j = groupStart; j < groupEnd; j++) {
+                minValue = std::min(minValue, bf16tofp32.dict[bf[i * m + j]]);
+                maxValue = std::max(maxValue, bf16tofp32.dict[bf[i * m + j]]);
+            }
+            if (this->bit == 8) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j < groupEnd; j++) {
+                    this->u8[i * m + j] = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                }
+            } else if (this->bit == 4) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j < groupEnd; j++) {
+                    uint8_t value = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                    uint8_t id = (i * m + j) / 2;
+                    if ((i * m + j) % 2) {
+                        this->u8[id] = (this->u8[id] & 0xF0) | value;
+
+                    } else {
+                        this->u8[id] = (this->u8[id] & 0x0F) | value << 4;
+                    }
+                }
+            } else if (this->bit == 2) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j + 3 < groupEnd; j += 4) {
+                    int id = (i * m + j) / 4;
+                    uint8_t value0 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 0]]);
+                    uint8_t value1 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 1]]);
+                    uint8_t value2 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 2]]);
+                    uint8_t value3 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 4]]);
+
+                    u8[id] = value0 << 6 | value1 << 4 | value2 << 2 | value3;
+                }
+            }
+        }
+    }
+}
