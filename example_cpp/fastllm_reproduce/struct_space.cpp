@@ -393,7 +393,7 @@ LowBitConfig::LowBitConfig() {}
 LowBitConfig::LowBitConfig(float max, float min, int type, uint8_t bit) {
     this->max = max;
     this->min = min;
-    this->type = type;
+    this->type = type; // 0: 有zero点 1: 不需要zero点
     this->bit = bit;
 }
 
