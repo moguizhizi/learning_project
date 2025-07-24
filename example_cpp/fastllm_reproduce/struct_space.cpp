@@ -436,3 +436,64 @@ float LowBitConfig::invQuantization(const uint8_t &qNumber) const {
         return this->min + this->scale * qNumber;
     }
 }
+
+MultiThreadGroupQuantizationOp::MultiThreadGroupQuantizationOp(
+    int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8) {
+    this->st = st;
+    this->end = end;
+    this->bit = bit;
+    this->configs = configs;
+    this->group = group;
+    this->groupCnt = groupCnt;
+    this->f = f;
+    this->u8 = u8;
+}
+
+void MultiThreadGroupQuantizationOp::Run() {
+
+    int type = (this->bit == 4 || this->bit == 2) ? 1 : 0;
+
+    int cid = 0, groupStart, groupEnd;
+    for (int i = this->st; i < this->end; i++) {
+        for (int g = 0; g < this->group; g++) {
+            cid = i * group + g;
+            groupStart = g * this->groupCnt;
+            groupEnd = std::min((g + 1) * this->groupCnt, this->m);
+
+            float minValue = 1e9, maxValue = -1e9;
+            for (int j = groupStart; j < groupEnd; j++) {
+                minValue = std::min(minValue, f[i * m + j]);
+                maxValue = std::max(maxValue, f[i * m + j]);
+            }
+            if (this->bit == 8) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j < groupEnd; j++) {
+                    this->u8[i * m + j] = this->configs[cid].quantization(f[i * m + j]);
+                }
+            } else if (this->bit == 4) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j < groupEnd; j++) {
+                    uint8_t value = this->configs[cid].quantization(f[i * m + j]);
+                    uint8_t id = (i * m + j) / 2;
+                    if ((i * m + j) % 2) {
+                        this->u8[id] = (this->u8[id] & 0xF0) | value;
+
+                    } else {
+                        this->u8[id] = (this->u8[id] & 0x0F) | value << 4;
+                    }
+                }
+            } else if (this->bit == 2) {
+                this->configs[cid] = LowBitConfig(maxValue, minValue, type, this->bit);
+                for (int j = groupStart; j + 3 < groupEnd; j += 4) {
+                    int id = (i * m + j) / 4;
+                    uint8_t value0 = this->configs[cid].quantization(f[i * m + j + 0]);
+                    uint8_t value1 = this->configs[cid].quantization(f[i * m + j + 1]);
+                    uint8_t value2 = this->configs[cid].quantization(f[i * m + j + 2]);
+                    uint8_t value3 = this->configs[cid].quantization(f[i * m + j + 3]);
+
+                    u8[id] = value0 << 6 | value1 << 4 | value2 << 2 | value3;
+                }
+            }
+        }
+    }
+}
