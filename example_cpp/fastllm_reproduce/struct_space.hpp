@@ -185,3 +185,14 @@ struct MultiThreadBase3GroupQuantizationOp : MultiThreadBaseOp {
     MultiThreadBase3GroupQuantizationOp(int st, int end, int m, float *f32, uint8_t *u8, uint16_t *scale, int group, int groupCnt);
     void Run() override;
 };
+
+struct MultiThreadBase3GroupQuantizationBF16Op : MultiThreadBaseOp {
+    int st, end, m;
+    uint16_t *bf;
+    uint8_t *u8;
+    uint16_t *halfScales;
+    int group, groupCnt;
+
+    MultiThreadBase3GroupQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, uint16_t *halfScales, int group, int groupCnt);
+    void Run() override;
+};
