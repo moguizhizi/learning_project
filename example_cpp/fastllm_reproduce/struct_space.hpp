@@ -173,3 +173,15 @@ struct MultiThreadPerChannelQuantizationOp : MultiThreadBaseOp {
     MultiThreadPerChannelQuantizationOp(int st, int end, int m, float *f, uint8_t *u8, LowBitConfig *configs, int bit);
     void Run() override;
 };
+
+struct MultiThreadBase3GroupQuantizationOp : MultiThreadBaseOp {
+    int st, end, m;
+    float *f32;
+    uint8_t *u8;
+    uint16_t *halfScales;
+    int group;
+    int groupCnt;
+
+    MultiThreadBase3GroupQuantizationOp(int st, int end, int m, float *f32, uint8_t *u8, uint16_t *scale, int group, int groupCnt);
+    void Run() override;
+};
