@@ -386,19 +386,54 @@ void Data::CreateFromOriData(
             this->scales.resize(ks * ms);
             memcpy(this->scales.data(), oriScales, ks * ms * sizeof(float));
         }
-    } else if (oriDataType == DataType::BFLOAT16 & this->dataType == DataType::FLOAT16) {
+    } else if (oriDataType == DataType::BFLOAT16 && this->dataType == DataType::FLOAT16) {
         uint16_t *b = (uint16_t *)oriData;
         uint16_t *a = (uint16_t *)this->cpuData;
         int len = this->Count(0);
         for (int i = 0; i < len; i++) {
             a[i] = bf16tofp16.dict[b[i]];
         }
-    } else if (oriDataType == DataType::FLOAT32 & this->dataType == DataType::FLOAT16) {
+    } else if (oriDataType == DataType::FLOAT32 && this->dataType == DataType::FLOAT16) {
         float *b = (float *)oriData;
         uint16_t *a = (uint16_t *)this->cpuData;
         int len = this->Count(0);
         for (int i = 0; i < len; i++) {
             a[i] = float_to_half(b[i]);
         }
+    } else if ((oriDataType == DataType::FLOAT32 || oriDataType == DataType::BFLOAT16) && this->dataType == DataType::INT4_GROUP) {
+        int bit = 4;
+        int type = 1;
+        int k = this->dims[0], m = this->dims[1], group = (m - 1) / groupCnt + 1;
+        if (groupCnt == -1) {
+            groupCnt = 128;
+        }
+        std::vector<LowBitConfig> configs;
+        std::vector<uint8_t> uDatas;
+        this->group = group;
+        this->groupCnt = groupCnt;
+        this->perChannelAxis = 0;
+        this->scales.resize(k * group);
+        this->mins.resize(k * group);
+
+        int bytes = (k * m + 1) / 2;
+
+        configs.resize(k * group);
+        uDatas.resize(bytes);
+
+        if (oriDataType == DataType::FLOAT32) {
+            MultiThreadGroupQuantizationOp(0, k, m, bit, configs.data(), group, groupCnt, (float *)oriData, uDatas.data()).Run();
+        } else {
+            MultiThreadGroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, group, groupCnt).Run();
+        }
+
+        for (int i = 0; i < k * group; i++) {
+            float min = configs[i].min;
+            float scale = configs[i].scale;
+
+            this->mins[i] = min;
+            this->scales[i] = scale;
+        }
+
+        memcpy(this->cpuData, uDatas.data(), bytes);
     }
 }
