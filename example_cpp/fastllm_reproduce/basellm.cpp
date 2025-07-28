@@ -355,6 +355,8 @@ void Data::CopyFrom(const Data &ori) {
     }
 }
 
+BF16ToFP16Manager bf16tofp16;
+
 void Data::CreateFromOriData(
     WeightType weightType, DataType oriDataType, uint8_t *oriData, float *oriMins, float *oriScales, int groupCnt, int blockK, int blockM) {
     if (this->dataType == oriDataType) {
@@ -383,6 +385,20 @@ void Data::CreateFromOriData(
 
             this->scales.resize(ks * ms);
             memcpy(this->scales.data(), oriScales, ks * ms * sizeof(float));
+        }
+    } else if (oriDataType == DataType::BFLOAT16 & this->dataType == DataType::FLOAT16) {
+        uint16_t *b = (uint16_t *)oriData;
+        uint16_t *a = (uint16_t *)this->cpuData;
+        int len = this->Count(0);
+        for (int i = 0; i < len; i++) {
+            a[i] = bf16tofp16.dict[b[i]];
+        }
+    } else if (oriDataType == DataType::FLOAT32 & this->dataType == DataType::FLOAT16) {
+        float *b = (float *)oriData;
+        uint16_t *a = (uint16_t *)this->cpuData;
+        int len = this->Count(0);
+        for (int i = 0; i < len; i++) {
+            a[i] = float_to_half(b[i]);
         }
     }
 }

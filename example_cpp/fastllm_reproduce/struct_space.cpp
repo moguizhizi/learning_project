@@ -507,6 +507,13 @@ BF16ToFP32Manager::BF16ToFP32Manager() {
 
 BF16ToFP32Manager bf16tofp32;
 
+BF16ToFP16Manager::BF16ToFP16Manager() {
+    for (uint16_t i = 0; i < 65535; i++) {
+        uint32_t x = (i << 16);
+        dict[i] = float_to_half(*((float *)&x));
+    }
+}
+
 MultiThreadGroupQuantizationBF16Op::MultiThreadGroupQuantizationBF16Op(
     int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt) {
     this->st = st;

@@ -119,6 +119,12 @@ struct BF16ToFP32Manager {
     BF16ToFP32Manager();
 };
 
+struct BF16ToFP16Manager {
+    float dict[65536];
+
+    BF16ToFP16Manager();
+};
+
 struct LowBitConfig {
     float max;
     float min;
