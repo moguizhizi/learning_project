@@ -354,3 +354,35 @@ void Data::CopyFrom(const Data &ori) {
 #endif
     }
 }
+
+void Data::CreateFromOriData(
+    WeightType weightType, DataType oriDataType, uint8_t *oriData, float *oriMins, float *oriScales, int groupCnt, int blockK, int blockM) {
+    if (this->dataType == oriDataType) {
+        if (oriData != nullptr) {
+            memcpy(this->cpuData, oriData, this->GetBytes());
+        }
+        if (oriDataType == DataType::INT4_GROUP) {
+            int k = this->dims[0], m = this->dims[1], group = (m - 1) / groupCnt + 1;
+            this->group = group;
+            this->groupCnt = groupCnt;
+            this->scales.resize(k * group);
+            this->mins.resize(k * group);
+
+            memcpy(this->scales.data(), oriMins, k * group * sizeof(float));
+            memcpy(this->mins.data(), oriScales, k * group * sizeof(float));
+
+            this->perChannelAxis = 0;
+        } else if (oriDataType == DataType::FP8_E4M3) {
+            int k = this->dims[0], m = this->dims[1];
+
+            this->blockK = blockK;
+            this->blockM = blockM;
+
+            int ks = (k - 1) / this->blockK + 1;
+            int ms = (m - 1) / this->blockM + 1;
+
+            this->scales.resize(ks * ms);
+            memcpy(this->scales.data(), oriScales, ks * ms * sizeof(float));
+        }
+    }
+}
