@@ -31,6 +31,15 @@ class Data {
     int perChannelAxis = -1;       // 沿哪个轴分通道量化，-1代表没有分通道
     int group = -1, groupCnt = -1; // 分组量化，group代表组数，groupCnt代表每组有多少个元素，-1代表不使用分组量化
 
+    // 以下为每个通道/分组的量化参数
+    // 1. 若不使用分通道量化，那么总组数 = 1
+    // 2. 若使用分通道量化，那么总组数 = 通道数
+    // 3. 若使用分组量化，那么总组数 = 通道数 * 组数(group)
+    std::vector<LowBitConfig>
+        perChannelsConfigs; // perChannelsConfigs[i]代表第i个通道的min, max; 如果没有分通道，perChannelsConfigs[0]代表全局min, max
+    std::vector<float> scales, mins;
+    std::vector<int> zeros;
+
     // FP8的分组量化， [blockK, blockM]的小矩阵为一组
     int blockK = -1, blockM = -1;
 
@@ -41,8 +50,6 @@ class Data {
     std::vector<uint64_t> stride;
     std::vector<int> dims;
     std::vector<int> dataDeviceIds;
-
-    std::vector<float> scales, mins;
 
     void UpdateUnitSize();
     void Resize(const std::vector<int> &dims);

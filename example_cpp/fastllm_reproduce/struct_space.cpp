@@ -615,6 +615,45 @@ void MultiThreadPerChannelQuantizationOp::Run() {
     }
 }
 
+MultiThreadPerChannelQuantizationBF16Op::MultiThreadPerChannelQuantizationBF16Op(
+    int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit) {
+    this->st = st;
+    this->end = end;
+    this->m = m;
+    this->bf = bf;
+    this->u8 = u8;
+    this->configs = configs;
+    this->bit = bit;
+}
+
+void MultiThreadPerChannelQuantizationBF16Op::Run() {
+    int type = (this->bit == 4) ? 1 : 0;
+    for (int i = this->st; i < this->end; i++) {
+        float minValue = 1e9, maxValue = -1e9;
+        for (int j = 0; j < m; j++) {
+            minValue = std::min(minValue, bf16tofp32.dict[bf[i * m + j]]);
+            maxValue = std::max(maxValue, bf16tofp32.dict[bf[i * m + j]]);
+        }
+        if (this->bit == 8) {
+            this->configs[i] = LowBitConfig(minValue, maxValue, 8, type);
+            for (int j = 0; j < m; j++) {
+                this->u8[i * m + j] = this->configs[i].quantization(bf16tofp32.dict[bf[i * m + j]]);
+            }
+        } else {
+            this->configs[i] = LowBitConfig(minValue, maxValue, 4, type);
+            for (int j = 0; j < m; j++) {
+                int id = (i * m + j) / 2;
+                uint8_t value = this->configs[i].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                if ((i * m + j) % 2) {
+                    this->u8[id] = (this->u8[id] & 0xF0) | value;
+                } else {
+                    this->u8[id] = (this->u8[id] & 0xF) | (value << 4);
+                }
+            }
+        }
+    }
+}
+
 MultiThreadBase3GroupQuantizationOp::MultiThreadBase3GroupQuantizationOp(
     int st, int end, int m, float *f32, uint8_t *u8, uint16_t *halfScales, int group, int groupCnt) {
     this->st = st;

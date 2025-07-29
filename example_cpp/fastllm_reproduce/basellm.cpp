@@ -470,5 +470,41 @@ void Data::CreateFromOriData(
         }
 
         memcpy(this->cpuData, uDatas.data(), bytes);
+    } else if ((oriDataType == DataType::FLOAT32 || oriDataType == DataType::BFLOAT16) &&
+               (this->dataType == DataType::INT8 || this->dataType == DataType::INT4_NOZERO)) {
+        int bit = (this->dataType == INT4_NOZERO) ? 4 : 8;
+        int type = (bit == 4) ? 1 : 0;
+        int k = this->dims[0], m = this->dims[1];
+
+        int bytes = (k * m + 1) / 2;
+        if (bit == 8) {
+            bytes = k * m;
+        }
+
+        std::vector<uint8_t> uDatas;
+        std::vector<LowBitConfig> configs;
+
+        this->scales.resize(k);
+        this->mins.resize(k);
+        this->zeros.resize(k);
+        this->perChannelsConfigs.resize(k);
+        uDatas.resize(bytes);
+        configs.resize(k);
+
+        this->perChannelAxis = 0;
+
+        if (oriDataType == DataType::FLOAT32) {
+            MultiThreadPerChannelQuantizationOp(0, k, m, (float *)oriData, uDatas.data(), configs.data(), bit).Run();
+        } else {
+            MultiThreadPerChannelQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit).Run();
+        }
+
+        for (int i = 0; i < k; i++) {
+            this->perChannelsConfigs[i] = configs[i];
+            this->scales[i] = configs[i].scale;
+            this->mins[i] = configs[i].min;
+            this->zeros[i] = configs[i].zeroPoint;
+        }
+
+        memcpy(this->cpuData, uDatas.data(), bytes);
     }
-}
