@@ -424,9 +424,9 @@ void Data::CreateFromOriData(
         uDatas.resize(bytes);
 
         if (oriDataType == DataType::FLOAT32) {
-            MultiThreadGroupQuantizationOp(0, k, m, bit, configs.data(), group, groupCnt, (float *)oriData, uDatas.data()).Run();
+            MultiThreadGroupQuantizationOp(0, k, m, bit, configs.data(), group, groupCnt, (float *)oriData, uDatas.data(), type).Run();
         } else {
-            MultiThreadGroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, group, groupCnt).Run();
+            MultiThreadGroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, group, groupCnt, type).Run();
         }
 
         for (int i = 0; i < k * group; i++) {
@@ -462,9 +462,9 @@ void Data::CreateFromOriData(
         uDatas.resize(bytes);
 
         if (oriDataType == DataType::FLOAT32) {
-            MultiThreadGroupQuantizationOp(0, k, m, bit, configs.data(), group, groupCnt, (float *)oriData, uDatas.data()).Run();
+            MultiThreadGroupQuantizationOp(0, k, m, bit, configs.data(), group, groupCnt, (float *)oriData, uDatas.data(), type).Run();
         } else {
-            MultiThreadGroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, group, groupCnt).Run();
+            MultiThreadGroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, group, groupCnt, type).Run();
         }
 
         for (int i = 0; i < k * group; i++) {
@@ -500,9 +500,9 @@ void Data::CreateFromOriData(
         this->perChannelAxis = 0;
 
         if (oriDataType == DataType::FLOAT32) {
-            MultiThreadPerChannelQuantizationOp(0, k, m, (float *)oriData, uDatas.data(), configs.data(), bit).Run();
+            MultiThreadPerChannelQuantizationOp(0, k, m, (float *)oriData, uDatas.data(), configs.data(), bit, type).Run();
         } else {
-            MultiThreadPerChannelQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit).Run();
+            MultiThreadPerChannelQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), configs.data(), bit, type).Run();
         }
 
         for (int i = 0; i < k; i++) {
