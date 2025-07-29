@@ -507,4 +507,29 @@ void Data::CreateFromOriData(
         }
 
         memcpy(this->cpuData, uDatas.data(), bytes);
+    } else if ((oriDataType == DataType::FLOAT32 || oriDataType == DataType::BFLOAT16) && this->dataType == DataType::BASE3_GROUP) {
+        int k = this->dims[0], m = this->dims[1];
+        if (groupCnt == -1) {
+            groupCnt = 128;
+        }
+        int group = (m - 1) / groupCnt + 1;
+        int bytesPerGroup = (groupCnt - 1) / 5 + 1;
+
+        this->group = group;
+        this->groupCnt = groupCnt;
+
+        std::vector<uint8_t> uDatas;
+
+        uDatas.resize(k * group * bytesPerGroup);
+        this->halfScales.resize(k * group);
+
+        if (oriDataType == DataType::FLOAT32) {
+            MultiThreadBase3GroupQuantizationOp(0, k, m, (float *)oriData, uDatas.data(), this->halfScales.data(), group, groupCnt).Run();
+        } else {
+            MultiThreadBase3GroupQuantizationBF16Op(0, k, m, (uint16_t *)oriData, uDatas.data(), this->halfScales.data(), group, groupCnt).Run();
+        }
+
+        memcpy(this->cpuData, uDatas.data(), k * group * bytesPerGroup);
+    } else {
+        ErrorInFastLLM("wrong data type " + dataTypeNames[oriDataType][0] + " -> " + dataTypeNames[dataType][0]);
     }
