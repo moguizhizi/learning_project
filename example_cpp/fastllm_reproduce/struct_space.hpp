@@ -120,7 +120,7 @@ struct BF16ToFP32Manager {
 };
 
 struct BF16ToFP16Manager {
-    float dict[65536];
+    uint16_t dict[65536];
 
     BF16ToFP16Manager();
 };
