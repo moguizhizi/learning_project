@@ -359,6 +359,9 @@ BF16ToFP16Manager bf16tofp16;
 
 void Data::CreateFromOriData(
     WeightType weightType, DataType oriDataType, uint8_t *oriData, float *oriMins, float *oriScales, int groupCnt, int blockK, int blockM) {
+    this->weightType = weightType;
+    this->UpdateUnitSize();
+    this->Allocate();
     if (this->dataType == oriDataType) {
         if (oriData != nullptr) {
             memcpy(this->cpuData, oriData, this->GetBytes());
@@ -533,3 +536,4 @@ void Data::CreateFromOriData(
     } else {
         ErrorInFastLLM("wrong data type " + dataTypeNames[oriDataType][0] + " -> " + dataTypeNames[dataType][0]);
     }
+}

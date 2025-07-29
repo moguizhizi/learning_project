@@ -14,6 +14,7 @@ class Data {
 
     DataType dataType = DataType::FLOAT32;
     DataDevice dataDevice = DataDevice::CPU;
+    WeightType weightType = WeightType::NONE;
 
     bool isFake = false;
     bool directMemory = false;
