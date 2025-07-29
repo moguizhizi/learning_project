@@ -373,8 +373,8 @@ void Data::CreateFromOriData(
             this->scales.resize(k * group);
             this->mins.resize(k * group);
 
-            memcpy(this->scales.data(), oriMins, k * group * sizeof(float));
-            memcpy(this->mins.data(), oriScales, k * group * sizeof(float));
+            memcpy(this->scales.data(), oriScales, k * group * sizeof(float));
+            memcpy(this->mins.data(), oriMins, k * group * sizeof(float));
 
             this->perChannelAxis = 0;
         } else if (oriDataType == DataType::FP8_E4M3) {
