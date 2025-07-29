@@ -152,8 +152,9 @@ struct MultiThreadGroupQuantizationOp : MultiThreadBaseOp {
     LowBitConfig *configs;
     int bit;
     int group, groupCnt;
+    int type;
 
-    MultiThreadGroupQuantizationOp(int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8);
+    MultiThreadGroupQuantizationOp(int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8, int type);
     void Run() override;
 };
 
@@ -164,8 +165,10 @@ struct MultiThreadGroupQuantizationBF16Op : MultiThreadBaseOp {
     LowBitConfig *configs;
     int bit;
     int group, groupCnt;
+    int type;
 
-    MultiThreadGroupQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt);
+    MultiThreadGroupQuantizationBF16Op(
+        int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt, int type);
     void Run() override;
 };
 
@@ -175,8 +178,9 @@ struct MultiThreadPerChannelQuantizationOp : MultiThreadBaseOp {
     uint8_t *u8;
     LowBitConfig *configs;
     int bit;
+    int type;
 
-    MultiThreadPerChannelQuantizationOp(int st, int end, int m, float *f, uint8_t *u8, LowBitConfig *configs, int bit);
+    MultiThreadPerChannelQuantizationOp(int st, int end, int m, float *f, uint8_t *u8, LowBitConfig *configs, int bit, int type);
     void Run() override;
 };
 
@@ -186,8 +190,9 @@ struct MultiThreadPerChannelQuantizationBF16Op : MultiThreadBaseOp {
     uint8_t *u8;
     LowBitConfig *configs;
     int bit;
+    int type;
 
-    MultiThreadPerChannelQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit);
+    MultiThreadPerChannelQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int type);
     void Run() override;
 };
 
