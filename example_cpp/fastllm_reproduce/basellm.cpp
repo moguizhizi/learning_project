@@ -453,7 +453,10 @@ void Data::CreateFromOriData(
         this->scales.resize(k * group);
         this->mins.resize(k * group);
 
-        int bytes = (k * m + 1) / 2;
+        int bytes = k * m / 4;
+        if (k * m % 4 != 0) {
+            bytes++;
+        }
 
         configs.resize(k * group);
         uDatas.resize(bytes);
