@@ -40,6 +40,8 @@ class Data {
     std::vector<float> scales, mins;
     std::vector<int> zeros;
 
+    std::vector<uint16_t> halfScales;
+
     // FP8的分组量化， [blockK, blockM]的小矩阵为一组
     int blockK = -1, blockM = -1;
 
