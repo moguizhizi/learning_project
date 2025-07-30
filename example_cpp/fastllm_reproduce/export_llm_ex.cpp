@@ -200,6 +200,20 @@ int main() {
                             scaleTensor.CreateBuffer(DataType::FLOAT32);
                             tensor.CreateBufferWithScale(dataType, scaleTensor);
                         }
+
+                        if (dataType == DataType::DATA_AUTO_CONV) {
+                            tensor.Transpose(oriDataType);
+                        }
+
+                        weights[weightName].CreateFromOriData(WeightType::AUTO,
+                                                              oriDataType,
+                                                              tensor.buffer,
+                                                              tensor.minsBuffer,
+                                                              tensor.scalesBuffer,
+                                                              curGroupCnt,
+                                                              tensor.blockK,
+                                                              tensor.blockM);
+                        tensor.ClearBuffer();
                     }
                 },
                 st,
