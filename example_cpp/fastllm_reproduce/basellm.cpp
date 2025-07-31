@@ -540,3 +540,46 @@ void Data::CreateFromOriData(
         ErrorInFastLLM("wrong data type " + dataTypeNames[oriDataType][0] + " -> " + dataTypeNames[dataType][0]);
     }
 }
+
+void Data::ExportFastllmFormat(uint8_t *bytes) {
+    ByteWriter writer(bytes);
+    if (this->dataType == DataType::BFLOAT16 || this->dataType == DataType::FLOAT16 || this->dataType == DataType::FLOAT32) {
+        writer.WriteBytes(this->cpuData, this->GetBytes());
+        return;
+    }
+
+    writer.WriteInt(1);
+    writer.WriteInt((int)this->dataType);
+    if (this->dataType == DataType::FP8_E4M3) {
+        writer.WriteInt(this->blockK);
+        writer.WriteInt(this->blockM);
+        writer.WriteInt(this->scales.size() * sizeof(float));
+        writer.WriteBytes((uint8_t *)this->scales.data(), this->scales.size() * sizeof(float));
+        writer.WriteBytes(this->cpuData, this->GetBytes());
+    } else if (this->dataType == DataType::INT8 || this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
+        writer.WriteInt(this->perChannelAxis);
+        int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+        for (int i = 0; i < k; i++) {
+            writer.WriteFloat(this->perChannelsConfigs[i].min);
+            if (this->dataType == DataType::INT4_NOZERO) {
+                writer.WriteFloat(this->perChannelsConfigs[i].scale);
+            } else {
+                writer.WriteFloat(this->perChannelsConfigs[i].max);
+            }
+        }
+
+        writer.WriteBytes(this->cpuData, this->GetBytes());
+    } else if (this->dataType == DataType::INT4_GROUP) {
+        writer.WriteInt(this->group);
+        writer.WriteInt(this->groupCnt);
+        writer.WriteInt(this->perChannelAxis);
+        int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+        for (int i = 0; i < k * this->group; i++) {
+            writer.WriteFloat(this->mins[i]);
+            writer.WriteFloat(this->scales[i]);
+        }
+        writer.WriteBytes(this->cpuData, this->GetBytes());
+    } else {
+        ErrorInFastLLM("ExportFastllmFormat Error: data type error.");
+    }
+}

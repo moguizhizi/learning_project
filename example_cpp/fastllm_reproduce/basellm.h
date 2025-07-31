@@ -67,6 +67,7 @@ class Data {
     void CopyFrom(const Data &ori);
     void CreateFromOriData(
         WeightType weightType, DataType oriDataType, uint8_t *oriData, float *oriMins, float *oriScales, int groupCnt, int blockK, int blockM);
+    void ExportFastllmFormat(uint8_t *bytes);
 };
 
 class basellm {
