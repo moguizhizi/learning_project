@@ -218,3 +218,14 @@ struct MultiThreadBase3GroupQuantizationBF16Op : MultiThreadBaseOp {
     MultiThreadBase3GroupQuantizationBF16Op(int st, int end, int m, uint16_t *bf, uint8_t *u8, uint16_t *halfScales, int group, int groupCnt);
     void Run() override;
 };
+
+struct ByteWriter {
+    uint8_t *cur;
+
+    ByteWriter(uint8_t *data);
+
+    void WriteInt(int v);
+    void WriteFloat(float v);
+    void WriteString(const std::string &s);
+    void WriteBytes(uint8_t *buffer, uint64_t bytes);
+};
