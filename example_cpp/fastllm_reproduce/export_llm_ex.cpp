@@ -228,6 +228,57 @@ int main() {
                             tensor.CreateBufferWithScale(dataType, scaleTensor);
                         }
 
+                        if (loraDicts.find(weightName) != loraDicts.end()) {
+                            std::string loraA = loraDicts[weightName].first;
+                            std::string loraB = loraDicts[weightName].second;
+
+                            int inDim = loraTensors->itmeDict[loraA].intShape[1];
+                            int outDim = loraTensors->itmeDict[loraB].intShape[0];
+                            int lora = loraTensors->itmeDict[loraA].intShape[0];
+
+                            loraTensors->itmeDict[loraA].CreateBuffer(DataType::FLOAT32);
+                            loraTensors->itmeDict[loraB].CreateBuffer(DataType::FLOAT32);
+
+                            float *weightA = (float *)(loraTensors->itmeDict[loraA].buffer);
+                            float *weightB = (float *)(loraTensors->itmeDict[loraB].buffer);
+
+                            std::vector<float> loraFactor;
+                            loraFactor.resize(outDim * inDim, 0.0f);
+                            for (int i = 0; i < outDim; i++) {
+                                for (int j = 0; j < lora; j++) {
+                                    for (int k = 0; k < inDim; k++) {
+                                        loraFactor[i * inDim + k] += weightB[i * lora + j] * weightA[j * inDim + k];
+                                    }
+                                }
+                            }
+
+                            for (int i = 0; i < loraFactor.size(); i++) {
+                                loraFactor[i] = loraFactor[i] * loraScaling;
+                            }
+
+                            loraTensors->itmeDict[loraA].ClearBuffer();
+                            loraTensors->itmeDict[loraB].ClearBuffer();
+
+                            if (oriDataType == DataType::BFLOAT16) {
+                                uint16_t *fp16Weight = (uint16_t *)tensor.buffer;
+                                for (int i = 0; i < loraFactor.size(); i++) {
+                                    uint32_t now = fp16Weight[i] << 16;
+                                    float newV = ((float *)&now)[0] + loraFactor[i];
+                                    fp16Weight[i] = ((uint32_t *)&newV)[0] >> 16;
+                                }
+                            } else if (oriDataType == DataType::FLOAT16) {
+                                uint16_t *fp16Weight = (uint16_t *)tensor.buffer;
+                                for (int i = 0; i < loraFactor.size(); i++) {
+                                    fp16Weight[i] = float_to_half(half_to_float(fp16Weight[i]) + loraFactor[i]);
+                                }
+                            } else if (oriDataType == DataType::FLOAT32) {
+                                float *f32weight = (float *)tensor.buffer;
+                                for (int i = 0; i < loraFactor.size(); i++) {
+                                    f32weight[i] = f32weight[i] + loraFactor[i];
+                                }
+                            }
+                        }
+
                         if (dataType == DataType::DATA_AUTO_CONV) {
                             tensor.Transpose(oriDataType);
                         }
