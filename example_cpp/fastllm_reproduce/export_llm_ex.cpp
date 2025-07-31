@@ -36,6 +36,33 @@ std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigString
 
 int main() {
 
+    std::string loraPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
+
+    std::map<std::string, std::pair<std::string, std::string>> loraDicts;
+    SafeTensors *loraTensors = nullptr;
+    float loraScaling;
+    if (loraPath != "") {
+        std::string path = loraPath;
+        if (path.back() != '/' && path.back() != '\\') {
+            path += "/";
+        }
+        loraTensors = new SafeTensors({path + "adapter_model.safetensors"});
+        for (auto &it : loraTensors->GetSortedItemNames()) {
+            if (it.size() >= 31 && it.substr(0, 17) == "base_model.model." &&
+                (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight")) {
+                std::string originalName = it.substr(17, it.size() - 31) + ".weight";
+                if (it.substr(it.size() - 14) == ".lora_A.weight") {
+                    loraDicts[originalName].first = it;
+                } else {
+                    loraDicts[originalName].second = it;
+                }
+            }
+        }
+        std::string loraConfigError;
+        auto loraConfig = json11::Json::parse(ReadAllFile(path + "adapter_config.json"), loraConfigError);
+        loraScaling = loraConfig["lora_alpha"].number_value() / loraConfig["r"].number_value();
+    }
+
     std::string path = "/home/temp/llm_model/Qwen/Qwen3-8B/";
     std::string stIndexFile = path + "model.safetensors.index.json";
 
