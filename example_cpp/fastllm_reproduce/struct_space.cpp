@@ -736,3 +736,26 @@ void MultiThreadBase3GroupQuantizationBF16Op::Run() {
         }
     }
 }
+
+ByteWriter::ByteWriter(uint8_t *cur) { this->cur = cur; }
+
+void ByteWriter::WriteInt(int v) {
+    *((int *)this->cur) = v;
+    this->cur = this->cur + sizeof(int);
+}
+
+void ByteWriter::WriteFloat(float v) {
+    *((float *)this->cur) = v;
+    this->cur = this->cur + sizeof(float);
+}
+
+void ByteWriter::WriteString(const std::string &s) {
+    WriteInt((int)s.size());
+    memcpy(this->cur, s.data(), s.size());
+    this->cur = this->cur + s.size();
+}
+
+void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
+    memcpy(this->cur, buffer, bytes);
+    this->cur = this->cur + bytes;
+}
