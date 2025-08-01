@@ -583,3 +583,31 @@ void Data::ExportFastllmFormat(uint8_t *bytes) {
         ErrorInFastLLM("ExportFastllmFormat Error: data type error.");
     }
 }
+
+uint64_t Data::GetFastllmFormateBytes() {
+    if (this->dataType == DataType::BFLOAT16 || this->dataType == DataType::FLOAT16 || this->dataType == DataType::FLOAT32) {
+        return this->GetBytes();
+    }
+
+    int ret = 0;
+    ret += sizeof(int) * 2;
+    if (this->dataType == DataType::FP8_E4M3) {
+        ret += sizeof(int) * 3;
+        ret += this->scales.size() * sizeof(float);
+        ret += this->GetBytes();
+    } else if (this->dataType == DataType::INT8 || this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
+        ret += sizeof(int);
+        int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+        ret += k * 2 * sizeof(float);
+        ret += this->GetBytes();
+    } else if (this->dataType == DataType::INT4_GROUP) {
+        ret += sizeof(int) * 3;
+        int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+        ret += k * this->group * 2 * sizeof(float);
+        ret += this->GetBytes();
+    } else {
+        ErrorInFastLLM("ExportFastllmFormat Error: data type error.");
+    }
+
+    return ret;
+}
