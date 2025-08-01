@@ -297,5 +297,10 @@ int main() {
                 st,
                 end));
         }
+
+        for (int i = 0; i < threads.size(); i++) {
+            threads[i]->join();
+            delete threads[i];
+        }
     }
 }
