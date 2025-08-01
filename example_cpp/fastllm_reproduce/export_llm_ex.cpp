@@ -127,6 +127,7 @@ int main() {
         }
 
         // 1.0 创建 weights
+        json11::Json::object config;
         for (auto &it : item) {
             auto &tensor = *it;
             std::string weightName = tensor.tensorName;
@@ -301,6 +302,30 @@ int main() {
         for (int i = 0; i < threads.size(); i++) {
             threads[i]->join();
             delete threads[i];
+        }
+
+        std::map<std::string, std::vector<long long>> offsets;
+        long long currentOffset = 0;
+        for (auto it : item) {
+            std::string weightName = it->tensorName;
+            DataType realType = weights[weightName].dataType;
+            std::string dtype = "";
+            if (realType == DataType::FLOAT16) {
+                dtype = "F16";
+            } else if (realType == DataType::FLOAT32) {
+                dtype = "F32";
+            } else if (realType == DataType::BFLOAT16) {
+                dtype = "BF16";
+            } else {
+                dtype = "fastllm";
+            }
+            offsets[weightName] = {currentOffset, currentOffset + (long)weights[weightName].GetFastllmFormateBytes()};
+            currentOffset = currentOffset + (long)weights[weightName].GetFastllmFormateBytes();
+            config[weightName] = json11::Json::object{
+                {"dtype", dtype},
+                {"shape", json11::Json(weights[weightName].dims)},
+                {"data_offsets", json11::Json(offsets[weightName])},
+            };
         }
     }
 }
