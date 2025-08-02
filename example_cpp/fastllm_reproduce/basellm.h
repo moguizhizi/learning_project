@@ -79,6 +79,7 @@ class basellm {
     std::string model_type;
     std::set<std::string> cantQuantLinears;
     std::set<std::string> moelinears;
+    std::set<int> eos_token_ids;
 
     int block_cnt;
     int rotary_dim;
