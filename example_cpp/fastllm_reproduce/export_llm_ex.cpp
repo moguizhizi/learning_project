@@ -64,11 +64,14 @@ int main() {
     }
 
     std::string path = "/home/temp/llm_model/Qwen/Qwen3-8B/";
+    std::string outputPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
     std::string stIndexFile = path + "model.safetensors.index.json";
 
     std::set<std::string> stFiles;
+    std::map<std::string, std::string> outputFileDict;
     if (!FileExists(stIndexFile)) {
         stFiles.insert(path + "model.safetensors");
+        outputFileDict[path + "model.safetensors"] = outputPath + "model.safetensors";
     } else {
         std::string error;
         auto model_safetensors = json11::Json::parse(ReadAllFile(stIndexFile), error);
@@ -76,6 +79,7 @@ int main() {
 
         for (auto &it : stIndex.object_items()) {
             stFiles.insert(path + it.second.string_value());
+            outputFileDict[path + it.second.string_value()] = outputPath + it.second.string_value();
         }
     }
 
@@ -120,6 +124,7 @@ int main() {
     for (auto &file : safeTensors.fileNames) {
         std::map<std::string, Data> weights;
         std::vector<SafeTensorItem *> item;
+        std::string outputFileName = outputFileDict[file];
         for (auto &it : safeTensors.itmeDict) {
             if (it.second.fileName == file) {
                 item.push_back(&it.second);
@@ -319,13 +324,34 @@ int main() {
             } else {
                 dtype = "fastllm";
             }
-            offsets[weightName] = {currentOffset, currentOffset + (long)weights[weightName].GetFastllmFormateBytes()};
-            currentOffset = currentOffset + (long)weights[weightName].GetFastllmFormateBytes();
+            offsets[weightName] = {currentOffset, currentOffset + (long long)weights[weightName].GetFastllmFormateBytes()};
+            currentOffset = currentOffset + (long long)weights[weightName].GetFastllmFormateBytes();
             config[weightName] = json11::Json::object{
                 {"dtype", dtype},
                 {"shape", json11::Json(weights[weightName].dims)},
                 {"data_offsets", json11::Json(offsets[weightName])},
             };
         }
+
+        std::string configString = json11::Json(config).dump();
+        std::vector<uint8_t> bytes;
+        bytes.resize(currentOffset);
+        for (auto it : item) {
+            std::string weightName = it->tensorName;
+            if (StringEndWith(weightName, "_scale_inv")) {
+                continue;
+            }
+
+            weights[weightName].ExportFastllmFormat(bytes.data() + offsets[weightName][0]);
+        }
+
+        FILE *outputFile = fopen(outputFileName.c_str(), "wb");
+        uint64_t configLen = configString.size();
+        fwrite(&configLen, sizeof(uint64_t), 1, outputFile);
+        fwrite(configString.data(), 1, configString.size(), outputFile);
+        fwrite(bytes.data(), 1, bytes.size(), outputFile);
+        fclose(outputFile);
     }
+    delete loraTensors;
+    return;
 }
