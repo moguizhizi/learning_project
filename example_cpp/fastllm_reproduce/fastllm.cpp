@@ -161,3 +161,21 @@ std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonMo
 
     return modelType;
 }
+
+void CheckAWQModel(const std::string &path, bool &isAwqModel, int &awqGroupCnt) {
+    std::string error;
+    std::string configFile = path + "config.json";
+    auto config = json11::Json::parse(ReadAllFile(configFile), error);
+
+    isAwqModel = false;
+    awqGroupCnt = 128;
+    if (!config["quantization_config"].is_null() && config["quantization_config"]["quant_method"] == "awq") {
+        auto qconfig = config["quantization_config"];
+        AssertInFastLLM(qconfig["quant_method"] == "awq" && qconfig["bits"] == 4 && qconfig["version"] == "gemm" &&
+                            qconfig["zero_point"].bool_value(),
+                        "Config error: only 4bits AWQ with zero point and gemm version is supported.");
+
+        isAwqModel = true;
+        awqGroupCnt = qconfig["group_size"].int_value();
+    }
+}
