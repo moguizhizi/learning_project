@@ -11,6 +11,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 struct SafeTensorItem {
@@ -234,5 +235,9 @@ struct Tokenizer {
     json11::Json tokenizerConfig;
     std::string chatTemplate = "";
 
+    std::unordered_map<wchar_t, wchar_t> byteCharDict;
+    std::unordered_map<wchar_t, wchar_t> charByteDict;
+
+    Tokenizer();
     void SetTokenizerConfig(const json11::Json &config);
 };

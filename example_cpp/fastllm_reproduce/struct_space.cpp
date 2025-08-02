@@ -760,6 +760,21 @@ void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
     this->cur = this->cur + bytes;
 }
 
+Tokenizer::Tokenizer() {
+    int n = 0;
+    wchar_t special_token = L'\x0';
+    for (; special_token < L'!'; special_token++, n++) {
+        byteCharDict[L'\x100' + n] = special_token;
+        charByteDict[special_token] = L'\x100' + n;
+    }
+    for (special_token = L'\x7F'; special_token < L'\xA1'; special_token++, n++) {
+        byteCharDict[L'\x100' + n] = special_token;
+        charByteDict[special_token] = L'\x100' + n;
+    }
+    byteCharDict[L'\x100' + n++] = L'\xAD';
+    charByteDict[L'\xAD'] = L'\x100' + (n - 1);
+}
+
 void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
     this->tokenizerConfig = config;
     if (config["chat_template"].is_string()) {
