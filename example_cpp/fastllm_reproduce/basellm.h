@@ -20,12 +20,12 @@ class Data {
     bool directMemory = false;
     bool isKVCache = false;
 
-    uint64_t expansionSize;
-    uint64_t expansionBytes;
-    uint64_t cacheUid;
+    uint64_t expansionSize = 0;
+    uint64_t expansionBytes = 0;
+    uint64_t cacheUid = 0;
 
-    int unitSize;
-    int unitSizeDiv;
+    int unitSize = 0;
+    int unitSizeDiv = 1;
     std::string name;
 
     // 以下参数用于量化，对FLOAT数据不适用

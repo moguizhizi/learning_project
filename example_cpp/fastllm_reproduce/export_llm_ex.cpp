@@ -36,7 +36,8 @@ std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigString
 
 int main() {
 
-    std::string loraPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
+    // std::string loraPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
+    std::string loraPath = "";
 
     std::map<std::string, std::pair<std::string, std::string>> loraDicts;
     SafeTensors *loraTensors = nullptr;
@@ -63,8 +64,8 @@ int main() {
         loraScaling = loraConfig["lora_alpha"].number_value() / loraConfig["r"].number_value();
     }
 
-    std::string path = "/home/temp/llm_model/Qwen/Qwen3-8B/";
-    std::string outputPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
+    std::string path = "/home/temp/llm_model/Qwen/Qwen3-0.6B/";
+    std::string outputPath = "/home/temp/llm_model/fastllm/Qwen/Qwen3-8B/";
     std::string stIndexFile = path + "model.safetensors.index.json";
 
     std::set<std::string> stFiles;
@@ -116,7 +117,8 @@ int main() {
         }
     }
 
-    std::string dtypeConfigString = "";
+    std::string dtype_config = "/home/project/learning_project/example_cpp/fastllm_reproduce/dtype_config.json";
+    std::string dtypeConfigString = ReadAllFile(dtype_config);
     std::vector<std::pair<std::string, std::string>> dtypeRules = ParseDtypeRulesFromConfigString(dtypeConfigString);
 
     DataType lineardtype = DataType::BFLOAT16;
@@ -177,7 +179,9 @@ int main() {
             threads.push_back(new std::thread(
                 [&](int st, int end) {
                     for (int j = st; j < end; j++) {
+
                         auto &tensor = *item[j];
+
                         if (StringEndWith(tensor.tensorName, "_scale_inv")) {
                             continue;
                         }
@@ -216,7 +220,7 @@ int main() {
                             }
                         }
 
-                        if (tensor.dtype == "F8_E4M3" && (dataType == FP8_E4M3)) {
+                        if (tensor.dtype == "F8_E4M3" && (dataType == DataType::FP8_E4M3)) {
                             oriDataType = DataType::FP8_E4M3;
                             scaleTensorName = tensor.tensorName + "_scale_inv";
                             if (safeTensors.itmeDict.find(scaleTensorName) == safeTensors.itmeDict.end()) {
@@ -353,5 +357,5 @@ int main() {
         fclose(outputFile);
     }
     delete loraTensors;
-    return;
+    return 0;
 }
