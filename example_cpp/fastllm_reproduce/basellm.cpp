@@ -161,12 +161,19 @@ uint64_t Data::GetBytes() const { return (this->dims[0] * this->stride[0] * this
 void Data::FreeSpace() {
     this->expansionSize = 0;
     this->expansionBytes = 0;
-    this->dims.resize(0);
-    this->stride.resize(0);
-    delete[] this->cpuData;
-
-    this->cpuData = nullptr;
-    this->cudaData = nullptr;
+    if (this->dataDevice == DataDevice::CPU) {
+        delete[] this->cpuData;
+    } else if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+        if (this->directMemory) {
+            FastllmCudaDirectFree(this->cudaData);
+        } else {
+            FastllmCudaFree(this->cudaData);
+        }
+#else
+        ErrorInFastLLM("Error: cuda is not supported.\n");
+#endif
+    }
 }
 
 void Data::Allocate() {

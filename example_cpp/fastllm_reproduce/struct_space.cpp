@@ -229,8 +229,8 @@ void SafeTensorItem::CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale
                 this->minsBuffer[y * group + gx] = -s * z;
             }
         }
-        this->buffer = new uint8_t[n * m * 8 * 0.5];
-        std::memset(this->buffer, 0, n * m * 8 * 0.5);
+        this->buffer = new uint8_t[n * m * 4];
+        std::memset(this->buffer, 0, n * m * 4);
         for (int x = 0; x < n; x++) {
             for (int y = 0; y < m * 8; y++) {
                 int gy = y >> 3;
@@ -567,7 +567,7 @@ void MultiThreadGroupQuantizationBF16Op::Run() {
                     uint8_t value2 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 2]]);
                     uint8_t value3 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 4]]);
 
-                    u8[id] = value0 << 6 | value1 << 4 | value2 << 2 | value3;
+                    this->u8[id] = value0 << 6 | value1 << 4 | value2 << 2 | value3;
                 }
             }
         }
