@@ -66,3 +66,4 @@ float as_float(const uint32_t x);
 void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dstDtype, uint64_t len);
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
+std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonModel);
