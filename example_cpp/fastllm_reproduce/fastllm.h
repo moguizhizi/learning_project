@@ -67,3 +67,4 @@ void ConvertDataType(uint8_t *src, DataType srcDtype, uint8_t *dst, DataType dst
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonModel);
+void CheckAWQModel(const std::string &path, bool &isAwqModel, int &awqGroupCnt);
