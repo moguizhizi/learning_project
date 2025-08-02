@@ -131,3 +131,33 @@ void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n,
         }
     }
 }
+
+std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonModel) {
+    std::string error;
+    std::string modelType;
+
+    if (weightOnly) {
+        modelType = "qwen";
+    } else if (isJsonModel) {
+        modelType = "fastllmJson";
+    } else {
+        std::string configFile = path + "config.json";
+        auto config = json11::Json::parse(ReadAllFile(configFile), error);
+
+        if (!config["model_type"].is_null()) {
+            modelType = config["model_type"].string_value();
+        } else {
+            modelType = config["architectures"].array_items()[0].string_value();
+        }
+
+        // 特例处理 InternLM2
+        if (!config["architectures"].is_null()) {
+            std::string arch = config["architectures"].array_items()[0].string_value();
+            if (arch == "InternLM2ForCausalLM") {
+                modelType = "internlm2";
+            }
+        }
+    }
+
+    return modelType;
+}
