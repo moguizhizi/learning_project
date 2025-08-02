@@ -759,3 +759,10 @@ void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
     memcpy(this->cur, buffer, bytes);
     this->cur = this->cur + bytes;
 }
+
+void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
+    this->tokenizerConfig = config;
+    if (config["chat_template"].is_string()) {
+        this->chatTemplate = config["chat_template"].string_value();
+    }
+}

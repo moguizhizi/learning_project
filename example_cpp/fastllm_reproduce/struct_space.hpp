@@ -229,3 +229,10 @@ struct ByteWriter {
     void WriteString(const std::string &s);
     void WriteBytes(uint8_t *buffer, uint64_t bytes);
 };
+
+struct Tokenizer {
+    json11::Json tokenizerConfig;
+    std::string chatTemplate = "";
+
+    void SetTokenizerConfig(const json11::Json &config);
+};
