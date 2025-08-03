@@ -69,3 +69,4 @@ void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n,
 std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonModel);
 void CheckAWQModel(const std::string &path, bool &isAwqModel, int &awqGroupCnt);
 void SetEosTokenIds(basellm *model, const std::string &path);
+void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model);
