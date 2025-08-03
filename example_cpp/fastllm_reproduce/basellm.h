@@ -85,6 +85,9 @@ class basellm {
     int rotary_dim;
     int head_dim = 0;
 
+    std::string pre_prompt;                       // 最初对话的提示语
+    std::string user_role, bot_role, history_sep; // 用于生成每一轮的prompt
+
     int bos_token_id;
     int eos_token_id;
 
