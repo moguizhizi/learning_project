@@ -794,7 +794,7 @@ void Tokenizer::SetChatTemplate() {
     }
 }
 
-void Tokenizer::Insert(const std::string &s, int tokenId, float score = 1.0f) {
+void Tokenizer::Insert(const std::string &s, int tokenId, float score) {
     TrieNode *now = this->root;
     for (int i = 0; i < s.size(); i++) {
         if (now->next.find(s[i]) == now->next.end()) {
@@ -831,6 +831,25 @@ void Tokenizer::SetSpecialTokens(const std::map<std::string, int> &specialTokenM
     }
 }
 
+std::wstring Tokenizer::Utf8ToWstring(const std::string &utf8Str) {
+    icu::UnicodeString unicodeStr = icu::UnicodeString::fromUTF8(utf8Str);
+    std::wstring result;
+    for (int i = 0; i < unicodeStr.length(); ++i) {
+        result += static_cast<wchar_t>(unicodeStr.charAt(i));
+    }
+    return result;
+}
+
+std::string Tokenizer::WstringToUtf8(const std::wstring &wstr) {
+    icu::UnicodeString unicodeStr;
+    for (wchar_t wc : wstr) {
+        unicodeStr.append(static_cast<UChar32>(wc));
+    }
+    std::string utf8Str;
+    unicodeStr.toUTF8String(utf8Str);
+    return utf8Str;
+}
+
 std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPrefix) {
     if (this->byteAsChar) {
         std::wstring ws(ori.size(), L' ');
@@ -841,7 +860,7 @@ std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPref
             }
             ws[i] = wi;
         }
-        return converter.to_bytes(ws);
+        return this->WstringToUtf8(ws);
     }
 
     std::string blank = "";
@@ -859,4 +878,6 @@ std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPref
             s += ori[i];
         }
     }
+
+    return s;
 }

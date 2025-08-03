@@ -11,6 +11,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unicode/unistr.h>
 #include <unordered_map>
 #include <vector>
 
@@ -71,7 +72,6 @@ struct Tokenizer {
     std::unordered_map<std::string, int> stringToTokenDict;
     std::vector<std::string> specialTokens;
 
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
     std::unordered_map<wchar_t, wchar_t> byteCharDict;
     std::unordered_map<wchar_t, wchar_t> charByteDict;
 
@@ -86,6 +86,8 @@ struct Tokenizer {
     void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
     std::string Normalize(const std::string &ori, const bool addDummyPrefix);
     void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
+    std::string WstringToUtf8(const std::wstring &wstr);
+    std::wstring Utf8ToWstring(const std::string &utf8Str);
 };
 
 struct WeightMap {
