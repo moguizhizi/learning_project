@@ -251,5 +251,6 @@ struct Tokenizer {
 
     Tokenizer();
     void SetTokenizerConfig(const json11::Json &config);
+    void SetChatTemplate();
     void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
 };
