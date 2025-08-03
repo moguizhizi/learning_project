@@ -302,6 +302,32 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
             model->weight.tokenizer.byteAsChar = true;
             model->weight.AddDict("tokenizer_byte_as_char", "True");
         }
+    } else if (tokenizerClass == "ChatGLM4Tokenizer") {
+        std::vector<std::string> lines, line;
+        SplitString(ReadAllFile(path + "tokenizer.model"), {'\n'}, lines);
+        for (int i = 0; i < lines.size(); i++) {
+            SplitString(lines[i], {' '}, line);
+            model->weight.AddTokenizerWord(Base64Decode(line[0]), atoi(line[1].c_str()), 1.0f);
+        }
+
+        std::map<std::string, int> specialTokenMap;
+        for (auto &it : tokenizerConfig["added_tokens_decoder"].object_items()) {
+            specialTokenMap[it.second["content"].string_value()] = atoi(it.first.c_str());
+        }
+
+        if (!specialTokenMap.empty())
+            model->weight.AddDict("tokenizer_has_special_tokens", "1");
+
+        model->weight.tokenizer.SetSpecialTokens(specialTokenMap);
+        model->weight.AddDict("tokenizer_class", tokenizerClass);
+        // ChatGLM采用拼接token的方法，需要强行指定分割词的TokenID
+        model->pre_prompt = "[gMASK]<sop>";
+        model->user_role = ("<FLM_FIX_TOKEN_" + std::to_string(model->weight.tokenizer.GetTokenId("<|user|>")) + ">\n");
+        model->bot_role = ("<FLM_FIX_TOKEN_" + std::to_string(model->weight.tokenizer.GetTokenId("<|assistant|>")) + ">\n");
+        model->history_sep = "";
+        model->weight.tokenizer.type = Tokenizer::TokenizerType::QWEN;
+        model->weight.tokenizer.chatTemplate = "";
+
     } else if (tokenizerClass == "QWenTokenizer") {
         // Qwen用的分词
         std::vector<std::string> lines, line;
