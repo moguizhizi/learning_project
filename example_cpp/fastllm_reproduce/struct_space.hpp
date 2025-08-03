@@ -50,6 +50,8 @@ struct SafeTensors {
 };
 
 struct Tokenizer {
+    enum TokenizerType { BPE = 0, NORMAL = 1, QWEN = 2, GLM = 3, BERT = 4 };
+
     struct TrieNode {
         int tokenId;
         float score;
@@ -75,6 +77,8 @@ struct Tokenizer {
 
     TrieNode *root = nullptr;
     TrieNode *specialRoot = nullptr;
+
+    TokenizerType type = TokenizerType::BPE;
 
     Tokenizer();
     void SetTokenizerConfig(const json11::Json &config);
