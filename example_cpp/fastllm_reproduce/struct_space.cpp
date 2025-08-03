@@ -811,7 +811,7 @@ void Tokenizer::Insert(const std::string &s, int tokenId, float score = 1.0f) {
 
 void Tokenizer::SetSpecialTokens(const std::map<std::string, int> &specialTokenMap) {
     for (const auto &it : specialTokenMap) {
-        std::string specialtoken = it.first;
+        std::string specialtoken = Normalize(it.first, false);
         int tokenId = it.second;
         float score = 0.0f;
         TrieNode *now = this->specialRoot;
@@ -827,5 +827,35 @@ void Tokenizer::SetSpecialTokens(const std::map<std::string, int> &specialTokenM
         this->tokenToStringDict[tokenId] = specialtoken;
         this->stringToTokenDict[specialtoken] = tokenId;
         this->specialTokens.push_back(specialtoken);
+    }
+}
+
+std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPrefix) {
+    if (this->byteAsChar) {
+        std::wstring ws(ori.size(), L' ');
+        for (int i = 0; i < ori.size(); i++) {
+            wchar_t wi = static_cast<wchar_t>(static_cast<unsigned char>(ori[i]));
+            if (this->charByteDict.find(wi) != this->charByteDict.end()) {
+                wi = this->charByteDict[wi];
+            }
+            ws[i] = wi;
+        }
+        return converter.to_bytes(ws);
+    }
+
+    std::string blank = "";
+    blank += 226, blank += 150, blank += 129;
+    std::string s = (addDummyPrefix && this->addDummyPrefix) ? blank : "";
+    if (15 < ori.size() && ori.substr(0, 15) == "<FLM_FIX_TOKEN_") {
+        s = "";
+    }
+    for (int i = 0; i < ori.size(); i++) {
+        if (ori[i] == ' ') {
+            if (!this->removeExtraWhitespaces && i > 0 && ori[i - 1] == ' ') {
+                s += blank;
+            }
+        } else {
+            s += ori[i];
+        }
     }
 }
