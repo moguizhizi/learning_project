@@ -88,6 +88,7 @@ struct Tokenizer {
     void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
     std::string WstringToUtf8(const std::wstring &wstr);
     std::wstring Utf8ToWstring(const std::string &utf8Str);
+    int GetTokenId(const std::string &s);
 };
 
 struct WeightMap {

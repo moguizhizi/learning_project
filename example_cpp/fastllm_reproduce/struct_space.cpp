@@ -881,3 +881,8 @@ std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPref
 
     return s;
 }
+
+int Tokenizer::GetTokenId(const std::string &s) {
+    AssertInFastLLM(this->stringToTokenDict.find(s) != this->stringToTokenDict.end(), "Tokenizer.GetTokenId error: can't find token \"" + s + "\"");
+    return this->stringToTokenDict[s];
+}
