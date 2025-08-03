@@ -764,6 +764,7 @@ Tokenizer::TrieNode::TrieNode() { this->tokenId = -999999; }
 
 Tokenizer::Tokenizer() {
     this->root = new TrieNode();
+    this->specialRoot = new TrieNode();
     int n = 0;
     wchar_t special_token = L'\x0';
     for (; special_token < L'!'; special_token++, n++) {
@@ -806,4 +807,25 @@ void Tokenizer::Insert(const std::string &s, int tokenId, float score = 1.0f) {
     this->tokenToScoreDict[tokenId] = score;
     this->tokenToStringDict[tokenId] = s;
     this->stringToTokenDict[s] = tokenId;
+}
+
+void Tokenizer::SetSpecialTokens(const std::map<std::string, int> &specialTokenMap) {
+    for (const auto &it : specialTokenMap) {
+        std::string specialtoken = it.first;
+        int tokenId = it.second;
+        float score = 0.0f;
+        TrieNode *now = this->specialRoot;
+        for (int i = 0; i < specialtoken.size(); i++) {
+            if (now->next.find(specialtoken[i]) == now->next.end()) {
+                now->next[specialtoken[i]] = new TrieNode();
+            }
+            now = now->next[specialtoken[i]];
+        }
+
+        now->tokenId = tokenId;
+        now->score = score;
+        this->tokenToStringDict[tokenId] = specialtoken;
+        this->stringToTokenDict[specialtoken] = tokenId;
+        this->specialTokens.push_back(specialtoken);
+    }
 }
