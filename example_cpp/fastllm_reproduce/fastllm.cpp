@@ -204,6 +204,7 @@ void SetEosTokenIds(basellm *model, const std::string &path) {
 }
 
 void SplitString(const std::string &str, const std::set<char> &chars, std::vector<std::string> &ret) {
+    ret.clear();
     std::string now = "";
     for (int i = 0; i < str.size(); i++) {
         if (chars.find(str[i]) == chars.end()) {
