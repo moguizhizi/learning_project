@@ -202,3 +202,45 @@ void SetEosTokenIds(basellm *model, const std::string &path) {
         }
     }
 }
+
+void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
+    std::string error;
+    std::string tokenizerConfigFile = path + "tokenizer_config.json";
+    auto tokenizerConfig = json11::Json::parse(ReadAllFile(tokenizerConfigFile), error);
+    model->weight.tokenizer.SetTokenizerConfig(tokenizerConfig);
+    model->weight.tokenizer.SetChatTemplate();
+    std::string chatTemplate = model->weight.tokenizer.chatTemplate;
+    if (!chatTemplate.empty() && model->weight.dicts.find("chat_template") == model->weight.dicts.end()) {
+        model->weight.AddDict("chat_template", chatTemplate);
+    }
+
+    std::string tokenizerClass = tokenizerConfig["tokenizer_class"].string_value();
+    if (tokenizerClass == "PreTrainedTokenizerFast" || tokenizerClass == "LlamaTokenizerFast" || tokenizerClass == "Qwen2Tokenizer" ||
+        tokenizerClass == "BloomTokenizer" || tokenizerClass == "LlamaTokenizer" || tokenizerClass == "CodeLlamaTokenizer" ||
+        tokenizerClass == "MiniCPMTokenizer") {
+        std::string tokenizerFile = path + "tokenizer.json";
+        if (!FileExists(tokenizerFile)) {
+            ErrorInFastLLM("Model with a supported tokenizer_class: " + tokenizerClass + "，but has no \"tokenizer.json\"!");
+        }
+
+        auto tokenizer = json11::Json::parse(ReadAllFile(tokenizerFile), error);
+        for (auto &it : tokenizer["model"]["vocab"].object_items()) {
+            model->weight.AddTokenizerWord(it.first, it.second.int_value(), 1.0f);
+        }
+
+        std::map<std::string, int> specialTokenMap;
+        for (auto &it : tokenizer["model"]["added_tokens"].array_items()) {
+            specialTokenMap[it["content"].string_value()] = it["id"].int_value();
+        }
+
+        if (!specialTokenMap.empty())
+            model->weight.AddDict("tokenizer_has_special_tokens", "1");
+
+        model->weight.tokenizer.SetSpecialTokens(specialTokenMap);
+
+        if (!tokenizer["decoder"].is_null() && !tokenizer["decoder"]["type"].is_null() && tokenizer["decoder"]["type"] == "ByteLevel") {
+            model->weight.tokenizer.byteAsChar = true;
+            model->weight.AddDict("tokenizer_byte_as_char", "True");
+        }
+    }
+}
