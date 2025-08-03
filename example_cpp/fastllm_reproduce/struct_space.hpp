@@ -240,11 +240,16 @@ struct Tokenizer {
     json11::Json tokenizerConfig;
     std::string chatTemplate = "";
 
+    bool addDummyPrefix = true;         // 是否在首位添加空格
+    bool removeExtraWhitespaces = true; // 是否将多个空格合并为一个
+    bool byteAsChar = false;            // 是否将byte变为展示字符
+
     std::unordered_map<int, std::string> tokenToStringDict;
     std::unordered_map<int, float> tokenToScoreDict;
     std::unordered_map<std::string, int> stringToTokenDict;
     std::vector<std::string> specialTokens;
 
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
     std::unordered_map<wchar_t, wchar_t> byteCharDict;
     std::unordered_map<wchar_t, wchar_t> charByteDict;
 
@@ -255,5 +260,6 @@ struct Tokenizer {
     void SetTokenizerConfig(const json11::Json &config);
     void SetChatTemplate();
     void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
+    std::string Normalize(const std::string &ori, const bool addDummyPrefix);
     void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
 };
