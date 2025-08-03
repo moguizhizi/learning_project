@@ -778,10 +778,17 @@ Tokenizer::Tokenizer() {
     this->charByteDict[L'\xAD'] = L'\x100' + (n - 1);
 }
 
-void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
-    this->tokenizerConfig = config;
-    if (config["chat_template"].is_string()) {
-        this->chatTemplate = config["chat_template"].string_value();
+void Tokenizer::SetTokenizerConfig(const json11::Json &config) { this->tokenizerConfig = config; }
+
+void Tokenizer::SetChatTemplate() {
+    if (!this->tokenizerConfig.is_null()) {
+        if (this->tokenizerConfig["chat_template"].is_string()) {
+            this->chatTemplate = this->tokenizerConfig["chat_template"].string_value();
+        } else {
+            this->chatTemplate = "";
+        }
+    } else {
+        this->chatTemplate = "";
     }
 }
 
