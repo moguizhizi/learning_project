@@ -760,19 +760,22 @@ void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
     this->cur = this->cur + bytes;
 }
 
+Tokenizer::TrieNode::TrieNode() { this->tokenId = -999999; }
+
 Tokenizer::Tokenizer() {
+    this->root = new TrieNode();
     int n = 0;
     wchar_t special_token = L'\x0';
     for (; special_token < L'!'; special_token++, n++) {
-        byteCharDict[L'\x100' + n] = special_token;
-        charByteDict[special_token] = L'\x100' + n;
+        this->byteCharDict[L'\x100' + n] = special_token;
+        this->charByteDict[special_token] = L'\x100' + n;
     }
     for (special_token = L'\x7F'; special_token < L'\xA1'; special_token++, n++) {
-        byteCharDict[L'\x100' + n] = special_token;
-        charByteDict[special_token] = L'\x100' + n;
+        this->byteCharDict[L'\x100' + n] = special_token;
+        this->charByteDict[special_token] = L'\x100' + n;
     }
-    byteCharDict[L'\x100' + n++] = L'\xAD';
-    charByteDict[L'\xAD'] = L'\x100' + (n - 1);
+    this->byteCharDict[L'\x100' + n++] = L'\xAD';
+    this->charByteDict[L'\xAD'] = L'\x100' + (n - 1);
 }
 
 void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
@@ -780,4 +783,20 @@ void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
     if (config["chat_template"].is_string()) {
         this->chatTemplate = config["chat_template"].string_value();
     }
+}
+
+void Tokenizer::Insert(const std::string &s, int tokenId, float score = 1.0f) {
+    TrieNode *now = this->root;
+    for (int i = 0; i < s.size(); i++) {
+        if (now->next.find(s[i]) == now->next.end()) {
+            now->next[s[i]] = new TrieNode();
+        }
+        now = now->next[s[i]];
+    }
+
+    now->tokenId = tokenId;
+    now->score = score;
+    this->tokenToScoreDict[tokenId] = score;
+    this->tokenToStringDict[tokenId] = s;
+    this->stringToTokenDict[s] = tokenId;
 }
