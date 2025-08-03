@@ -49,8 +49,6 @@ struct SafeTensors {
     std::vector<std::string> GetSortedItemNames();
 };
 
-struct Tokenizer {};
-
 struct WeightMap {
     std::set<std::string> embeddingsNames;
     std::set<std::string> linearNames;
@@ -232,12 +230,26 @@ struct ByteWriter {
 };
 
 struct Tokenizer {
+    struct TrieNode {
+        int tokenId;
+        float score;
+        std::map<int, TrieNode *> next;
+        TrieNode();
+    };
+
     json11::Json tokenizerConfig;
     std::string chatTemplate = "";
+
+    std::unordered_map<int, std::string> tokenToStringDict;
+    std::unordered_map<int, float> tokenToScoreDict;
+    std::unordered_map<std::string, int> stringToTokenDict;
 
     std::unordered_map<wchar_t, wchar_t> byteCharDict;
     std::unordered_map<wchar_t, wchar_t> charByteDict;
 
+    TrieNode *root;
+
     Tokenizer();
     void SetTokenizerConfig(const json11::Json &config);
+    void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
 };
