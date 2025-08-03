@@ -49,12 +49,50 @@ struct SafeTensors {
     std::vector<std::string> GetSortedItemNames();
 };
 
+struct Tokenizer {
+    struct TrieNode {
+        int tokenId;
+        float score;
+        std::map<int, TrieNode *> next;
+        TrieNode();
+    };
+
+    json11::Json tokenizerConfig;
+    std::string chatTemplate = "";
+
+    bool addDummyPrefix = true;         // 是否在首位添加空格
+    bool removeExtraWhitespaces = true; // 是否将多个空格合并为一个
+    bool byteAsChar = false;            // 是否将byte变为展示字符
+
+    std::unordered_map<int, std::string> tokenToStringDict;
+    std::unordered_map<int, float> tokenToScoreDict;
+    std::unordered_map<std::string, int> stringToTokenDict;
+    std::vector<std::string> specialTokens;
+
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    std::unordered_map<wchar_t, wchar_t> byteCharDict;
+    std::unordered_map<wchar_t, wchar_t> charByteDict;
+
+    TrieNode *root = nullptr;
+    TrieNode *specialRoot = nullptr;
+
+    Tokenizer();
+    void SetTokenizerConfig(const json11::Json &config);
+    void SetChatTemplate();
+    void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
+    std::string Normalize(const std::string &ori, const bool addDummyPrefix);
+    void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
+};
+
 struct WeightMap {
+    Tokenizer tokenizer;
+
     std::set<std::string> embeddingsNames;
     std::set<std::string> linearNames;
     std::map<std::string, std::string> dicts;
 
     void AddDict(const std::string &key, const std::string &value);
+    void AddTokenizerWord(const std::string &key, int value, float score);
     WeightType GetWeightType(const std::string &key);
 };
 
@@ -227,39 +265,4 @@ struct ByteWriter {
     void WriteFloat(float v);
     void WriteString(const std::string &s);
     void WriteBytes(uint8_t *buffer, uint64_t bytes);
-};
-
-struct Tokenizer {
-    struct TrieNode {
-        int tokenId;
-        float score;
-        std::map<int, TrieNode *> next;
-        TrieNode();
-    };
-
-    json11::Json tokenizerConfig;
-    std::string chatTemplate = "";
-
-    bool addDummyPrefix = true;         // 是否在首位添加空格
-    bool removeExtraWhitespaces = true; // 是否将多个空格合并为一个
-    bool byteAsChar = false;            // 是否将byte变为展示字符
-
-    std::unordered_map<int, std::string> tokenToStringDict;
-    std::unordered_map<int, float> tokenToScoreDict;
-    std::unordered_map<std::string, int> stringToTokenDict;
-    std::vector<std::string> specialTokens;
-
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    std::unordered_map<wchar_t, wchar_t> byteCharDict;
-    std::unordered_map<wchar_t, wchar_t> charByteDict;
-
-    TrieNode *root = nullptr;
-    TrieNode *specialRoot = nullptr;
-
-    Tokenizer();
-    void SetTokenizerConfig(const json11::Json &config);
-    void SetChatTemplate();
-    void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
-    std::string Normalize(const std::string &ori, const bool addDummyPrefix);
-    void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
 };

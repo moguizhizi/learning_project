@@ -333,6 +333,7 @@ std::vector<std::string> SafeTensors::GetSortedItemNames() {
 }
 
 void WeightMap::AddDict(const std::string &key, const std::string &value) { this->dicts[key] = value; }
+void WeightMap::AddTokenizerWord(const std::string &key, int value, float score) { this->tokenizer.Insert(key, value, score); }
 
 WeightType WeightMap::GetWeightType(const std::string &key) {
     if (this->embeddingsNames.find(key) != this->embeddingsNames.end()) {
