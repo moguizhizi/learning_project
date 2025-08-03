@@ -1,0 +1,22 @@
+[
+    {
+        "key": "(.)*",
+        "dtype": "int4g",
+        "comment": "default use dtype int4g"
+    },
+    {
+        "key": "model\\.layers\\.([0-9]|[1][0-9]|2[0-5])\\.(.)*",
+        "dtype": "fp8",
+        "comment": "layer 0~25 use dtype fp8"
+    },
+    {
+        "key": "(.)*mlp\\.gate\\.weight",
+        "dtype": "float16",
+        "comment": "gate use float16"
+    },
+    {
+        "key": "(.)*experts(.)*[gate|up|down]_proj(.)*",
+        "dtype": "int4",
+        "comment": "moe use int4"
+    }
+]
