@@ -243,14 +243,17 @@ struct Tokenizer {
     std::unordered_map<int, std::string> tokenToStringDict;
     std::unordered_map<int, float> tokenToScoreDict;
     std::unordered_map<std::string, int> stringToTokenDict;
+    std::vector<std::string> specialTokens;
 
     std::unordered_map<wchar_t, wchar_t> byteCharDict;
     std::unordered_map<wchar_t, wchar_t> charByteDict;
 
-    TrieNode *root;
+    TrieNode *root = nullptr;
+    TrieNode *specialRoot = nullptr;
 
     Tokenizer();
     void SetTokenizerConfig(const json11::Json &config);
     void SetChatTemplate();
     void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
+    void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
 };
