@@ -73,3 +73,4 @@ void SplitString(const std::string &str, const std::set<char> &chars, std::vecto
 std::string Base64Decode(const std::string &encoded);
 void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model);
 std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTensors *, float> LoadLoRA(const std::string &loraPath);
+SafeTensors LoadSafeTensors(const std::string &path);

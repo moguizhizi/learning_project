@@ -386,3 +386,20 @@ std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTenso
 
     return std::make_tuple(loraDicts, loraTensors, loraScaling);
 }
+
+SafeTensors LoadSafeTensors(const std::string &path) {
+    std::set<std::string> stFiles;
+    std::string stIndexFile = path + "model.safetensors.index.json";
+    std::string error;
+
+    if (!FileExists(stIndexFile)) {
+        stFiles.insert(path + "model.safetensors");
+    } else {
+        auto stIndex = json11::Json::parse(ReadAllFile(stIndexFile), error)["weight_map"];
+        for (const auto &it : stIndex.object_items()) {
+            stFiles.insert(path + it.second.string_value());
+        }
+    }
+
+    return SafeTensors(stFiles);
+}
