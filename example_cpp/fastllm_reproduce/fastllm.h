@@ -72,6 +72,9 @@ void SetEosTokenIds(basellm *model, const std::string &path);
 void SplitString(const std::string &str, const std::set<char> &chars, std::vector<std::string> &ret);
 std::string Base64Decode(const std::string &encoded);
 void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model);
-std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTensors *, float> LoadLoRA(const std::string &loraPath);
+void LoadLoRA(const std::string &loraPath,
+              std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
+              SafeTensors *&loraTensors,
+              float &loraScaling);
 SafeTensors LoadSafeTensors(const std::string &path);
 std::vector<std::pair<std::string, std::string>> ParseDtypeRules(const std::string &dtypeConfigString);
