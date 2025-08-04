@@ -403,3 +403,24 @@ SafeTensors LoadSafeTensors(const std::string &path) {
 
     return SafeTensors(stFiles);
 }
+
+std::vector<std::pair<std::string, std::string>> ParseDtypeRules(const std::string &dtypeConfigString) {
+    std::vector<std::pair<std::string, std::string>> dtypeRules;
+
+    if (!dtypeConfigString.empty()) {
+        std::string error;
+        auto dtypeConfig = json11::Json::parse(dtypeConfigString, error);
+
+        if (!error.empty()) {
+            printf("Parse dtype config failed.\n");
+            printf("config = %s\n", dtypeConfigString.c_str());
+            printf("error = %s\n", error.c_str());
+        } else {
+            for (const auto &it : dtypeConfig.array_items()) {
+                dtypeRules.emplace_back(it["key"].string_value(), it["dtype"].string_value());
+            }
+        }
+    }
+
+    return dtypeRules;
+}
