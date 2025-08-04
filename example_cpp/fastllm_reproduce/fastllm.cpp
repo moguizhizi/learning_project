@@ -344,3 +344,45 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
         ErrorInFastLLM("Unsupport tokenizer_class: " + tokenizerClass);
     }
 }
+
+std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTensors *, float> LoadLoRA(const std::string &loraPath) {
+    std::map<std::string, std::pair<std::string, std::string>> loraDicts;
+    SafeTensors *loraTensors = nullptr;
+    float loraScaling = 1.0f;
+
+    if (!loraPath.empty()) {
+        std::string path = loraPath;
+        if (path.back() != '/' && path.back() != '\\') {
+            path += "/";
+        }
+
+        loraTensors = new SafeTensors({path + "adapter_model.safetensors"});
+
+        for (const auto &it : loraTensors->GetSortedItemNames()) {
+            if (it.size() >= 31 && it.substr(0, 17) == "base_model.model." &&
+                (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight")) {
+
+                std::string originalName = it.substr(17, it.size() - 31) + ".weight";
+
+                if (it.substr(it.size() - 14) == ".lora_A.weight") {
+                    loraDicts[originalName].first = it;
+                } else {
+                    loraDicts[originalName].second = it;
+                }
+            }
+        }
+
+        std::string loraConfigError;
+        auto loraConfig = json11::Json::parse(ReadAllFile(path + "adapter_config.json"), loraConfigError);
+
+        if (loraConfigError.empty()) {
+            float loraAlpha = loraConfig["lora_alpha"].number_value();
+            float r = loraConfig["r"].number_value();
+            if (r != 0) {
+                loraScaling = loraAlpha / r;
+            }
+        }
+    }
+
+    return std::make_tuple(loraDicts, loraTensors, loraScaling);
+}
