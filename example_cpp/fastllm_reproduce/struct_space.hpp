@@ -97,9 +97,11 @@ struct WeightMap {
     std::set<std::string> embeddingsNames;
     std::set<std::string> linearNames;
     std::map<std::string, std::string> dicts;
+    std::map<std::string, Data> weight;
 
     void AddDict(const std::string &key, const std::string &value);
     void AddTokenizerWord(const std::string &key, int value, float score);
+    void AddEmptyWeight(const std::string &key, const std::vector<int> &dims, DataType dataType);
     WeightType GetWeightType(const std::string &key);
 };
 
