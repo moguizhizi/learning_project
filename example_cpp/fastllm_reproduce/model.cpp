@@ -20,7 +20,7 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
     float loraScaling = 1.0f;
     LoadLoRA(loraPath, loraDicts, loraTensors, loraScaling);
 
-    SafeTensors safetensors = LoadSafeTensors(modelPath);
+    SafeTensors safeTensors = LoadSafeTensors(modelPath);
 
     bool isJsonModel = false;
     std::string configFile = modelPath + "config.json";
@@ -51,3 +51,57 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
     if (!skipTokenizer) {
         LoadLLMTokenizerFromHFToModel(modelPath, model);
     }
+
+    model->InitParams();
+
+    auto tensors = safeTensors.GetSortedItemNames();
+
+    auto tensorMap = model->GetTensorMap(tensors, useMoeDataType, moeDataType);
+
+    std::string dtype_config = "/home/project/learning_project/example_cpp/fastllm_reproduce/dtype_config.json";
+    std::vector<std::pair<std::string, std::string>> dtypeRules = ParseDtypeRulesFromConfigFile(dtype_config);
+
+    int cur = 0;
+    long long totalBytes = 0;
+    std::set<std::string> allWeightNames; // 所有创建了的weight name
+    for (auto &tensorName : tensors) {
+        auto &tensor = safeTensors.itmeDict[tensorName];
+        DataType oriDataType = DataType::FLOAT32;
+        for (auto &it : tensorMap[tensorName]) {
+            std::string weightName = it.first;
+            DataType dataType = it.second;
+            allWeightNames.insert(weightName);
+
+            if ((dataType == DataType::DATA_AUTO_LINEAR || dataType == DataType::DATA_AUTO_CONV) && dtypeRules.size() > 0) {
+                int groupCnt = -1;
+                ParseDataType(weightName, dtypeRules, dataType, groupCnt);
+
+                if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
+                    dataType = DataType::FLOAT16;
+                }
+            }
+
+            if (dataType >= DataType::DATA_AUTO_NONE) {
+                dataType = (dataType == DataType::DATA_AUTO_LINEAR || dataType == DataType::DATA_AUTO_CONV) ? linearDataType : oriDataType;
+
+                if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
+                    dataType = DataType::FLOAT16;
+                }
+            }
+
+            if (it.second == DataType::DATA_AUTO_CONV) {
+                std::vector<int> realshape = tensor.intShape;
+                std::swap(realshape[0], realshape[1]);
+                model->weight.AddEmptyWeight(weightName, realshape, dataType);
+            } else if (isAwqModel && StringEndWith(tensorName, ".qweight")) {
+                model->weight.AddEmptyWeight(weightName, {tensor.intShape[1] * 8, tensor.intShape[0]}, dataType);
+            } else {
+                model->weight.AddEmptyWeight(weightName, tensor.intShape, dataType);
+            }
+        }
+
+        totalBytes += tensor.bytes;
+        printf("Load %d \r", (++cur) * 100 / (int)safeTensors.itmeDict.size());
+        fflush(stdout);
+    }
+}
