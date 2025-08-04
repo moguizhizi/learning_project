@@ -4,36 +4,6 @@
 #include <cstring>
 #include <thread>
 
-std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigString(const std::string &dtypeConfigString) {
-    std::vector<std::pair<std::string, std::string>> dtypeRules;
-
-    if (!dtypeConfigString.empty()) {
-        std::string error;
-        auto dtypeConfig = json11::Json::parse(dtypeConfigString, error);
-
-        if (!error.empty()) {
-            std::cerr << "Parse dtype config failed.\n";
-            std::cerr << "config = " << dtypeConfigString << "\n";
-            std::cerr << "error = " << error << "\n";
-        } else {
-            for (const auto &item : dtypeConfig.array_items()) {
-                std::string key = item["key"].string_value();
-                std::string dtype = item["dtype"].string_value();
-                dtypeRules.emplace_back(key, dtype);
-            }
-        }
-    }
-
-    if (!dtypeRules.empty()) {
-        std::cout << "Dtype rules:\n";
-        for (const auto &rule : dtypeRules) {
-            std::cout << rule.first << ": " << rule.second << "\n";
-        }
-    }
-
-    return dtypeRules;
-}
-
 int main() {
 
     // std::string loraPath = "/home/temp/llm_model/Qwen/Qwen3-8B/";
@@ -118,8 +88,7 @@ int main() {
     }
 
     std::string dtype_config = "/home/project/learning_project/example_cpp/fastllm_reproduce/dtype_config.json";
-    std::string dtypeConfigString = ReadAllFile(dtype_config);
-    std::vector<std::pair<std::string, std::string>> dtypeRules = ParseDtypeRulesFromConfigString(dtypeConfigString);
+    std::vector<std::pair<std::string, std::string>> dtypeRules = ParseDtypeRulesFromConfigFile(dtype_config);
 
     DataType lineardtype = DataType::BFLOAT16;
 

@@ -392,21 +392,31 @@ SafeTensors LoadSafeTensors(const std::string &path) {
     return SafeTensors(stFiles);
 }
 
-std::vector<std::pair<std::string, std::string>> ParseDtypeRules(const std::string &dtypeConfigString) {
+std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigFile(const std::string &configPath) {
     std::vector<std::pair<std::string, std::string>> dtypeRules;
 
+    std::string dtypeConfigString = ReadAllFile(configPath);
     if (!dtypeConfigString.empty()) {
         std::string error;
         auto dtypeConfig = json11::Json::parse(dtypeConfigString, error);
 
         if (!error.empty()) {
-            printf("Parse dtype config failed.\n");
-            printf("config = %s\n", dtypeConfigString.c_str());
-            printf("error = %s\n", error.c_str());
+            std::cerr << "Parse dtype config failed.\n";
+            std::cerr << "config = " << dtypeConfigString << "\n";
+            std::cerr << "error = " << error << "\n";
         } else {
-            for (const auto &it : dtypeConfig.array_items()) {
-                dtypeRules.emplace_back(it["key"].string_value(), it["dtype"].string_value());
+            for (const auto &item : dtypeConfig.array_items()) {
+                std::string key = item["key"].string_value();
+                std::string dtype = item["dtype"].string_value();
+                dtypeRules.emplace_back(key, dtype);
             }
+        }
+    }
+
+    if (!dtypeRules.empty()) {
+        std::cout << "Dtype rules:\n";
+        for (const auto &rule : dtypeRules) {
+            std::cout << rule.first << ": " << rule.second << "\n";
         }
     }
 
