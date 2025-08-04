@@ -77,4 +77,4 @@ void LoadLoRA(const std::string &loraPath,
               SafeTensors *&loraTensors,
               float &loraScaling);
 SafeTensors LoadSafeTensors(const std::string &path);
-std::vector<std::pair<std::string, std::string>> ParseDtypeRules(const std::string &dtypeConfigString);
+std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigFile(const std::string &configPath);
