@@ -345,10 +345,13 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
     }
 }
 
-std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTensors *, float> LoadLoRA(const std::string &loraPath) {
-    std::map<std::string, std::pair<std::string, std::string>> loraDicts;
-    SafeTensors *loraTensors = nullptr;
-    float loraScaling = 1.0f;
+void LoadLoRA(const std::string &loraPath,
+              std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
+              SafeTensors *&loraTensors,
+              float &loraScaling) {
+    loraDicts.clear();
+    loraTensors = nullptr;
+    loraScaling = 1.0f;
 
     if (!loraPath.empty()) {
         std::string path = loraPath;
@@ -383,8 +386,6 @@ std::tuple<std::map<std::string, std::pair<std::string, std::string>>, SafeTenso
             }
         }
     }
-
-    return std::make_tuple(loraDicts, loraTensors, loraScaling);
 }
 
 SafeTensors LoadSafeTensors(const std::string &path) {
