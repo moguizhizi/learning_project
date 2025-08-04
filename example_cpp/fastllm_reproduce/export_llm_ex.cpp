@@ -107,10 +107,10 @@ int main() {
     std::map<std::string, std::vector<std::pair<std::string, DataType>>> tensorMap = model->GetTensorMap(tensors);
     bool useMoeDataType = true;
     DataType moeDataType = DataType::FLOAT16;
-    if (useMoeDataType && model->moelinears.size() > 0) {
+    if (useMoeDataType && model->moeLinears.size() > 0) {
         for (auto &it : tensorMap) {
             for (auto &weight : it.second) {
-                if (model->moelinears.find(weight.first) != model->moelinears.end()) {
+                if (model->moeLinears.find(weight.first) != model->moeLinears.end()) {
                     weight.second = moeDataType;
                 }
             }
@@ -191,7 +191,7 @@ int main() {
                         DataType oriDataType = DataType::FLOAT32;
                         DataType dataType = tensorMap[weightName][0].second;
 
-                        int curGroupCnt = model->moelinears.find(weightName) != model->moelinears.end() ? moeGroupCnt : groupCnt;
+                        int curGroupCnt = model->moeLinears.find(weightName) != model->moeLinears.end() ? moeGroupCnt : groupCnt;
                         if ((dataType == DataType::DATA_AUTO_LINEAR || dataType == DataType::DATA_AUTO_CONV) && dtypeRules.size() > 0) {
                             int groupCnt = -1;
                             ParseDataType(weightName, dtypeRules, dataType, groupCnt);
