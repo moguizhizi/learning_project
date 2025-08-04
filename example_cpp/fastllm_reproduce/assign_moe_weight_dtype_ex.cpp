@@ -33,10 +33,10 @@ int main() {
     bool useMoeDataType = true;
     DataType moeDataType = DataType::FLOAT16;
 
-    if (useMoeDataType && model->moelinears.size() > 0) {
+    if (useMoeDataType && model->moeLinears.size() > 0) {
         for (auto &it : tensorMap) {
             for (auto &weight : it.second) {
-                if (model->moelinears.find(weight.first) != model->moelinears.end()) {
+                if (model->moeLinears.find(weight.first) != model->moeLinears.end()) {
                     weight.second = moeDataType;
                 }
             }

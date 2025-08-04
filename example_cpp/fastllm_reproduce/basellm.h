@@ -78,7 +78,7 @@ class basellm {
 
     std::string model_type;
     std::set<std::string> cantQuantLinears;
-    std::set<std::string> moelinears;
+    std::set<std::string> moeLinears;
     std::set<int> eos_token_ids;
 
     int block_cnt;
@@ -105,4 +105,6 @@ class basellm {
 
     void InitParams();
     std::map<std::string, std::vector<std::pair<std::string, DataType>>> GetTensorMap(const std::vector<std::string> &tensorNames);
+    std::map<std::string, std::vector<std::pair<std::string, DataType>>>
+    basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDataType, DataType moeDataType);
 };

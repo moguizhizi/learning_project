@@ -72,6 +72,39 @@ std::map<std::string, std::vector<std::pair<std::string, DataType>>> basellm::Ge
     return ret;
 }
 
+std::map<std::string, std::vector<std::pair<std::string, DataType>>>
+basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDataType, DataType moeDataType) {
+    std::map<std::string, std::vector<std::pair<std::string, DataType>>> ret;
+
+    for (auto &name : tensorNames) {
+        std::string realName = name;
+        if (StringEndWith(name, ".qweight")) {
+            realName = name.substr(0, name.size() - 7) + "weight";
+        }
+
+        WeightType weightType = this->weight.GetWeightType(realName);
+        DataType dataType = DataType::DATA_AUTO_NONE;
+
+        if (weightType == WeightType::LINEAR) {
+            dataType = DataType::DATA_AUTO_LINEAR;
+            if (this->cantQuantLinears.find(realName) != this->cantQuantLinears.end()) {
+                dataType = DataType::FLOAT16;
+            }
+        } else if (weightType == WeightType::EMBEDDING) {
+            dataType = DataType::DATA_AUTO_EMBEDDING;
+        }
+
+        // 如果是 MoE 并且开启 useMoeDataType，则替换类型
+        if (useMoeDataType && this->moeLinears.find(realName) != this->moeLinears.end()) {
+            dataType = moeDataType;
+        }
+
+        ret[name].push_back(std::make_pair(realName, dataType));
+    }
+
+    return ret;
+}
+
 Data::Data() {}
 
 Data::Data(DataType datatype) {
