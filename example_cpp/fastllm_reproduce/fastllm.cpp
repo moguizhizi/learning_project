@@ -132,8 +132,7 @@ void TransposeF32(float *pDst, float *pSrc, int dstStride, int srcStride, int n,
     }
 }
 
-std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonModel) {
-    std::string error;
+std::string GetModelType(const json11::Json &config, bool weightOnly, bool isJsonModel) {
     std::string modelType;
 
     if (weightOnly) {
@@ -141,12 +140,9 @@ std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonMo
     } else if (isJsonModel) {
         modelType = "fastllmJson";
     } else {
-        std::string configFile = path + "config.json";
-        auto config = json11::Json::parse(ReadAllFile(configFile), error);
-
         if (!config["model_type"].is_null()) {
             modelType = config["model_type"].string_value();
-        } else {
+        } else if (!config["architectures"].is_null() && !config["architectures"].array_items().empty()) {
             modelType = config["architectures"].array_items()[0].string_value();
         }
 
@@ -162,15 +158,13 @@ std::string GetModelType(const std::string &path, bool weightOnly, bool isJsonMo
     return modelType;
 }
 
-void CheckAWQModel(const std::string &path, bool &isAwqModel, int &awqGroupCnt) {
-    std::string error;
-    std::string configFile = path + "config.json";
-    auto config = json11::Json::parse(ReadAllFile(configFile), error);
-
+void CheckAWQModel(const json11::Json &config, bool &isAwqModel, int &awqGroupCnt) {
     isAwqModel = false;
     awqGroupCnt = 128;
+
     if (!config["quantization_config"].is_null() && config["quantization_config"]["quant_method"] == "awq") {
         auto qconfig = config["quantization_config"];
+
         AssertInFastLLM(qconfig["quant_method"] == "awq" && qconfig["bits"] == 4 && qconfig["version"] == "gemm" &&
                             qconfig["zero_point"].bool_value(),
                         "Config error: only 4bits AWQ with zero point and gemm version is supported.");
@@ -180,25 +174,18 @@ void CheckAWQModel(const std::string &path, bool &isAwqModel, int &awqGroupCnt) 
     }
 }
 
-void SetEosTokenIds(basellm *model, const std::string &path) {
-    std::string error;
-    std::string configFile = path + "config.json";
-    auto config = json11::Json::parse(ReadAllFile(configFile), error);
+void SetEosTokenIds(basellm *model, const json11::Json &config, const json11::Json &generation_config) {
     if (config["eos_token_id"].is_array()) {
-        for (auto &it : config["eos_token_id"].array_items()) {
+        for (const auto &it : config["eos_token_id"].array_items()) {
             model->eos_token_ids.insert(it.int_value());
         }
-    } else {
+    } else if (!config["eos_token_id"].is_null()) {
         model->eos_token_id = config["eos_token_id"].int_value();
     }
 
-    std::string generatetionConfigFile = path + "config.json";
-    if (FileExists(generatetionConfigFile)) {
-        auto generation_config = json11::Json::parse(ReadAllFile(generatetionConfigFile), error);
-        if (generation_config["eos_token_id"].is_array()) {
-            for (auto &it : generation_config["eos_token_id"].array_items()) {
-                model->eos_token_ids.insert(it.int_value());
-            }
+    if (generation_config["eos_token_id"].is_array()) {
+        for (const auto &it : generation_config["eos_token_id"].array_items()) {
+            model->eos_token_ids.insert(it.int_value());
         }
     }
 }
