@@ -275,3 +275,13 @@ struct ByteWriter {
     void WriteString(const std::string &s);
     void WriteBytes(uint8_t *buffer, uint64_t bytes);
 };
+
+struct ByteReader {
+    uint8_t *cur;
+
+    ByteReader(uint8_t *data);
+    int ReadInt();
+    float ReadFloat();
+    std::string ReadString();
+    void ReadBytes(uint8_t *buffer, uint64_t bytes);
+};

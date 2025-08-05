@@ -766,6 +766,32 @@ void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
     this->cur = this->cur + bytes;
 }
 
+ByteReader::ByteReader(uint8_t *data) { this->cur = data; }
+
+int ByteReader::ReadInt() {
+    int ret = *((int *)this->cur);
+    this->cur = this->cur + sizeof(int);
+    return ret;
+}
+
+float ByteReader::ReadFloat() {
+    float ret = *((float *)this->cur);
+    this->cur = this->cur + sizeof(float);
+    return ret;
+}
+
+std::string ByteReader::ReadString() {
+    int len = ReadInt();
+    std::string ret(reinterpret_cast<const char *>(this->cur), len); // 直接从 cur 复制 len 个字节
+    this->cur += len;
+    return ret;
+}
+
+void ByteReader::ReadBytes(uint8_t *buffer, uint64_t bytes) {
+    memcpy(buffer, this->cur, bytes);
+    this->cur += bytes;
+}
+
 Tokenizer::TrieNode::TrieNode() { this->tokenId = -999999; }
 
 Tokenizer::Tokenizer() {
