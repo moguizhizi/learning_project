@@ -104,4 +104,26 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
         printf("Load %d \r", (++cur) * 100 / (int)safeTensors.itmeDict.size());
         fflush(stdout);
     }
+
+    int thread_num = 16;
+    int cur = 0;
+    int start = 0;
+    std::vector<std::pair<int, int>> parts;
+    for (int i = 0; i < thread_num; i++) {
+        long long now = 0;
+        while (true) {
+            if (now * thread_num >= totalBytes || start > tensors.size()) {
+                break;
+            } else {
+                now += safeTensors.itmeDict[tensors[start]].bytes;
+                start++;
+            }
+        }
+        parts.push_back(std::make_pair(cur, start));
+        cur = start;
+    }
+    parts.back().second = tensors.size();
+    while (parts.size() < threadNum) {
+        parts.push_back(std::make_pair(-1, -1));
+    }
 }
