@@ -123,7 +123,9 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
         cur = start;
     }
     parts.back().second = tensors.size();
-    while (parts.size() < threadNum) {
+    while (parts.size() < thread_num) {
         parts.push_back(std::make_pair(-1, -1));
     }
+
+    
 }
