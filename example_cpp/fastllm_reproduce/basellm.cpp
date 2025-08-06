@@ -593,7 +593,7 @@ void Data::ExportFastllmFormat(uint8_t *bytes) {
     if (this->dataType == DataType::FP8_E4M3) {
         writer.WriteInt(this->blockK);
         writer.WriteInt(this->blockM);
-        writer.WriteInt(this->scales.size() * sizeof(float));
+        writer.WriteInt(this->scales.size());
         writer.WriteBytes((uint8_t *)this->scales.data(), this->scales.size() * sizeof(float));
         writer.WriteBytes(this->cpuData, this->GetBytes());
     } else if (this->dataType == DataType::INT8 || this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
