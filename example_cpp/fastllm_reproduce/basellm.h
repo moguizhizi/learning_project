@@ -40,6 +40,7 @@ class Data {
         perChannelsConfigs; // perChannelsConfigs[i]代表第i个通道的min, max; 如果没有分通道，perChannelsConfigs[0]代表全局min, max
     std::vector<float> scales, mins;
     std::vector<int> zeros;
+    std::vector<int> weightSum; // 作为权重时，有时候需要存一些和加速计算
 
     std::vector<uint16_t> halfScales;
 
@@ -70,6 +71,7 @@ class Data {
     void ExportFastllmFormat(uint8_t *bytes);
     uint64_t GetFastllmFormateBytes();
     void CreateFromFastllmFormat(uint8_t *datas, uint64_t len);
+    void CalcWeightSum();
 };
 
 class basellm {

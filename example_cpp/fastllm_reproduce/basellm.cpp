@@ -406,6 +406,7 @@ void Data::CreateFromOriData(
         if (oriData != nullptr) {
             memcpy(this->cpuData, oriData, this->GetBytes());
         }
+
         if (oriDataType == DataType::INT4_GROUP) {
             int k = this->dims[0], m = this->dims[1], group = (m - 1) / groupCnt + 1;
             this->group = group;
@@ -720,5 +721,149 @@ void Data::CreateFromFastllmFormat(uint8_t *datas, uint64_t len) {
         }
     } else {
         ErrorInFastLLM("CreateFromFastllmFormat error: unsupport version " + std::to_string(version));
+    }
+}
+
+void Data::CalcWeightSum() {
+    if (this->weightSum.size() > 0) {
+        return;
+    }
+    int n = this->dims[0], m = this->dims[1];
+    if (this->dataType == DataType::INT8) {
+        weightSum.resize(n);
+        for (int i = 0; i < n; i++) {
+            int j = 0;
+#ifdef __AVX2__
+            __m256i acc = _mm256_setzero_si256();
+            const __m256i ones = _mm256_set1_epi16(1);
+            for (; j + 31 < m; j += 32) {
+                __m256i ax = _mm256_loadu_si256((const __m256i *)(cpuData + i * m + j));
+                __m256i mx0 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(ax, 0));
+                __m256i mx1 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(ax, 1));
+                acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx0, ones));
+                acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx1, ones));
+            }
+            weightSum[i] += I32sum(acc);
+#endif
+#ifdef __aarch64__
+            uint32x4_t sum0 = {0, 0, 0, 0};
+            for (; j + 7 < m; j += 8) {
+                uint8x8_t ori = vld1_u8(cpuData + (i * m + j));
+                uint16x4_t sa = vpaddl_u8(ori);
+                sum0 = vaddw_u16(sum0, sa);
+            }
+            weightSum[i] += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+#endif
+            for (; j < m; j++) {
+                weightSum[i] += cpuData[i * m + j];
+            }
+        }
+    } else if (this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
+        weightSum.resize(n);
+        for (int i = 0; i < n; i++) {
+            int j = 0;
+#ifdef __aarch64__
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            uint32x4_t sum0 = {0, 0, 0, 0};
+
+            for (; j + 15 < m; j += 16) {
+                uint8x8_t ori = vld1_u8(cpuData + (i * m + j) / 2);
+                uint8x8_t va = vand_u8(ori, maskLow);
+                uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+
+                uint16x4_t sa = vpaddl_u8(va);
+                uint16x4_t sb = vpaddl_u8(vb);
+
+                sum0 = vaddw_u16(sum0, vadd_u16(sa, sb));
+            }
+            weightSum[i] += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+#endif
+#ifdef __AVX2__
+            __m256i acc = _mm256_setzero_si256();
+            const __m256i lowMask = _mm256_set1_epi8(0xf);
+            const __m256i ones = _mm256_set1_epi16(1);
+            for (; j + 31 < m; j += 32) {
+                __m128i orix = _mm_loadu_si128((const __m128i *)(cpuData + (i * m + j) / 2));
+                __m256i bytex = _mm256_set_m128i(_mm_srli_epi16(orix, 4), orix);
+                __m256i bx = _mm256_and_si256(lowMask, bytex);
+
+                __m256i mx0 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(bx, 0));
+                __m256i mx1 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(bx, 1));
+
+                acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx0, ones));
+                acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx1, ones));
+            }
+            weightSum[i] += I32sum(acc);
+#endif
+            for (; j + 1 < m; j += 2) {
+                int id = (i * m + j) / 2;
+                weightSum[i] += (cpuData[id] & 0xF) + (cpuData[id] >> 4);
+            }
+            for (; j < m; j++) {
+                int id = (i * m + j) / 2;
+                if ((i * m + j) % 2) {
+                    weightSum[i] += (cpuData[id] & 0xF);
+                } else {
+                    weightSum[i] += (cpuData[id] >> 4);
+                }
+            }
+        }
+    } else if (this->dataType == DataType::INT4_GROUP) {
+        weightSum.resize(n * this->group);
+        for (int i = 0; i < n; i++) {
+            for (int g = 0; g < this->group; g++) {
+                int gid = i * this->group + g;
+                int st = g * this->groupCnt;
+                int end = std::min(m, (g + 1) * this->groupCnt);
+                int j = st;
+#ifdef __aarch64__
+                uint8x8_t maskHigh = vdup_n_u8(0xF0);
+                uint8x8_t maskLow = vdup_n_u8(0xF);
+                uint32x4_t sum0 = {0, 0, 0, 0};
+
+                for (; j + 15 < end; j += 16) {
+                    uint8x8_t ori = vld1_u8(cpuData + (i * m + j) / 2);
+                    uint8x8_t va = vand_u8(ori, maskLow);
+                    uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+
+                    uint16x4_t sa = vpaddl_u8(va);
+                    uint16x4_t sb = vpaddl_u8(vb);
+
+                    sum0 = vaddw_u16(sum0, vadd_u16(sa, sb));
+                }
+                weightSum[gid] += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+#endif
+#ifdef __AVX2__
+                __m256i acc = _mm256_setzero_si256();
+                const __m256i lowMask = _mm256_set1_epi8(0xf);
+                const __m256i ones = _mm256_set1_epi16(1);
+                for (; j + 31 < end; j += 32) {
+                    __m128i orix = _mm_loadu_si128((const __m128i *)(cpuData + (i * m + j) / 2));
+                    __m256i bytex = _mm256_set_m128i(_mm_srli_epi16(orix, 4), orix);
+                    __m256i bx = _mm256_and_si256(lowMask, bytex);
+
+                    __m256i mx0 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(bx, 0));
+                    __m256i mx1 = _mm256_cvtepu8_epi16(_mm256_extractf128_si256(bx, 1));
+
+                    acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx0, ones));
+                    acc = _mm256_add_epi32(acc, _mm256_madd_epi16(mx1, ones));
+                }
+                weightSum[gid] += I32sum(acc);
+#endif
+                for (; j + 1 < end; j += 2) {
+                    int id = (i * m + j) / 2;
+                    weightSum[gid] += (cpuData[id] & 0xF) + (cpuData[id] >> 4);
+                }
+                for (; j < end; j++) {
+                    int id = (i * m + j) / 2;
+                    if ((i * m + j) % 2) {
+                        weightSum[gid] += (cpuData[id] & 0xF);
+                    } else {
+                        weightSum[gid] += (cpuData[id] >> 4);
+                    }
+                }
+            }
+        }
     }
 }
