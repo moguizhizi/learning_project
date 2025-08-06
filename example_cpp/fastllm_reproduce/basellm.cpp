@@ -610,9 +610,9 @@ void Data::ExportFastllmFormat(uint8_t *bytes) {
 
         writer.WriteBytes(this->cpuData, this->GetBytes());
     } else if (this->dataType == DataType::INT4_GROUP) {
+        writer.WriteInt(this->perChannelAxis);
         writer.WriteInt(this->group);
         writer.WriteInt(this->groupCnt);
-        writer.WriteInt(this->perChannelAxis);
         int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
         for (int i = 0; i < k * this->group; i++) {
             writer.WriteFloat(this->mins[i]);
