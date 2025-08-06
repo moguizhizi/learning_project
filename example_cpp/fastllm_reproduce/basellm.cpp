@@ -651,3 +651,74 @@ uint64_t Data::GetFastllmFormateBytes() {
 
     return ret;
 }
+
+void Data::CreateFromFastllmFormat(uint8_t *datas, uint64_t len) {
+
+    ByteReader reader(datas);
+    int version = reader.ReadInt();
+    this->dataType = (DataType)reader.ReadInt();
+    this->UpdateUnitSize();
+    this->Allocate();
+    if (version == 1) {
+        if (this->dataType == DataType::FP8_E4M3) {
+            this->blockK = reader.ReadInt();
+            this->blockM = reader.ReadInt();
+            this->scales.resize(reader.ReadInt());
+            reader.ReadBytes((uint8_t *)this->scales.data(), this->scales.size() * sizeof(float));
+            reader.ReadBytes(this->cpuData, len);
+        } else if (this->dataType == DataType::INT8 || this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
+            this->perChannelAxis = reader.ReadInt();
+            int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+            this->scales.resize(k);
+            this->mins.resize(k);
+            this->zeros.resize(k);
+            for (int i = 0; i < k; i++) {
+                if (this->dataType == DataType::INT4_NOZERO) {
+                    float min = reader.ReadFloat();
+                    float scale = reader.ReadFloat();
+
+                    this->perChannelsConfigs[i] = LowBitConfig(min, min + 15 * scale, 1, 4);
+                    this->perChannelsConfigs[i].min = min;
+                    this->perChannelsConfigs[i].scale = scale;
+
+                    this->mins[i] = min;
+                    this->scales[i] = scale;
+                    this->zeros[i] = this->perChannelsConfigs[i].zeroPoint;
+                } else if (this->dataType == DataType::INT8 || this->dataType == DataType::INT4) {
+                    int bit = this->dataType == DataType::INT4 ? 4 : 8;
+
+                    float min = reader.ReadFloat();
+                    float max = reader.ReadFloat();
+
+                    this->perChannelsConfigs[i] = LowBitConfig(min, max, 0, bit);
+                    this->mins[i] = min;
+                    this->scales[i] = this->perChannelsConfigs[i].scale;
+                    this->zeros[i] = this->perChannelsConfigs[i].zeroPoint;
+
+                } else {
+                }
+            }
+
+            reader.ReadBytes(this->cpuData, len);
+        } else if (this->dataType == DataType::INT4_GROUP) {
+            this->perChannelAxis = reader.ReadInt();
+            this->group = reader.ReadInt();
+            this->groupCnt = reader.ReadInt();
+            int k = this->perChannelAxis == -1 ? 1 : this->dims[perChannelAxis];
+
+            this->mins.resize(k * this->group);
+            this->scales.resize(k * this->groupCnt);
+
+            for (int i = 0; i < k * this->group; i++) {
+                this->mins[i] = reader.ReadFloat();
+                this->scales[i] = reader.ReadFloat();
+            }
+
+            reader.ReadBytes(this->cpuData, len);
+        } else {
+            ErrorInFastLLM("CreateFromFastllmFormat Error: data type error.");
+        }
+    } else {
+        ErrorInFastLLM("CreateFromFastllmFormat error: unsupport version " + std::to_string(version));
+    }
+}
