@@ -72,22 +72,8 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
             DataType dataType = it.second;
             allWeightNames.insert(weightName);
 
-            if ((dataType == DataType::DATA_AUTO_LINEAR || dataType == DataType::DATA_AUTO_CONV) && dtypeRules.size() > 0) {
-                int groupCnt = -1;
-                ParseDataType(weightName, dtypeRules, dataType, groupCnt);
-
-                if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
-                    dataType = DataType::FLOAT16;
-                }
-            }
-
-            if (dataType >= DataType::DATA_AUTO_NONE) {
-                dataType = (dataType == DataType::DATA_AUTO_LINEAR || dataType == DataType::DATA_AUTO_CONV) ? linearDataType : oriDataType;
-
-                if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
-                    dataType = DataType::FLOAT16;
-                }
-            }
+            int groupCnt = -1;
+            dataType = ResolveAutoDataType(weightName, dtypeRules, dataType, groupCnt, linearDataType, oriDataType, tensor);
 
             if (it.second == DataType::DATA_AUTO_CONV) {
                 std::vector<int> realshape = tensor.intShape;
@@ -126,6 +112,4 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
     while (parts.size() < thread_num) {
         parts.push_back(std::make_pair(-1, -1));
     }
-
-    
 }

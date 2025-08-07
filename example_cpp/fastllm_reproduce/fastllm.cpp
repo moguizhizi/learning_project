@@ -428,14 +428,23 @@ DataType ResolveAutoDataType(const std::string &weightName,
                              DataType dataType,
                              int curGroupCnt,
                              DataType linearDataType,
-                             DataType oriDataType) {
+                             DataType oriDataType,
+                             const SafeTensorItem &tensor) {
     if ((dataType == DATA_AUTO_LINEAR || dataType == DATA_AUTO_CONV) && !dtypeRules.empty()) {
         ParseDataType(weightName, dtypeRules, dataType, curGroupCnt);
+
+        if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
+            dataType = DataType::FLOAT16;
+        }
     }
 
-    if (dataType >= DATA_AUTO_NONE) {
+        if (dataType >= DATA_AUTO_NONE) {
         // AUTO类型
         dataType = (dataType == DATA_AUTO_LINEAR || dataType == DATA_AUTO_CONV) ? linearDataType : oriDataType;
+
+        if (tensor.dtype != "FP8_E4M3" && dataType == DataType::FP8_E4M3) {
+            dataType = DataType::FLOAT16;
+        }
     }
 
     return dataType;

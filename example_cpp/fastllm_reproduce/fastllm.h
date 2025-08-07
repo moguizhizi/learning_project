@@ -83,4 +83,5 @@ DataType ResolveAutoDataType(const std::string &weightName,
                              DataType dataType,
                              int curGroupCnt,
                              DataType linearDataType,
-                             DataType oriDataType);
+                             DataType oriDataType,
+                             const SafeTensorItem &tensor);
