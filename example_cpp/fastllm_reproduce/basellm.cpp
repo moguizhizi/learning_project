@@ -731,6 +731,7 @@ void Data::CalcWeightSum() {
     int n = this->dims[0], m = this->dims[1];
     if (this->dataType == DataType::INT8) {
         weightSum.resize(n);
+        std::fill(weightSum.begin(), weightSum.end(), 0);
         for (int i = 0; i < n; i++) {
             int j = 0;
 #ifdef __AVX2__
@@ -760,6 +761,7 @@ void Data::CalcWeightSum() {
         }
     } else if (this->dataType == DataType::INT4 || this->dataType == DataType::INT4_NOZERO) {
         weightSum.resize(n);
+        std::fill(weightSum.begin(), weightSum.end(), 0);
         for (int i = 0; i < n; i++) {
             int j = 0;
 #ifdef __aarch64__
@@ -811,6 +813,7 @@ void Data::CalcWeightSum() {
         }
     } else if (this->dataType == DataType::INT4_GROUP) {
         weightSum.resize(n * this->group);
+        std::fill(weightSum.begin(), weightSum.end(), 0);
         for (int i = 0; i < n; i++) {
             for (int g = 0; g < this->group; g++) {
                 int gid = i * this->group + g;

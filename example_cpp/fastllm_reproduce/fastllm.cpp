@@ -422,3 +422,21 @@ std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigFile(c
 
     return dtypeRules;
 }
+
+DataType ResolveAutoDataType(const std::string &weightName,
+                             const std::vector<std::pair<std::string, std::string>> &dtypeRules,
+                             DataType dataType,
+                             int curGroupCnt,
+                             DataType linearDataType,
+                             DataType oriDataType) {
+    if ((dataType == DATA_AUTO_LINEAR || dataType == DATA_AUTO_CONV) && !dtypeRules.empty()) {
+        ParseDataType(weightName, dtypeRules, dataType, curGroupCnt);
+    }
+
+    if (dataType >= DATA_AUTO_NONE) {
+        // AUTO类型
+        dataType = (dataType == DATA_AUTO_LINEAR || dataType == DATA_AUTO_CONV) ? linearDataType : oriDataType;
+    }
+
+    return dataType;
+}

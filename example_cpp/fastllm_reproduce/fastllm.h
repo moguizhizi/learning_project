@@ -78,3 +78,9 @@ void LoadLoRA(const std::string &loraPath,
               float &loraScaling);
 SafeTensors LoadSafeTensors(const std::string &path);
 std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigFile(const std::string &configPath);
+DataType ResolveAutoDataType(const std::string &weightName,
+                             const std::vector<std::pair<std::string, std::string>> &dtypeRules,
+                             DataType dataType,
+                             int curGroupCnt,
+                             DataType linearDataType,
+                             DataType oriDataType);
