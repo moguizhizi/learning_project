@@ -2,6 +2,8 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include <memory>
+#include <mutex>
+#include <thread>
 
 std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
                                               DataType linearDataType,
@@ -111,5 +113,121 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
     parts.back().second = tensors.size();
     while (parts.size() < thread_num) {
         parts.push_back(std::make_pair(-1, -1));
+    }
+
+    std::vector<std::thread *> threads;
+    std::mutex locker;
+    int cnt = 0;
+    int per = tensors.size() / thread_num;
+    for (int i = 0; i < thread_num; i++) {
+        threads.push_back(new std::thread(
+            [&](int st, int end) {
+                for (int j = st; j < end; j++) {
+                    std::string &tensorName = tensors[j];
+                    if (StringEndWith(tensorName, "_scale_inv") ||
+                        (isAwqModel && (StringEndWith(tensorName, "qzeros") || StringEndWith(tensorName, "scales")))) {
+                        continue;
+                    }
+
+                    locker.lock();
+                    printf("Loading %d \r", (++cnt) * 100 / (int)tensorMap.size());
+                    fflush(stdout);
+                    locker.unlock();
+
+                    std::string weightName = "";
+                    DataType dataType = DataType::DATA_AUTO_NONE;
+                    DataType oriDataType = DataType::FLOAT32;
+
+                    for (auto &it : tensorMap[tensorName]) {
+                        std::string scaleTensorName = "";
+                        std::string qzeroTensorName = "";
+                        weightName = it.first;
+                        dataType = it.second;
+
+                        SafeTensorItem tensor = safeTensors.itmeDict[tensorName];
+
+                        int curGroupCnt = model->moeLinears.find(weightName) != model->moeLinears.end() ? moeGroupCnt : groupCnt;
+
+                        dataType = ResolveAutoDataType(weightName, dtypeRules, dataType, groupCnt, linearDataType, oriDataType, tensor);
+
+                        if (tensor.dtype == "BF16" && (dataType == DataType::FLOAT16 || dataType == DataType::INT8 ||
+                                                       dataType == DataType::INT4_GROUP || dataType == DataType::INT4_NOZERO)) {
+                            oriDataType = DataType::BFLOAT16;
+                        }
+
+                        if (tensor.dtype == "F16" && dataType == DataType::FLOAT16) {
+                            oriDataType = DataType::FLOAT16;
+                        }
+
+                        if (tensor.dtype == "F8_E4M3" &&
+                            (dataType == DataType::FLOAT32 || dataType == DataType::FLOAT16 || dataType == DataType::INT8 ||
+                             dataType == DataType::INT4_GROUP || dataType == DataType::INT4_NOZERO)) {
+                            oriDataType = DataType::FLOAT32;
+                            scaleTensorName = weightName + "_scale_inv";
+                            if (safeTensors.itmeDict.find(scaleTensorName) == safeTensors.itmeDict.end()) {
+                                scaleTensorName = "";
+                            }
+                        }
+
+                        if (tensor.dtype == "F8_E4M3" && (dataType == DataType::FP8_E4M3)) {
+                            oriDataType = DataType::FP8_E4M3;
+                            scaleTensorName = weightName + "_scale_inv";
+                            if (safeTensors.itmeDict.find(scaleTensorName) == safeTensors.itmeDict.end()) {
+                                scaleTensorName = "";
+                            }
+                        }
+
+                        if (tensor.dtype == "I32" && isAwqModel && StringEndWith(tensorName, "qweight")) {
+                            scaleTensorName = weightName + "scales";
+                            qzeroTensorName = weightName + "qzeros";
+                            oriDataType = DataType::FLOAT32;
+                            AssertInFastLLM(safeTensors.itmeDict.find(scaleTensorName) != safeTensors.itmeDict.end() &&
+                                                safeTensors.itmeDict.find(qzeroTensorName) != safeTensors.itmeDict.end(),
+                                            "Tensor error: can't find AWQ scalse / qzeros.");
+                            if (dataType == INT4_GROUP && groupCnt == awqGroupCnt) {
+                                oriDataType = DataType::INT4_GROUP;
+                            }
+                        }
+
+                        if (scaleTensorName == "") {
+                            tensor.CreateBuffer(oriDataType);
+                        } else if (!isAwqModel) {
+                            auto &scaleTensor = safeTensors.itmeDict[scaleTensorName];
+                            AssertInFastLLM(scaleTensor.dtype == "F32" || scaleTensor.dtype == "BF16",
+                                            "Tensor scale error: scale's dtype should be F32 or BF16.");
+                            scaleTensor.CreateBuffer(DataType::FLOAT32);
+                            tensor.CreateBufferWithScale(dataType, scaleTensor);
+                        } else {
+                            auto &scaleTensor = safeTensors.itmeDict[scaleTensorName];
+                            auto &qzeroTensor = safeTensors.itmeDict[qzeroTensorName];
+                            scaleTensor.CreateBuffer(DataType::FLOAT32);
+                            tensor.CreateBufferWithAWQ(oriDataType, scaleTensor, qzeroTensor);
+                        }
+
+                        if (tensor.dtype == "fastllm") {
+                            model->weight[weightName].CreateFromFastllmFormat(tensor.buffer, tensor.bytes);
+                        } else {
+                            if (it.second == DATA_AUTO_CONV) {
+                                tensor.Transpose(oriDataType);
+                            }
+                            model->weight[weightName].CreateFromOriData(WeightType::AUTO,
+                                                                        oriDataType,
+                                                                        tensor.buffer,
+                                                                        tensor.minsBuffer,
+                                                                        tensor.scalesBuffer,
+                                                                        curGroupCnt,
+                                                                        tensor.blockK,
+                                                                        tensor.blockM);
+                        }
+
+                        if (it.second == DATA_AUTO_LINEAR || it.second == DATA_AUTO_CONV)
+                            model->weight[weightName].CalcWeightSum();
+
+                        tensor.ClearBuffer();
+                    }
+                }
+            },
+            parts[i].first,
+            parts[i].second));
     }
 }
