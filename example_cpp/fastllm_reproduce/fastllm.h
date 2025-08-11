@@ -85,3 +85,9 @@ DataType ResolveAutoDataType(const std::string &weightName,
                              DataType linearDataType,
                              DataType oriDataType,
                              const SafeTensorItem &tensor);
+void ApplyLoRAWeight(const std::string &weightName,
+                     const std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
+                     SafeTensors *loraTensors,
+                     SafeTensorItem &tensor,
+                     DataType oriDataType,
+                     float loraScaling);
