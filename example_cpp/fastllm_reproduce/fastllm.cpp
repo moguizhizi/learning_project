@@ -453,3 +453,71 @@ DataType ResolveAutoDataType(const std::string &weightName,
 
     return dataType;
 }
+
+void ApplyLoRAWeight(const std::string &weightName,
+                     const std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
+                     SafeTensors *loraTensors,
+                     SafeTensorItem &tensor,
+                     DataType oriDataType,
+                     float loraScaling) {
+
+    auto it = loraDicts.find(weightName);
+    if (it == loraDicts.end()) {
+        return; // 没有对应的 LoRA 权重，直接退出
+    }
+
+    // 获取 LoRA A/B 权重的 key
+    const std::string &loraA = it->second.first;
+    const std::string &loraB = it->second.second;
+
+    // 获取维度信息
+    int inDim = loraTensors->itmeDict[loraA].intShape[1];
+    int outDim = loraTensors->itmeDict[loraB].intShape[0];
+    int lora = loraTensors->itmeDict[loraA].intShape[0];
+
+    // 创建缓冲区
+    loraTensors->itmeDict[loraA].CreateBuffer(DataType::FLOAT32);
+    loraTensors->itmeDict[loraB].CreateBuffer(DataType::FLOAT32);
+
+    float *weightA = (float *)(loraTensors->itmeDict[loraA].buffer);
+    float *weightB = (float *)(loraTensors->itmeDict[loraB].buffer);
+
+    // 计算 LoRA 矩阵乘法结果
+    std::vector<float> loraFactor(outDim * inDim, 0.0f);
+    for (int i = 0; i < outDim; i++) {
+        for (int j = 0; j < lora; j++) {
+            for (int k = 0; k < inDim; k++) {
+                loraFactor[i * inDim + k] += weightB[i * lora + j] * weightA[j * inDim + k];
+            }
+        }
+    }
+
+    // 缩放 LoRA 权重
+    for (float &v : loraFactor) {
+        v *= loraScaling;
+    }
+
+    // 释放临时缓冲区
+    loraTensors->itmeDict[loraA].ClearBuffer();
+    loraTensors->itmeDict[loraB].ClearBuffer();
+
+    // 按原始数据类型合并到 tensor
+    if (oriDataType == DataType::BFLOAT16) {
+        uint16_t *fp16Weight = (uint16_t *)tensor.buffer;
+        for (size_t i = 0; i < loraFactor.size(); i++) {
+            uint32_t now = fp16Weight[i] << 16;
+            float newV = ((float *)&now)[0] + loraFactor[i];
+            fp16Weight[i] = ((uint32_t *)&newV)[0] >> 16;
+        }
+    } else if (oriDataType == DataType::FLOAT16) {
+        uint16_t *fp16Weight = (uint16_t *)tensor.buffer;
+        for (size_t i = 0; i < loraFactor.size(); i++) {
+            fp16Weight[i] = float_to_half(half_to_float(fp16Weight[i]) + loraFactor[i]);
+        }
+    } else if (oriDataType == DataType::FLOAT32) {
+        float *f32weight = (float *)tensor.buffer;
+        for (size_t i = 0; i < loraFactor.size(); i++) {
+            f32weight[i] += loraFactor[i];
+        }
+    }
+}
