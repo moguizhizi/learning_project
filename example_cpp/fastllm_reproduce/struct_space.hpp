@@ -103,6 +103,7 @@ struct WeightMap {
     void AddTokenizerWord(const std::string &key, int value, float score);
     void AddEmptyWeight(const std::string &key, const std::vector<int> &dims, DataType dataType);
     WeightType GetWeightType(const std::string &key);
+    Data &operator[](const std::string &key);
 };
 
 struct WeightMergeRuleSingle {

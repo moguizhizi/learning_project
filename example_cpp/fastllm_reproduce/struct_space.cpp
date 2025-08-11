@@ -379,6 +379,8 @@ WeightType WeightMap::GetWeightType(const std::string &key) {
     return WeightType::NONE;
 }
 
+Data &WeightMap::operator[](const std::string &key) { return weight[key]; }
+
 WeightMergeRuleSingle::WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type)
     : inputs(inputs), output(output), type(type) {}
 
