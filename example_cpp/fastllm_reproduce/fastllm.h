@@ -91,3 +91,11 @@ void ApplyLoRAWeight(const std::string &weightName,
                      SafeTensorItem &tensor,
                      DataType oriDataType,
                      float loraScaling);
+
+template <typename T> static std::vector<T> AppendVector(const std::vector<T> &a, const std::vector<T> &b) {
+    std::vector<T> ret = a;
+    for (int i = 0; i < b.size(); i++) {
+        ret.push_back(b[i]);
+    }
+    return ret;
+}
