@@ -3,7 +3,7 @@ from qwen_vl_utils import process_vision_info
 
 # default: Load the model on the available device(s)
 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    "/data/llm_model/modelscope/Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype="auto", device_map="auto"
+    "/data1/temp/llm_model/Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype="auto", device_map="auto"
 )
 
 # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
@@ -15,7 +15,9 @@ model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
 # )
 
 # default processer
-processor = AutoProcessor.from_pretrained("/data/llm_model/modelscope/Qwen/Qwen2.5-VL-3B-Instruct")
+processor = AutoProcessor.from_pretrained("/data1/temp/llm_model/Qwen/Qwen2.5-VL-3B-Instruct")
+# tokenizer = AutoTokenizer.from_pretrained("/data1/temp/llm_model/Qwen/Qwen3-0.6B")
+tokenizer = AutoTokenizer.from_pretrained("/data1/temp/llm_model/Qwen/Qwen2.5-VL-3B-Instruct")
 
 # The default range for the number of visual tokens per image in the model is 4-16384.
 # You can set min_pixels and max_pixels according to your needs, such as a token range of 256-1280, to balance performance and cost.
@@ -33,12 +35,43 @@ messages = [
             },
             {"type": "text", "text": "Describe this image."},
         ],
+    },
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "image": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg",
+            },
+            {"type": "text", "text": "Describe this image."},
+        ],
     }
+]
+
+# {
+#                 'problem': example['problem'],
+#                 'solution': example['solution'],
+#                 # 'accu_reward_method': example['accu_reward_method'],
+#                 'prompt': [{
+#                     'role': 'user',
+#                     'content': [
+#                         {'type': 'text', 'text': example['problem']}
+#                     ]
+#                 }]
+#             }
+
+prompt = "<image> Describe this image."
+messages_1 = [
+    {"role": "user", "content": '<image>Find x. Round to the nearest tenth, if necessary.'}
 ]
 
 # Preparation for inference
 text = processor.apply_chat_template(
     messages, tokenize=False, add_generation_prompt=True
+)
+
+text_1 = tokenizer.apply_chat_template(
+   messages_1, tokenize=False, add_generation_prompt=True
 )
 image_inputs, video_inputs = process_vision_info(messages)
 inputs = processor(
@@ -48,9 +81,10 @@ inputs = processor(
     padding=True,
     return_tensors="pt",
 )
-inputs = inputs.to("cuda")
+# inputs = inputs.to("cuda")
 
 print(inputs.keys())
+print(inputs["pixel_values"].size())
 
 
 # Inference: Generation of the output
