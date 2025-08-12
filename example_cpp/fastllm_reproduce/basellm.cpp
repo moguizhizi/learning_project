@@ -105,6 +105,80 @@ basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDa
     return ret;
 }
 
+void basellm::MergeWeightsFromRules(const std::set<std::string> &allWeightNames) {
+    for (auto &rule : this->weightMergeRules) {
+        for (auto &it : rule.rules) {
+            if (allWeightNames.find(it.inputs[0]) == allWeightNames.end()) {
+                continue;
+            }
+
+            DataType dataType = this->weight[it.inputs[0]].dataType;
+            int dim0Len = 0;
+            for (auto &input : it.inputs) {
+                dim0Len += this->weight[input].dims[0];
+            }
+
+            std::string mergeName = it.output;
+
+            if (this->weight[it.inputs[0]].dims.size() == 1) {
+                // 一维权重合并
+                this->weight[mergeName] = Data(dataType, {dim0Len});
+                Data &mergeData = this->weight[mergeName];
+                mergeData.name = mergeName;
+                mergeData.Allocate();
+                int offset = 0;
+                for (auto &input : it.inputs) {
+                    std::memcpy(mergeData.cpuData + offset, this->weight[input].cpuData, this->weight[input].GetBytes());
+                    offset += this->weight[input].GetBytes();
+                }
+            } else {
+                // 二维权重合并
+                this->weight[mergeName] = Data(dataType, {dim0Len, this->weight[it.inputs[0]].dims[1]});
+                Data &mergeData = this->weight[mergeName];
+                mergeData.name = mergeName;
+                mergeData.group = this->weight[it.inputs[0]].group;
+                mergeData.groupCnt = this->weight[it.inputs[0]].groupCnt;
+                mergeData.perChannelAxis = this->weight[it.inputs[0]].perChannelAxis;
+                mergeData.blockK = this->weight[it.inputs[0]].blockK;
+                mergeData.blockM = this->weight[it.inputs[0]].blockM;
+
+                mergeData.Allocate();
+                int offset = 0;
+                for (auto &input : it.inputs) {
+                    mergeData.perChannelsConfigs = AppendVector(mergeData.perChannelsConfigs, this->weight[input].perChannelsConfigs);
+                    mergeData.scales = AppendVector(mergeData.scales, this->weight[input].scales);
+                    mergeData.mins = AppendVector(mergeData.mins, this->weight[input].mins);
+                    mergeData.zeros = AppendVector(mergeData.zeros, this->weight[input].zeros);
+                    mergeData.halfScales = AppendVector(mergeData.halfScales, this->weight[input].halfScales);
+
+                    std::memcpy(mergeData.cpuData + offset, this->weight[input].cpuData, this->weight[input].GetBytes());
+                    offset += this->weight[input].GetBytes();
+                }
+
+                mergeData.CalcWeightSum();
+#if defined(USE_TFACC) || defined(USE_NUMA)
+                try {
+                    std::string s = getenv("FASTLLM_ACTIVATE_NUMA");
+                    if (s != "" && s != "OFF") {
+                        locker.lock();
+                        if (model->specialWeights.find(mergeName) != model->specialWeights.end()) {
+                            mergeData.weightSum.resize(1);
+                            RegisterFastllmData(&mergeData, it.type);
+                        }
+                        locker.unlock();
+                    }
+                } catch (...) {
+                }
+#endif
+            }
+
+            for (auto &input : it.inputs) {
+                this->weight.weight.erase(input);
+            }
+        }
+    }
+}
+
 Data::Data() {}
 
 Data::Data(DataType datatype) {

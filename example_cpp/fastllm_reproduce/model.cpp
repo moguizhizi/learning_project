@@ -1,6 +1,7 @@
 #include "basellm.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -226,6 +227,8 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
                             model->weight[weightName].CalcWeightSum();
 
                         tensor.ClearBuffer();
+
+                        model->MergeWeightsFromRules(allWeightNames);
                     }
                 }
             },
