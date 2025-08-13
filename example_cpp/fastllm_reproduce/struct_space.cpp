@@ -930,17 +930,20 @@ int Tokenizer::GetTokenId(const std::string &s) {
 
 ComputeServer::ComputeServer(int partId) {
     const char *shm_name = "/fastllm/share";
-    int ret = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
-    if (ret == -1) {
+    int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
+    if (shm_fd == -1) {
+        printf("err\n");
         exit(0);
     }
 
-    if (ftruncate(ret, DDRLEN) == -1) {
+    if (ftruncate(shm_fd, DDRLEN) == -1) {
+        printf("err\n");
         exit(0);
     }
 
-    void *ptr = mmap(nullptr, DDRLEN, PROT_READ | PROT_WRITE, MAP_SHARED, ret, 0);
+    void *ptr = mmap(nullptr, DDRLEN, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (ptr == MAP_FAILED) {
+        printf("err\n");
         exit(0);
     }
 
