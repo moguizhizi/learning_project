@@ -521,3 +521,13 @@ void ApplyLoRAWeight(const std::string &weightName,
         }
     }
 }
+
+void barrier() {
+#ifdef __aarch64__
+    asm volatile("dmb ish");
+#elif defined(_WIN32) || defined(_WIN64)
+    MemoryBarrier();
+#else
+    __asm__ __volatile__("" : : : "memory");
+#endif
+}
