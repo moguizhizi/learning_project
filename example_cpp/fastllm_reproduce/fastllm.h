@@ -99,3 +99,5 @@ template <typename T> static std::vector<T> AppendVector(const std::vector<T> &a
     }
     return ret;
 }
+
+void barrier();
