@@ -929,7 +929,7 @@ int Tokenizer::GetTokenId(const std::string &s) {
 }
 
 ComputeServer::ComputeServer(int partId) {
-    const char *shm_name = "/fastllm/share";
+    const char *shm_name = "/fastllm_shm";
     int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
     if (shm_fd == -1) {
         printf("err\n");
