@@ -32,3 +32,26 @@ enum DataType {
 };
 
 enum WeightType { NONE = 0, LINEAR = 1, EMBEDDING = 2, CONV2D = 3, AUTO = 99999 };
+
+enum ComputeTaskType {
+    None = 0,
+    LinearInt4NoZero = 1,
+    LinearInt8 = 2,
+    LinearFloat16 = 3,
+    LinearFloat32 = 4,
+    LinearInt4Group = 5,
+
+    AppendKVCache = 6,
+    DoAttention = 7,
+
+    MOEInt4NoZero = 8,
+    MOEInt4Group = 9,
+
+    LinearFP8E4M3 = 10,
+    MOEFP8E4M3 = 11,
+
+    GetComputeServerInfo = 10000,
+    StartLongData = 10001,
+    FinishLongData = 10002,
+    FindData = 10003
+};

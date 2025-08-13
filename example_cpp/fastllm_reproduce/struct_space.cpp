@@ -7,6 +7,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+const int DDRLEN = 256 * 1024 * 1024;
+const int OUTPUTOFFSET = 128 * 1024 * 1024;
+const int FLAGOFFSET = 255 * 1024 * 1024;
+const int PAGE = 64 * 1024;
 
 SafeTensorItem::SafeTensorItem() {}
 
@@ -918,4 +926,29 @@ std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPref
 int Tokenizer::GetTokenId(const std::string &s) {
     AssertInFastLLM(this->stringToTokenDict.find(s) != this->stringToTokenDict.end(), "Tokenizer.GetTokenId error: can't find token \"" + s + "\"");
     return this->stringToTokenDict[s];
+}
+
+ComputeServer::ComputeServer(int partId) {
+    const char *shm_name = "/fastllm/share";
+    int ret = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
+    if (ret == -1) {
+        exit(0);
+    }
+
+    if (ftruncate(ret, DDRLEN) == -1) {
+        exit(0);
+    }
+
+    void *ptr = mmap(nullptr, DDRLEN, PROT_READ | PROT_WRITE, MAP_SHARED, ret, 0);
+    if (ptr == MAP_FAILED) {
+        exit(0);
+    }
+
+    char *data = static_cast<char *>(ptr);
+    this->baseAddr = (volatile uint8_t *)data;
+    this->baseOutputAddr = (volatile uint8_t *)(this->baseAddr + OUTPUTOFFSET);
+    this->flag = (volatile int *)(baseAddr + FLAGOFFSET + partId * PAGE);
+
+    this->inputBuffer.resize(DDRLEN);
+    this->outputBuffer.resize(DDRLEN);
 }

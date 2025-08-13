@@ -102,6 +102,7 @@ class basellm {
     WeightMap weight;
 
     std::vector<WeightMergeRule> weightMergeRules;
+    std::map<std::string, std::string> specialWeights; // 一些特殊层，可以提前注册（一般用于TFACC）
 
     Data sinData;
     Data cosData;

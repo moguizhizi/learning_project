@@ -286,3 +286,14 @@ struct ByteReader {
     std::string ReadString();
     void ReadBytes(uint8_t *buffer, uint64_t bytes);
 };
+
+struct ComputeServer {
+    volatile uint8_t *baseAddr;
+    volatile uint8_t *baseOutputAddr;
+    volatile int *flag;
+
+    std::vector<uint8_t> inputBuffer;
+    std::vector<uint8_t> outputBuffer;
+
+    ComputeServer(int partId);
+};
