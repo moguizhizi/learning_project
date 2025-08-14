@@ -295,13 +295,18 @@ struct ComputeServer {
     std::vector<uint8_t> inputBuffer;
     std::vector<uint8_t> outputBuffer;
 
-    ComputeServer(int partId);
+    ComputeServer(int partId, int partCnt, int threadNum);
+    void Start();
 };
 
 struct NumaClient {
     int serverNumaCnt;
 
     volatile int32_t *flag;
+    volatile uint8_t *result;
+    volatile uint8_t *buf;
+
+    NumaClient();
 
     void Launch(int opType);
     void Wait();
