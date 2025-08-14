@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <fcntl.h>
+#include <numa.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -929,7 +930,7 @@ int Tokenizer::GetTokenId(const std::string &s) {
     return this->stringToTokenDict[s];
 }
 
-ComputeServer::ComputeServer(int partId) {
+ComputeServer::ComputeServer(int partId, int partCnt, int threadNum) {
     const char *shm_name = "/fastllm_shm";
     int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
     if (shm_fd == -1) {
@@ -955,6 +956,113 @@ ComputeServer::ComputeServer(int partId) {
 
     this->inputBuffer.resize(DDRLEN);
     this->outputBuffer.resize(DDRLEN);
+}
+
+void ComputeServer::Start() {}
+
+NumaClient::NumaClient() {
+    std::string s = getenv("FASTLLM_ACTIVE_NUMA");
+    if (s == "" || s == "OFF") {
+        return;
+    }
+
+    std::vector<int> nodes;
+    struct bitmask *mask = numa_get_mems_allowed();
+    for (int i = 0; i <= numa_max_node(); i++) {
+        if (numa_bitmask_isbitset(mask, i)) {
+            nodes.push_back(i);
+        }
+    }
+
+    int numaThreads = 27;
+    try {
+        std::string s = getenv("FASTLLM_NUMA_THREADS");
+        if (s != "") {
+            int t = atoi(s.c_str());
+            if (t > 0) {
+                numaThreads = t;
+            }
+        }
+    } catch (...) {
+    }
+
+    try {
+        std::string s = getenv("FASTLLM_NUMAS");
+        if (s != "") {
+            int t = atoi(s.c_str());
+            if (t > 0 && t < nodes.size()) {
+                nodes.resize(t);
+            }
+        }
+    } catch (...) {
+    }
+
+    for (int i = 0; i < nodes.size(); i++) {
+        int pid = fork();
+        if (pid == 0) {
+            int partId = i;
+            int partCnt = nodes.size();
+            int numaId = nodes[i];
+            // 绑定到指定NUMA节点
+            if (numa_run_on_node(numaId) != 0) {
+                std::cerr << "Failed to bind process to node " << numaId << ": " << strerror(errno) << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            struct bitmask *mask = numa_bitmask_alloc(numa_num_configured_nodes());
+            numa_bitmask_clearall(mask);
+            numa_bitmask_setbit(mask, i);
+            numa_set_membind(mask);
+            numa_bitmask_free(mask);
+
+            printf("numa server running on node %d. (part %d / %d, %d threads)\n", numaId, partId, partCnt, numaThreads);
+            ComputeServer *computeServer = new ComputeServer(partId, partCnt, numaThreads);
+            computeServer->Start();
+        }
+    }
+
+    const char *shm_name = "/fastllm_shm";
+    int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0x666);
+    if (shm_fd == -1) {
+        printf("err\n");
+        exit(0);
+    }
+
+    if (ftruncate(shm_fd, DDRLEN) == -1) {
+        printf("err\n");
+        exit(0);
+    }
+
+    void *ptr = mmap(nullptr, DDRLEN, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (ptr == MAP_FAILED) {
+        printf("err\n");
+        exit(0);
+    }
+
+    char *data = static_cast<char *>(ptr);
+    this->buf = (volatile uint8_t *)data;
+    this->result = this->buf + OUTPUTOFFSET;
+    this->flag = (volatile int32_t *)(this->buf + FLAGOFFSET);
+
+    this->serverNumaCnt = 4;
+    this->Launch(ComputeTaskType::GetComputeServerInfo);
+    while (true) {
+        int a = *(this->flag);
+        if (a == 0) {
+            break;
+        }
+    }
+
+    std::string infoString = "";
+    int len = ((uint32_t *)this->result)[0];
+    for (int i = 0; i < len; i++) {
+        infoString += this->result[4 + i];
+    }
+
+    std::string error;
+    auto info = json11::Json::parse(infoString, error);
+    this->serverNumaCnt = info["numacnt"].int_value();
+    this->Wait();
 }
 
 void NumaClient::Launch(int opType) {
