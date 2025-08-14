@@ -297,3 +297,12 @@ struct ComputeServer {
 
     ComputeServer(int partId);
 };
+
+struct NumaClient {
+    int serverNumaCnt;
+
+    volatile int32_t *flag;
+
+    void Launch(int opType);
+    void Wait();
+};
