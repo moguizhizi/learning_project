@@ -15,6 +15,7 @@ const int DDRLEN = 256 * 1024 * 1024;
 const int OUTPUTOFFSET = 128 * 1024 * 1024;
 const int FLAGOFFSET = 255 * 1024 * 1024;
 const int PAGE = 64 * 1024;
+const int NUMA_PAGE = 16 * 1024;
 
 SafeTensorItem::SafeTensorItem() {}
 
@@ -954,4 +955,27 @@ ComputeServer::ComputeServer(int partId) {
 
     this->inputBuffer.resize(DDRLEN);
     this->outputBuffer.resize(DDRLEN);
+}
+
+void NumaClient::Launch(int opType) {
+    barrier();
+    volatile int32_t *curFlag = this->flag;
+    for (int i = 0; i < this->serverNumaCnt; i++) {
+        *curFlag = opType;
+        curFlag = curFlag + NUMA_PAGE;
+        barrier();
+    }
+}
+void NumaClient::Wait() {
+    while (true) {
+        int noFinish = 0;
+        volatile int32_t *curFlag = this->flag;
+        for (int i = 0; i < this->serverNumaCnt; i++) {
+            noFinish |= *curFlag;
+            curFlag = curFlag + NUMA_PAGE;
+        }
+        if (!noFinish) {
+            return;
+        }
+    }
 }
