@@ -116,6 +116,7 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
         parts.push_back(std::make_pair(-1, -1));
     }
 
+    std::set<std::string> allFinishName;
     std::vector<std::thread *> threads;
     std::mutex locker;
     int cnt = 0;
@@ -228,7 +229,9 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
 
                         tensor.ClearBuffer();
 
-                        model->MergeWeightsFromRules(allWeightNames);
+                        allFinishName.insert(weightName);
+
+                        model->MergeWeightsFromRules(weightName, allWeightNames, allFinishName);
                     }
                 }
             },
