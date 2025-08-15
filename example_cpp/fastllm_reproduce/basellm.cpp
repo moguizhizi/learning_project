@@ -107,11 +107,14 @@ basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDa
 
 void basellm::MergeWeightsFromRules(const std::string &weightName,
                                     const std::set<std::string> &allWeightNames,
-                                    const std::set<std::string> &allFinishName) {
+                                    const std::set<std::string> &allFinishName,
+                                    bool &needMerge) {
     for (auto &rule : this->weightMergeRules) {
         if (rule.allInputs.find(weightName) == rule.allInputs.end()) {
             continue;
         }
+
+        needMerge = true;
 
         bool canMerge = true;
         for (auto &input : rule.allInputs) {
