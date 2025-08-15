@@ -111,5 +111,5 @@ class basellm {
     std::map<std::string, std::vector<std::pair<std::string, DataType>>> GetTensorMap(const std::vector<std::string> &tensorNames);
     std::map<std::string, std::vector<std::pair<std::string, DataType>>>
     basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDataType, DataType moeDataType);
-    void MergeWeightsFromRules(const std::set<std::string> &allWeightNames);
+    void MergeWeightsFromRules(const std::string &weightName, const std::set<std::string> &allWeightNames, const std::set<std::string> &allFinishName);
 };

@@ -105,8 +105,64 @@ basellm::GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDa
     return ret;
 }
 
-void basellm::MergeWeightsFromRules(const std::set<std::string> &allWeightNames) {
+void basellm::MergeWeightsFromRules(const std::string &weightName,
+                                    const std::set<std::string> &allWeightNames,
+                                    const std::set<std::string> &allFinishName) {
     for (auto &rule : this->weightMergeRules) {
+        if (rule.allInputs.find(weightName) == rule.allInputs.end()) {
+            continue;
+        }
+
+        bool canMerge = true;
+        for (auto &input : rule.allInputs) {
+            if (allWeightNames.find(input) == allWeightNames.end() || allFinishName.find(input) == allFinishName.end()) {
+                canMerge = false;
+                break;
+            }
+        }
+
+        if (!canMerge) {
+            continue;
+        }
+
+        for (auto &it : rule.rules) {
+            DataType dataType = this->weight[it.inputs[0]].dataType;
+            int dimSize = this->weight[it.inputs[0]].dims.size();
+            int dim0size = this->weight[it.inputs[0]].dims[0];
+            int groupCnt = this->weight[it.inputs[0]].groupCnt;
+            int blockK = this->weight[it.inputs[0]].blockK;
+            int blockM = this->weight[it.inputs[0]].blockM;
+
+            for (auto &input : it.inputs) {
+                if (dataType != this->weight[input].dataType || dimSize != this->weight[input].dims.size() ||
+                    dim0size != this->weight[input].dims[0]) {
+                    canMerge = false;
+                    break;
+                }
+
+                if (dimSize == 2) {
+                    if (groupCnt != -1 && this->weight[input].dims[1] % groupCnt != 0) {
+                        canMerge = false;
+                        break;
+                    }
+
+                    if (blockK != -1 && this->weight[input].dims[0] % blockK != 0) {
+                        canMerge = false;
+                        break;
+                    }
+
+                    if (blockM != -1 && this->weight[input].dims[1] % blockM != 0) {
+                        canMerge = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!canMerge) {
+            continue;
+        }
+
         for (auto &it : rule.rules) {
             if (allWeightNames.find(it.inputs[0]) == allWeightNames.end()) {
                 continue;
@@ -160,12 +216,10 @@ void basellm::MergeWeightsFromRules(const std::set<std::string> &allWeightNames)
                 try {
                     std::string s = getenv("FASTLLM_ACTIVATE_NUMA");
                     if (s != "" && s != "OFF") {
-                        locker.lock();
                         if (model->specialWeights.find(mergeName) != model->specialWeights.end()) {
                             mergeData.weightSum.resize(1);
                             RegisterFastllmData(&mergeData, it.type);
                         }
-                        locker.unlock();
                     }
                 } catch (...) {
                 }
