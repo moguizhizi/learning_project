@@ -229,10 +229,32 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
 
                         tensor.ClearBuffer();
 
+                        locker.lock();
+                        bool needMerge = false;
                         allFinishName.insert(weightName);
-
                         model->MergeWeightsFromRules(weightName, allWeightNames, allFinishName);
+                        locker.unlock();
+
+#if defined(USE_TFACC) || defined(USE_NUMA)
+                        try {
+                            std::string s = getenv("FASTLLM_ACTIVATE_NUMA");
+                            if (s != "" && s != "OFF") {
+                                if (!needMerge && model->specialWeights.find(weightName) != model->specialWeights.end()) {
+                                    locker.lock();
+                                    model->weight.weight[weightName].weightSum.resize(1);
+                                    RegisterFastllmData(&model->weight.weight[weightName], model->specialWeights[weightName]);
+                                    locker.unlock();
+                                }
+                            }
+                        } catch (...) {
+                        }
+#endif
                     }
+
+                    locker.lock();
+                    printf("Loading %d \r", (++cnt) * 100 / (int)tensorMap.size());
+                    fflush(stdout);
+                    locker.unlock();
                 }
             },
             parts[i].first,
