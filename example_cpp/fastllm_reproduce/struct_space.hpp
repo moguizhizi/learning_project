@@ -84,7 +84,7 @@ struct Tokenizer {
     void SetTokenizerConfig(const json11::Json &config);
     void SetChatTemplate();
     void Insert(const std::string &s, int tokenId, float score = 1.0f); // 插入一个token
-    std::string Normalize(const std::string &ori, const bool addDummyPrefix);
+    std::string Normalize(const std::string &ori, const bool addDummyPrefix = true);
     void SetSpecialTokens(const std::map<std::string, int> &specialTokenMap);
     std::string WstringToUtf8(const std::wstring &wstr);
     std::wstring Utf8ToWstring(const std::string &utf8Str);
