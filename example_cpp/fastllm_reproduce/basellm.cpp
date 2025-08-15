@@ -1001,3 +1001,7 @@ void Data::CalcWeightSum() {
         }
     }
 }
+
+void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    
+}

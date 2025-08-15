@@ -232,7 +232,7 @@ std::unique_ptr<basellm> CreateLLMModelFromHF(const std::string &modelPath,
                         locker.lock();
                         bool needMerge = false;
                         allFinishName.insert(weightName);
-                        model->MergeWeightsFromRules(weightName, allWeightNames, allFinishName);
+                        model->MergeWeightsFromRules(weightName, allWeightNames, allFinishName, needMerge);
                         locker.unlock();
 
 #if defined(USE_TFACC) || defined(USE_NUMA)

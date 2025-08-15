@@ -2,6 +2,7 @@
 
 #include "enum_space.h"
 #include "struct_space.hpp"
+#include "types.h"
 #include <string>
 
 class Data {
@@ -79,6 +80,8 @@ class basellm {
     basellm();
     ~basellm();
 
+    virtual void WarmUp() {}; // 预热
+
     std::string model_type;
     std::set<std::string> cantQuantLinears;
     std::set<std::string> moeLinears;
@@ -115,4 +118,22 @@ class basellm {
                                const std::set<std::string> &allWeightNames,
                                const std::set<std::string> &allFinishName,
                                bool &needMerge);
+};
+
+class BaseDevice {};
+class CpuDevice : BaseDevice {};
+class BaseOperator {
+  public:
+    // 是否可以运行某一个算子
+    virtual bool CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+
+    // 对某一个算子进行形状推理
+    virtual void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+
+    // 对某一个算子进行推理
+    virtual void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) = 0;
+};
+
+class CpuToFloat16 : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
