@@ -19,6 +19,7 @@ class Qwen3Model : public basellm {
 
     void InitParams();
     std::pair<std::vector<float>, std::vector<float>> UpdateRotaryPosEmb(float rope_base, float rope_factor, int seqlen);
+    void WarmUp();
 
   protected:
     float rope_base = 10000.f;

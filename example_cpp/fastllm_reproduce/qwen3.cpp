@@ -104,3 +104,27 @@ std::pair<std::vector<float>, std::vector<float>> Qwen3Model::UpdateRotaryPosEmb
 
     return std::make_pair(fsin, fcos);
 }
+
+void Qwen3Model::WarmUp() {
+    printf("Warmup...\n");
+
+    // Data inputIds = Data(DataType::FLOAT32, {1, 1}, {1});
+    // Data attentionMask = Data(DataType::FLOAT32, {1, 1}, {0});
+    // Data positionIds = Data(DataType::FLOAT32, {1, 1}, {0, 0});
+
+    // std::vector<std::pair<Data, Data>> pastKeyValues;
+    // for (int i = 0; i < block_cnt; i++) {
+    //     pastKeyValues.push_back(std::make_pair(Data(DataType::FLOAT32), Data(DataType::FLOAT32)));
+    // }
+
+    // if (this->weight.weight.find("lm_head.weight") == this->weight.weight.end()) {
+    //     this->weight["lm_head.weight"] = Data();
+    //     this->weight["lm_head.weight"].CopyFrom(this->weight["model.embed_tokens.weight"]);
+    //     ToDataType(this->weight["lm_head.weight"], DataType::FLOAT16);
+    // }
+
+    // Forward(inputIds, attentionMask, positionIds, pastKeyValues);
+    // elementsInKVCachePerToken = (long long)block_cnt * (pastKeyValues[0].first.dims[0] * pastKeyValues[0].first.dims[2] +
+    //                                                     pastKeyValues[0].second.dims[0] * pastKeyValues[0].second.dims[2]);
+    printf("finish.\n");
+}
