@@ -1,5 +1,10 @@
 #include <string>
 
+#ifdef __aarch64__
+#include "armMath.h"
+#include <arm_neon.h>
+#endif
+
 #pragma once
 
 // ===== 工具函数声明 =====
@@ -7,6 +12,10 @@ uint32_t as_uint(const float x);
 float as_float(const uint32_t x);
 float half_to_float(uint16_t x);
 uint16_t float_to_half(const float x);
+void Float16ToFloat32(uint16_t *float16, float *float32, int len);
+void Float32ToFloat16(float *float32, uint16_t *float16, int len);
+void Float32ToBFloat16(float *float32, uint16_t *bfloat16, int len);
+void Float16ToBFloat16(uint16_t *float16, uint16_t *bfloat16, int len);
 
 // ===== 转换管理器 =====
 struct FP16ToFP32Manager {
