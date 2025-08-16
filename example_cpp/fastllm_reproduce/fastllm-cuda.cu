@@ -221,3 +221,8 @@ void FastllmCudaClearBigBuffer() {
 
     cudaSetDevice(id);
 }
+
+void FastllmCudaMemcpy2DDeviceToDevice(void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height) {
+    cudaMemcpy2D(dst, dpitch, src, spitch, width, height, cudaMemcpyDeviceToDevice);
+    DeviceSync();
+}
