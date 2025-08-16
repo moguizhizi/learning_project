@@ -1031,7 +1031,8 @@ void Data::CalcWeightSum() {
 bool BaseOperator::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) { return true; }
 
 void BaseOperator::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
-    if (datas.find("output") == datas.end()) {
+
+    if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
         return;
     }
 
@@ -1110,5 +1111,20 @@ void CpuToFloat32::Run(const std::string &opType, const DataDict &datas, const F
         delete[] old;
     } else {
         ErrorInFastLLM("ToFloat32: unsupport dataType.\n");
+    }
+}
+
+void CpuConvertToFloat16::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
+        return;
+    }
+
+    Data *inputs = datas.find("input")->second;
+    Data *outputs = datas.find("output")->second;
+    outputs->dataType = DataType::FLOAT16;
+    outputs->Resize(inputs->dims);
+    if (inputs->expansionDims.size() > 0) {
+        outputs->Expansion(inputs->expansionDims);
     }
 }
