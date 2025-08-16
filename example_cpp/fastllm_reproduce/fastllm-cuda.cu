@@ -226,3 +226,14 @@ void FastllmCudaMemcpy2DDeviceToDevice(void *dst, size_t dpitch, const void *src
     cudaMemcpy2D(dst, dpitch, src, spitch, width, height, cudaMemcpyDeviceToDevice);
     DeviceSync();
 }
+
+void *FastllmCudaDirectMalloc(size_t size) {
+    void *ret;
+    cudaError state = cudaMalloc(&ret, size);
+    if (cudaSuccess != state) {
+        printf("Error: CUDA error when allocating %lu kB memory! maybe there's no enough memory left on device.", size >> 10);
+        checkCudaErrors("", state);
+        return nullptr;
+    }
+    return ret;
+}
