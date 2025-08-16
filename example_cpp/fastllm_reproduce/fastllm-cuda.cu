@@ -237,3 +237,5 @@ void *FastllmCudaDirectMalloc(size_t size) {
     }
     return ret;
 }
+
+void FastllmCudaMemset0(void *ret, size_t size) { cudaMemset(ret, 0, size); }
