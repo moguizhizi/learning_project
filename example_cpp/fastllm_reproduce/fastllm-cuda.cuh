@@ -21,3 +21,4 @@ void FastllmCudaFree(void *ret);
 void FastllmCudaSetDevice(int gpu_id);
 int FastllmCudaGetDevice();
 void DeviceSync();
+void FastllmCudaClearBigBuffer();

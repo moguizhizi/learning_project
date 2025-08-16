@@ -168,3 +168,56 @@ int FastllmCudaGetDevice() {
 void DeviceSync() {
     // cudaDeviceSynchronize();
 }
+
+void FastllmCudaClearBigBuffer() {
+    int id = -1;
+    cudaGetDevice(&id);
+
+    if (bigBuffersMap.empty()) {
+        return;
+    }
+
+    for (auto &it : bigBuffersMap) {
+        auto &bigBuffers = it.second;
+
+        long long littleMemSum = 0;
+        long long littleMemSumLimit = 300 * 1024 * 1024; // 留一小部分复用
+        std::set<int> limitedID;
+        std::vector<std::pair<size_t, int>> idle_size;
+        for (int i = 0; i < bigBuffers.size(); i++) {
+            if (!bigBuffers[i].busy) {
+                idle_size.push_back(std::make_pair(bigBuffers[i].size, i));
+            }
+        }
+
+        std::sort(idle_size.begin(), idle_size.end());
+        for (int i = 0; i < idle_size.size(); i++) {
+            littleMemSum += idle_size[i].first;
+
+            if (littleMemSum > littleMemSumLimit) {
+                break;
+            } else {
+                limitedID.insert(idle_size[i].second);
+            }
+        }
+
+        std::vector<CudaMemoryBuffer> temp;
+        for (int i = 0; i < bigBuffers.size(); i++) {
+            if (!bigBuffers[i].busy && limitedID.find(i) == limitedID.end()) {
+                cudaError state = cudaSuccess;
+                cudaSetDevice(it.first);
+                state = cudaFree(bigBuffers[i].data);
+                if (cudaSuccess != state)
+                    printf("Error: CUDA error when release memory on device %d!", it.first);
+                checkCudaErrors("", state);
+            } else {
+                temp.push_back(bigBuffers[i]);
+            }
+        }
+
+        bigBuffers.clear();
+        bigBuffers = temp;
+    }
+
+    cudaSetDevice(id);
+}
