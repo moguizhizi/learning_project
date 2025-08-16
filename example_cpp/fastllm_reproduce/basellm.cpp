@@ -354,6 +354,17 @@ void Data::MallocSpace(uint64_t size_t) {
     if (this->dataDevice == DataDevice::CPU) {
         this->cpuData = new uint8_t[this->expansionBytes];
         std::memset(this->cpuData, 0, this->expansionBytes * sizeof(uint8_t));
+    } else if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+        if (this->directMemory) {
+            this->cudaData = FastllmCudaDirectMalloc(this->expansionBytes);
+        } else {
+            this->cudaData = FastllmCudaMalloc(this->expansionBytes);
+        }
+        FastllmCudaMemset0(this->cudaData, this->expansionBytes);
+#else
+        ErrorInFastLLM("Error: cuda is not supported.\n");
+#endif
     }
 }
 
