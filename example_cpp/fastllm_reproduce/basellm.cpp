@@ -403,7 +403,23 @@ void Data::Expansion(const std::vector<int> &dims) {
             for (int o = 0; o < outer; o++) {
                 std::memcpy(this->cpuData + o * input1stride * unitSize, old + o * input0stride * unitSize, this->dims[axis] * inner * unitSize);
             }
+        } else if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+            uint8_t *old = (uint8_t *)this->cudaData;
+            this->MallocSpace(dims[0] * this->stride[0]);
+            int outer = this->Count(0) / this->Count(axis);
+            int input1stride = this->Count(axis);
+            int unitSize = this->unitSize;
+            int inner = this->stride[axis];
+            FastllmCudaMemcpy2DDeviceToDevice(
+                this->cudaData, input1stride * unitSize, old, input0stride * unitSize, this->dims[axis] * inner * unitSize, outer);
+            FastllmCudaFree(old);
+            FastllmCudaClearBigBuffer();
+#else
+            ErrorInFastLLM("Error: cuda is not supported.\n");
+#endif
         }
+
     } else {
         this->MallocSpace(dims[0] * this->stride[0]);
     }
