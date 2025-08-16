@@ -1006,4 +1006,31 @@ bool CpuToFloat16::CanRun(const std::string &opType, const DataDict &datas, cons
 
 void CpuToFloat16::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}
 
-void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}
+void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &data = *(datas.find("input")->second);
+
+    if (data.dims.size() == 0) {
+        data.dataType == DataType::FLOAT16;
+        data.UpdateUnitSize();
+        return;
+    }
+
+    if (data.dataType == DataType::FLOAT16) {
+        return;
+    } else if (data.dataType == DataType::FLOAT32) {
+        float *old = (float *)data.cpuData;
+        int len = data.Count(0);
+        data.dataType == DataType::FLOAT16;
+        data.UpdateUnitSize();
+
+        data.cpuData = new uint8_t[data.GetBytes()];
+        uint16_t *cur = (uint16_t *)data.cpuData;
+
+        for (int i = 0; i < len; i++) {
+            cur[i] = float_to_half(old[i]);
+        }
+        delete[] old;
+    } else {
+        ErrorInFastLLM("ToFloat16: unsupport dataType.\n");
+    }
+}
