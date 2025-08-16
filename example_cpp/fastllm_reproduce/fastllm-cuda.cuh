@@ -22,3 +22,4 @@ void FastllmCudaSetDevice(int gpu_id);
 int FastllmCudaGetDevice();
 void DeviceSync();
 void FastllmCudaClearBigBuffer();
+void FastllmCudaMemcpy2DDeviceToDevice(void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height);
