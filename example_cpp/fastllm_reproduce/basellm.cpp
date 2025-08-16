@@ -1002,11 +1002,29 @@ void Data::CalcWeightSum() {
     }
 }
 
-bool CpuToFloat16::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}
+bool BaseOperator::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) { return true; }
 
-void CpuToFloat16::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}
+void BaseOperator::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (datas.find("output") == datas.end()) {
+        return;
+    }
+
+    Data *inputs = datas.find("input")->second;
+    Data *outputs = datas.find("output")->second;
+    if (inputs == outputs) {
+        return;
+    }
+
+    inputs[0].dataType = outputs[0].dataType;
+    inputs[0].Resize(outputs[0].dims);
+}
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end()) {
+        return;
+    }
+
     Data &data = *(datas.find("input")->second);
 
     if (data.dims.size() == 0) {
