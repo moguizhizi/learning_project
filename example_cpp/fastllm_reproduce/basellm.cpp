@@ -3,6 +3,7 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "qwen3.h"
+#include "utils.h"
 #include <cstring>
 
 basellm::basellm() {}
@@ -526,8 +527,6 @@ void Data::CopyFrom(const Data &ori) {
     }
 }
 
-BF16ToFP16Manager bf16tofp16;
-
 void Data::CreateFromOriData(
     WeightType weightType, DataType oriDataType, uint8_t *oriData, float *oriMins, float *oriScales, int groupCnt, int blockK, int blockM) {
     this->weightType = weightType;
@@ -566,7 +565,7 @@ void Data::CreateFromOriData(
         uint16_t *a = (uint16_t *)this->cpuData;
         int len = this->Count(0);
         for (int i = 0; i < len; i++) {
-            a[i] = bf16tofp16.dict[b[i]];
+            a[i] = g_bf16tofp16.dict[b[i]];
         }
     } else if (oriDataType == DataType::FLOAT32 && this->dataType == DataType::FLOAT16) {
         float *b = (float *)oriData;
@@ -1050,5 +1049,39 @@ void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const F
         delete[] old;
     } else {
         ErrorInFastLLM("ToFloat16: unsupport dataType.\n");
+    }
+}
+
+void CpuToFloat32::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end()) {
+        return;
+    }
+
+    Data &data = *(datas.find("input")->second);
+
+    if (data.dims.size() == 0) {
+        data.dataType == DataType::FLOAT32;
+        data.UpdateUnitSize();
+        return;
+    }
+
+    if (data.dataType == DataType::FLOAT32) {
+        return;
+    } else if (data.dataType == DataType::FLOAT16) {
+        uint16_t *old = (uint16_t *)data.cpuData;
+        int len = data.Count(0);
+        data.dataType == DataType::FLOAT32;
+        data.UpdateUnitSize();
+
+        data.cpuData = new uint8_t[data.GetBytes()];
+        float *cur = (float *)data.cpuData;
+
+        for (int i = 0; i < len; i++) {
+            cur[i] = g_fp16ToFp32Manager.dict[old[i]];
+        }
+        delete[] old;
+    } else {
+        ErrorInFastLLM("ToFloat32: unsupport dataType.\n");
     }
 }

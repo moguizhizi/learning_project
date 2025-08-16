@@ -4,6 +4,7 @@
 #include "enum_space.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
+#include "utils.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -515,22 +516,6 @@ void MultiThreadGroupQuantizationOp::Run() {
     }
 }
 
-BF16ToFP32Manager::BF16ToFP32Manager() {
-    for (uint16_t i = 0; i < 65535; i++) {
-        uint32_t x = (i << 16);
-        dict[i] = *((float *)&x);
-    }
-}
-
-BF16ToFP32Manager bf16tofp32;
-
-BF16ToFP16Manager::BF16ToFP16Manager() {
-    for (uint16_t i = 0; i < 65535; i++) {
-        uint32_t x = (i << 16);
-        dict[i] = float_to_half(*((float *)&x));
-    }
-}
-
 MultiThreadGroupQuantizationBF16Op::MultiThreadGroupQuantizationBF16Op(
     int st, int end, int m, uint16_t *bf, uint8_t *u8, LowBitConfig *configs, int bit, int group, int groupCnt, int type) {
     this->st = st;
@@ -556,18 +541,18 @@ void MultiThreadGroupQuantizationBF16Op::Run() {
 
             float minValue = 1e9, maxValue = -1e9;
             for (int j = groupStart; j < groupEnd; j++) {
-                minValue = std::min(minValue, bf16tofp32.dict[bf[i * m + j]]);
-                maxValue = std::max(maxValue, bf16tofp32.dict[bf[i * m + j]]);
+                minValue = std::min(minValue, g_bf16tofp32.dict[bf[i * m + j]]);
+                maxValue = std::max(maxValue, g_bf16tofp32.dict[bf[i * m + j]]);
             }
             if (this->bit == 8) {
                 this->configs[cid] = LowBitConfig(maxValue, minValue, this->type, this->bit);
                 for (int j = groupStart; j < groupEnd; j++) {
-                    this->u8[i * m + j] = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                    this->u8[i * m + j] = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j]]);
                 }
             } else if (this->bit == 4) {
                 this->configs[cid] = LowBitConfig(maxValue, minValue, this->type, this->bit);
                 for (int j = groupStart; j < groupEnd; j++) {
-                    uint8_t value = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                    uint8_t value = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j]]);
                     uint8_t id = (i * m + j) / 2;
                     if ((i * m + j) % 2) {
                         this->u8[id] = (this->u8[id] & 0xF0) | value;
@@ -580,10 +565,10 @@ void MultiThreadGroupQuantizationBF16Op::Run() {
                 this->configs[cid] = LowBitConfig(maxValue, minValue, this->type, this->bit);
                 for (int j = groupStart; j + 3 < groupEnd; j += 4) {
                     int id = (i * m + j) / 4;
-                    uint8_t value0 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 0]]);
-                    uint8_t value1 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 1]]);
-                    uint8_t value2 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 2]]);
-                    uint8_t value3 = this->configs[cid].quantization(bf16tofp32.dict[bf[i * m + j + 4]]);
+                    uint8_t value0 = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j + 0]]);
+                    uint8_t value1 = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j + 1]]);
+                    uint8_t value2 = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j + 2]]);
+                    uint8_t value3 = this->configs[cid].quantization(g_bf16tofp32.dict[bf[i * m + j + 4]]);
 
                     this->u8[id] = value0 << 6 | value1 << 4 | value2 << 2 | value3;
                 }
@@ -647,19 +632,19 @@ void MultiThreadPerChannelQuantizationBF16Op::Run() {
     for (int i = this->st; i < this->end; i++) {
         float minValue = 1e9, maxValue = -1e9;
         for (int j = 0; j < m; j++) {
-            minValue = std::min(minValue, bf16tofp32.dict[bf[i * m + j]]);
-            maxValue = std::max(maxValue, bf16tofp32.dict[bf[i * m + j]]);
+            minValue = std::min(minValue, g_bf16tofp32.dict[bf[i * m + j]]);
+            maxValue = std::max(maxValue, g_bf16tofp32.dict[bf[i * m + j]]);
         }
         if (this->bit == 8) {
             this->configs[i] = LowBitConfig(minValue, maxValue, 8, this->type);
             for (int j = 0; j < m; j++) {
-                this->u8[i * m + j] = this->configs[i].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                this->u8[i * m + j] = this->configs[i].quantization(g_bf16tofp32.dict[bf[i * m + j]]);
             }
         } else {
             this->configs[i] = LowBitConfig(minValue, maxValue, 4, this->type);
             for (int j = 0; j < m; j++) {
                 int id = (i * m + j) / 2;
-                uint8_t value = this->configs[i].quantization(bf16tofp32.dict[bf[i * m + j]]);
+                uint8_t value = this->configs[i].quantization(g_bf16tofp32.dict[bf[i * m + j]]);
                 if ((i * m + j) % 2) {
                     this->u8[id] = (this->u8[id] & 0xF0) | value;
                 } else {
@@ -737,9 +722,9 @@ void MultiThreadBase3GroupQuantizationBF16Op::Run() {
 
             float minValue = 1e9, maxValue = -1e9, mean = 0.0;
             for (int j = groupStart; j < groupEnd; j++) {
-                minValue = std::min(minValue, bf16tofp32.dict[bf[i * m + j]]);
-                maxValue = std::max(maxValue, bf16tofp32.dict[bf[i * m + j]]);
-                mean += fabs(bf16tofp32.dict[bf[i * m + j]]);
+                minValue = std::min(minValue, g_bf16tofp32.dict[bf[i * m + j]]);
+                maxValue = std::max(maxValue, g_bf16tofp32.dict[bf[i * m + j]]);
+                mean += fabs(g_bf16tofp32.dict[bf[i * m + j]]);
             }
             mean = std::max(1e-5f, mean / (groupEnd - groupStart));
             float scale = mean;
@@ -747,7 +732,7 @@ void MultiThreadBase3GroupQuantizationBF16Op::Run() {
 
             memcpy(cur, cur + bytesPerGroup, 0);
             for (int j = groupStart; j < groupEnd; j++) {
-                float now = bf16tofp32.dict[bf[i * m + j]];
+                float now = g_bf16tofp32.dict[bf[i * m + j]];
                 uint8_t curV = (now > -scale * 0.5) + (now > scale * 0.5);
                 cur[(j - groupStart) / 5] += curV * base[(j - groupStart) % 5];
             }
