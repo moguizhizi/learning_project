@@ -1128,3 +1128,22 @@ void CpuConvertToFloat16::Reshape(const std::string &opType, const DataDict &dat
         outputs->Expansion(inputs->expansionDims);
     }
 }
+
+void CpuConvertToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
+        return;
+    }
+
+    Data *inputs = datas.find("input")->second;
+    Data *outputs = datas.find("output")->second;
+    outputs->Allocate();
+
+    if (inputs->dataType == DataType::FLOAT16) {
+        std::memcpy(outputs->cpuData, inputs->cpuData, inputs->GetBytes());
+    } else if (inputs->dataType == DataType::FLOAT32) {
+        Float32ToFloat16((float *)inputs->cpuData, (uint16_t *)outputs->cpuData, inputs->Count(0));
+    } else {
+        ErrorInFastLLM("ToFloat16: unsupport dataType.\n");
+    }
+}
