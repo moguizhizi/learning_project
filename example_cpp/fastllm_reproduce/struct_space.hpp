@@ -282,3 +282,13 @@ struct MultiThreadSingleAttentionOp : MultiThreadBaseOp {
     MultiThreadSingleAttentionOp(float *qd, float *kd, float *vd, float *maskd, float *od, float scale, int q1, int q2, int k1, int v2);
     void Run();
 };
+
+struct MultiThreadSingleAttentionFloat16Op : MultiThreadBaseOp {
+    uint16_t *qd, *kd, *vd, *maskd, *od;
+    float scale;
+    int q1, q2, k1, v2;
+    MultiThreadSingleAttentionFloat16Op(
+        uint16_t *qd, uint16_t *kd, uint16_t *vd, uint16_t *maskd, uint16_t *od, float scale, int q1, int q2, int k1, int v2);
+
+    void Run();
+};
