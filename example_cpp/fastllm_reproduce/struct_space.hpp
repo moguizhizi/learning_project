@@ -130,8 +130,6 @@ struct CudaMemoryBuffer {
     CudaMemoryBuffer(void *data, size_t size, bool busy);
 };
 
-
-
 struct LowBitConfig {
     float max;
     float min;
@@ -270,4 +268,17 @@ struct NumaClient {
 
     void Launch(int opType);
     void Wait();
+};
+
+struct MultiThreadBaseOp {
+    virtual void Run() = 0;
+};
+
+struct MultiThreadSingleAttentionOp : MultiThreadBaseOp {
+    float *qd, *kd, *vd, *maskd, *od;
+    float scale;
+    int q1, q2, k1, v2;
+
+    MultiThreadSingleAttentionOp(float *qd, float *kd, float *vd, float *maskd, float *od, float scale, int q1, int q2, int k1, int v2);
+    void Run();
 };
