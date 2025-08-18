@@ -1072,3 +1072,93 @@ void NumaClient::Wait() {
         }
     }
 }
+
+MultiThreadSingleAttentionOp::MultiThreadSingleAttentionOp(
+    float *qd, float *kd, float *vd, float *maskd, float *od, float scale, int q1, int q2, int k1, int v2) {
+    this->q1 = q1;
+    this->q2 = q2;
+    this->k1 = k1;
+    this->v2 = v2;
+    this->od = od;
+    this->qd = qd;
+    this->kd = kd;
+    this->vd = vd;
+    this->maskd = maskd;
+    this->scale = scale;
+}
+
+void MultiThreadSingleAttentionOp::Run() {
+
+    int base = k1 - q1;
+    for (int i = 0; i < this->q1; i++) {
+
+        float *qk = new float[this->k1]();
+        float *temp = new float[this->k1]();
+
+        float maxValue = -10000, sum = 0.0;
+        for (int j = 0; j < this->k1; j++) {
+            if (maskd && maskd[i * k1 + j] > 0.99) {
+                qk[j] = -10000;
+                continue;
+            }
+            if (!maskd && (base + i) < j) {
+                qk[j] = -10000;
+                continue;
+            }
+
+            int l = 0;
+            float now = 0.0f;
+#ifdef __aarch64__
+            float32x4_t sum = {0, 0, 0, 0};
+            for (; l + 3 < q2; l += 4) {
+                sum = vaddq_f32(sum, vmulq_f32(vld1q_f32(qd + i * q2 + l), vld1q_f32(kd + j * q2 + l)));
+            }
+            now += sum[0] + sum[1] + sum[2] + sum[3];
+#elif defined(__AVX__)
+            __m256 vsum = _mm256_set1_ps(0.0f);
+            for (; l + 7 < q2; l += 8) {
+                __m256 vx = _mm256_loadu_ps((const float *)(qd + i * q2 + l));
+                __m256 vy = _mm256_loadu_ps((const float *)(kd + j * q2 + l));
+                vsum = _mm256_add_ps(vsum, _mm256_mul_ps(vx, vy));
+            }
+            now += Floatsum(vsum);
+#endif
+            for (; l < this->q2; l++) {
+                now = now + this->qd[i * this->q2 + l] * this->kd[j * this->q2 + l];
+            }
+            qk[j] = now * this->scale;
+            maxValue = std::max(qk[j], maxValue);
+        }
+
+        int j = 0;
+#ifdef __aarch64__
+        float32x4_t vmax = vdupq_n_f32(maxValue);
+        for (; j + 3 < k1; j += 4) {
+            vst1q_f32(temp + j, exp_ps(vsubq_f32(vld1q_f32(qk + j), vmax)));
+        }
+#endif
+
+        for (; j < this->k1; j++) {
+            temp[j] = expf(qk[j] - maxValue);
+        }
+
+        sum = 0.0f;
+        for (int j = 0; j < k1; j++) {
+            sum += temp[j];
+        }
+        sum = std::max(sum, 0.1f);
+
+        for (int j = 0; j < this->k1; j++) {
+            qk[j] = qk[j] / sum;
+        }
+
+        for (int j = 0; j < this->k1; j++) {
+            for (int l = 0; l < this->v2; l++) {
+                this->od[i * this->v2 + l] += qk[j] * this->vd[j * this->v2 + l];
+            }
+        }
+
+        delete[] qk;
+        delete[] temp;
+    }
+}
