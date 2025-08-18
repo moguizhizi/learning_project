@@ -1162,3 +1162,18 @@ void MultiThreadSingleAttentionOp::Run() {
         delete[] temp;
     }
 }
+
+MultiThreadSingleAttentionFloat16Op::MultiThreadSingleAttentionFloat16Op(
+    uint16_t *qd, uint16_t *kd, uint16_t *vd, uint16_t *maskd, uint16_t *od, float scale, int q1, int q2, int k1, int v2) {
+
+    this->qd = qd;
+    this->kd = kd;
+    this->vd = vd;
+    this->maskd = maskd;
+    this->od = od;
+    this->scale = scale;
+    this->q1 = q1;
+    this->q2 = q2;
+    this->k1 = k1;
+    this->v2 = v2;
+}
