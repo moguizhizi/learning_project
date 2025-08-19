@@ -62,11 +62,10 @@ void SafeTensorItem::CreateBuffer(DataType dstType) {
 #endif
 
     this->ClearBuffer();
-    int ret;
     DataType srcType;
     if (this->dtype == "fastllm") {
         this->buffer = new uint8_t[this->bytes];
-        ret = fread(this->buffer, 1, this->bytes, fi);
+        fread(this->buffer, 1, this->bytes, fi);
         fclose(fi);
         return;
     } else if (this->dtype == "F32") {
@@ -98,10 +97,10 @@ void SafeTensorItem::CreateBuffer(DataType dstType) {
 
     this->buffer = new uint8_t[unitSize * (size_t)this->len];
     if (srcType == dstType) {
-        ret = fread(this->buffer, 1, this->bytes, fi);
+        fread(this->buffer, 1, this->bytes, fi);
     } else {
         uint8_t *ori = new uint8_t[this->bytes];
-        ret = fread(ori, 1, this->bytes, fi);
+        fread(ori, 1, this->bytes, fi);
         ConvertDataType(ori, srcType, this->buffer, dstType, this->len);
         delete[] ori;
     }
@@ -407,55 +406,6 @@ WeightMergeRule::WeightMergeRule(const std::vector<WeightMergeRuleSingle> &rules
 CudaMemoryBuffer::CudaMemoryBuffer() {}
 CudaMemoryBuffer::CudaMemoryBuffer(void *data, size_t size, bool busy) : data(data), size(size), busy(busy) {}
 
-LowBitConfig::LowBitConfig() {}
-
-LowBitConfig::LowBitConfig(float max, float min, int type, uint8_t bit) {
-    this->max = max;
-    this->min = min;
-    this->type = type; // 0: 有zero点 1: 不需要zero点
-    this->bit = bit;
-}
-
-void LowBitConfig::Reset() {
-    this->min = std::min(this->min, 0.f);
-    this->max = std::max(this->max, 0.f);
-
-    const uint8_t qmin = 0;
-    const uint8_t qmax = (1 << this->bit) - 1;
-
-    this->scale = (this->max - this->min) / (qmax - qmin);
-    const float initial_zero_point = qmin - (this->min / this->scale);
-
-    if (initial_zero_point < qmin) {
-        this->zeroPoint = qmin;
-    } else if (initial_zero_point > qmax) {
-        this->zeroPoint = qmax;
-    } else {
-        this->zeroPoint = static_cast<u_int8_t>(std::round(initial_zero_point));
-    }
-
-    if (type == 1) {
-        this->min = -this->scale * zeroPoint;
-        return;
-    }
-}
-
-uint8_t LowBitConfig::quantization(const float &realNumber) const {
-    if (this->type == 0) {
-        return (uint8_t)(std::min((double)((1 << bit) - 1), (double)std::max(realNumber / this->scale + this->zeroPoint + 0.5, 0.0)));
-    } else {
-        return (uint8_t)(std::max(0.f, std::min(15.f, (realNumber - this->min) / scale + 0.5f)));
-    }
-}
-
-float LowBitConfig::invQuantization(const uint8_t &qNumber) const {
-    if (this->type == 0) {
-        return (this->scale * ((float)qNumber - (float)this->zeroPoint));
-    } else {
-        return this->min + this->scale * qNumber;
-    }
-}
-
 MultiThreadGroupQuantizationOp::MultiThreadGroupQuantizationOp(
     int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8, int type) {
     this->st = st;
@@ -688,7 +638,7 @@ void MultiThreadBase3GroupQuantizationOp::Run() {
             float scale = mean;
             halfScales[i * group + g] = float_to_half(scale);
 
-            memcpy(cur, 0, bytesPerGroup);
+            memcpy(cur, cur + bytesPerGroup, 0);
             for (int j = groupStart; j < groupEnd; j++) {
                 float now = f32[i * m + j];
                 uint8_t curV = (now > -scale * 0.5) + (now > scale * 0.5);

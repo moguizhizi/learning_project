@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "common_class.h"
+#include "common_struct.h"
 #include "enum_space.h"
 #include "json11.hpp"
 #include <algorithm>
@@ -14,9 +16,6 @@
 #include <unicode/unistr.h>
 #include <unordered_map>
 #include <vector>
-
-// 提前声明 Data，避免循环依赖
-class Data;
 
 struct SafeTensorItem {
     std::string tensorName;
@@ -131,22 +130,6 @@ struct CudaMemoryBuffer {
 
     CudaMemoryBuffer();
     CudaMemoryBuffer(void *data, size_t size, bool busy);
-};
-
-struct LowBitConfig {
-    float max;
-    float min;
-    int type;
-    int bit;
-    uint8_t zeroPoint;
-    float scale;
-
-    LowBitConfig();
-    LowBitConfig(float max, float min, int type, uint8_t bit);
-
-    void Reset();
-    uint8_t quantization(const float &realNumber) const;
-    float invQuantization(const uint8_t &qNumber) const;
 };
 
 struct MultiThreadBaseOp {
