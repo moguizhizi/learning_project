@@ -1151,3 +1151,54 @@ void MultiThreadSingleAttentionFloat16Op::Run() {
 
     Float32ToFloat16(fod.data(), this->od, (int)fod.size());
 }
+
+MultiThreadSwigluOp::MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid) {
+    this->input = input;
+    this->output = output;
+    this->n = n;
+    this->len = len;
+    this->inputstride = inputstride;
+    this->outputstride = outputstride;
+    this->mid = mid;
+}
+
+void MultiThreadSwigluOp::Run() {
+    for (int o = 0; o < this->n; o++) {
+        float *cur = this->input + o * this->inputstride;
+        float *out = this->output + o * this->outputstride;
+
+        int i = 0;
+#ifdef __aarch64__
+        float32x4_t c1 = vdupq_n_f32(1.0f);
+        for (; i + 3 < len; i += 4) {
+            float32x4_t vx = vld1q_f32(cur + i);
+            float32x4_t vy = vld1q_f32(cur + i + mid);
+            vx = vdivq_f32(vx, vaddq_f32(c1, exp_ps(vnegq_f32(vx))));
+            vy = vmulq_f32(vx, vy);
+            vst1q_f32(out + i, vy);
+        }
+#endif
+#ifdef __AVX2__
+        for (; i + 7 < len; i += 8) { // Process 8 elements at a time
+            // Load x values (inputData[i..i+7]) and y values (inputData[i+mid..i+mid+7])
+            __m256 x = _mm256_loadu_ps(&cur[i]);
+            __m256 y = _mm256_loadu_ps(&cur[i + mid]);
+
+            // Compute sigmoid: 1.0 / (1.0 + expf(-x))
+            __m256 neg_x = _mm256_sub_ps(_mm256_setzero_ps(), x);
+            __m256 exp_neg_x = exp256_ps(neg_x); // See note below about exp_ps
+            __m256 denom = _mm256_add_ps(_mm256_set1_ps(1.0f), exp_neg_x);
+            __m256 sigmoid = _mm256_div_ps(x, denom);
+
+            // Multiply by y and store result
+            __m256 result = _mm256_mul_ps(sigmoid, y);
+            _mm256_storeu_ps(&out[i], result);
+        }
+#endif
+
+        for (; i < len; i++) {
+            float x = cur[i], y = cur[i + this->mid];
+            out[i] = (x / (1.0 + expf(-x))) * y;
+        }
+    }
+}
