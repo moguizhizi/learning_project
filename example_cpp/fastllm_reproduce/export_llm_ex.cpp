@@ -1,6 +1,7 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "struct_space.hpp"
+#include "utils.h"
 #include <cstring>
 #include <thread>
 
