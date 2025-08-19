@@ -53,7 +53,7 @@ class Data {
     void *cudaData = nullptr;
 
     std::vector<int> expansionDims;
-    std::vector<uint64_t> stride;
+    std::vector<uint64_t> strides;
     std::vector<int> dims;
     std::vector<int> dataDeviceIds;
 

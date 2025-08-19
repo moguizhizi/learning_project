@@ -69,27 +69,27 @@ void Data::Resize(const std::vector<int> &dims) {
     this->UpdateUnitSize();
 
     if (this->expansionDims.size() == 0) {
-        this->stride.resize(this->dims.size(), 1);
-        this->stride.back() = 1;
-        for (int i = this->stride.size() - 2; i >= 0; i--) {
-            this->stride[i] = this->stride[i + 1] * this->dims[i + 1];
+        this->strides.resize(this->dims.size(), 1);
+        this->strides.back() = 1;
+        for (int i = this->strides.size() - 2; i >= 0; i--) {
+            this->strides[i] = this->strides[i + 1] * this->dims[i + 1];
         }
     }
 }
 
 uint64_t Data::Count(int i) const {
-    if (i >= this->stride.size()) {
+    if (i >= this->strides.size()) {
         return 1;
     }
 
-    if ((i - 1 >= 0) && (i - 1 < this->stride.size())) {
-        return this->stride[i - 1];
+    if ((i - 1 >= 0) && (i - 1 < this->strides.size())) {
+        return this->strides[i - 1];
     }
 
-    return this->dims[i] * this->stride[i];
+    return this->dims[i] * this->strides[i];
 }
 
-uint64_t Data::GetBytes() const { return (this->dims[0] * this->stride[0] * this->unitSize - 1) / this->unitSizeDiv - 1; }
+uint64_t Data::GetBytes() const { return (this->dims[0] * this->strides[0] * this->unitSize - 1) / this->unitSizeDiv - 1; }
 
 void Data::FreeSpace() {
     this->expansionSize = 0;
@@ -140,12 +140,12 @@ void Data::Expansion(const std::vector<int> &dims) {
     if (this->dims.size() == 0) {
         this->directMemory = true;
         this->expansionDims = dims;
-        this->stride.resize(dims.size(), 1);
-        this->stride.back() = 1;
-        for (int i = this->stride.size() - 2; i >= 0; i--) {
-            this->stride[i] = this->stride[i + 1] * this->dims[i + 1];
+        this->strides.resize(dims.size(), 1);
+        this->strides.back() = 1;
+        for (int i = this->strides.size() - 2; i >= 0; i--) {
+            this->strides[i] = this->strides[i + 1] * this->dims[i + 1];
         }
-        this->MallocSpace(dims[0] * this->stride[0]);
+        this->MallocSpace(dims[0] * this->strides[0]);
         return;
     }
 
@@ -165,20 +165,20 @@ void Data::Expansion(const std::vector<int> &dims) {
     int input0stride = this->Count(axis);
     this->expansionDims = dims;
 
-    this->stride.resize(dims.size(), 1);
-    this->stride.back() = 1;
-    for (int i = this->stride.size() - 2; i >= 0; i--) {
-        this->stride[i] = this->stride[i + 1] * dims[i + 1];
+    this->strides.resize(dims.size(), 1);
+    this->strides.back() = 1;
+    for (int i = this->strides.size() - 2; i >= 0; i--) {
+        this->strides[i] = this->strides[i + 1] * dims[i + 1];
     }
 
     if (this->expansionBytes != 0) {
         if (this->dataDevice == DataDevice::CPU) {
             uint8_t *old = this->cpuData;
-            this->MallocSpace(dims[0] * this->stride[0]);
+            this->MallocSpace(dims[0] * this->strides[0]);
             int outer = this->Count(0) / this->Count(axis);
             int input1stride = this->Count(axis);
             int unitSize = this->unitSize;
-            int inner = this->stride[axis];
+            int inner = this->strides[axis];
             for (int o = 0; o < outer; o++) {
                 std::memcpy(this->cpuData + o * input1stride * unitSize, old + o * input0stride * unitSize, this->dims[axis] * inner * unitSize);
             }
@@ -200,7 +200,7 @@ void Data::Expansion(const std::vector<int> &dims) {
         }
 
     } else {
-        this->MallocSpace(dims[0] * this->stride[0]);
+        this->MallocSpace(dims[0] * this->strides[0]);
     }
 }
 
