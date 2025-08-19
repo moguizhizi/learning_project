@@ -165,3 +165,110 @@ void CpuAttention::Reshape(const std::string &opType, const DataDict &datas, con
     output->dataType = q->dataType;
     output->Resize(dims);
 }
+
+void CpuAttention::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("q") == datas.end() || datas.find("k") == datas.end() || datas.find("v") == datas.end() || datas.find("output") == datas.end()) {
+        return;
+    }
+
+    Data &qd = *(datas.find("q")->second);
+    Data &kd = *(datas.find("k")->second);
+    Data &vd = *(datas.find("v")->second);
+    Data &maskd = *(datas.find("mask")->second);
+    Data &outputd = *(datas.find("output")->second);
+
+    outputd.Allocate();
+
+    int q0 = qd.dims[0], q1 = qd.dims[1], q2 = qd.dims[2];
+    int k1 = kd.dims[1];
+    int v2 = vd.dims[2];
+
+    float scale = floatParams.find("scale") != floatParams.end() ? floatParams.find("scale")->second : 1.0f;
+    int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : qd.dims[0] / kd.dims[0];
+
+    uint64_t q_stride = qd.strides[0];
+    uint64_t k_stride = kd.strides[0];
+    uint64_t v_stride = vd.strides[0];
+    uint64_t output_stride = outputd.strides[0];
+
+    if (qd.dataType == DataType::FLOAT32) {
+        float *q = (float *)qd.cpuData;
+        float *k = (float *)kd.cpuData;
+        float *v = (float *)vd.cpuData;
+        float *output = (float *)outputd.cpuData;
+        float *mask = maskd.dims.size() > 0 ? (float *)maskd.cpuData : nullptr;
+
+        int batch = (mask != nullptr && maskd.dims.size() == 3) ? maskd.dims[0] : 1;
+        batch = intParams.find("mask___batch") != intParams.end() ? intParams.find("mask___batch")->second : batch;
+
+        int maskStride = (mask != nullptr) ? (maskd.dims.size() == 3 ? maskd.strides[0] : maskd.Count(0)) : 0;
+        std::fill(output, output + outputd.Count(0), 0.0f);
+
+        // auto *pool = GetAlivePool();
+        // int threads = pool->threads.size();
+
+        std::vector<MultiThreadSingleAttentionOp *> ops;
+        for (int o = 0; o < q0; o++) {
+            ops.push_back(new MultiThreadSingleAttentionOp(q + o * q_stride,
+                                                           k + (o / group) * k_stride,
+                                                           v + (o / group) * v_stride,
+                                                           mask + (o / (q0 / batch)) * maskStride,
+                                                           output + o * output_stride,
+                                                           scale,
+                                                           q1,
+                                                           q2,
+                                                           k1,
+                                                           v2));
+        }
+
+        // for (int st = 0; st < ops.size(); st += threads) {
+        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
+        //         pool->PushOp(i - st, ops[i]);
+        //     }
+        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
+        //         pool->Wait(i - st);
+        //     }
+        // }
+    } else if (qd.dataType == DataType::FLOAT16) {
+        uint16_t *q = (uint16_t *)qd.cpuData;
+        uint16_t *k = (uint16_t *)kd.cpuData;
+        uint16_t *v = (uint16_t *)vd.cpuData;
+        uint16_t *output = (uint16_t *)outputd.cpuData;
+        uint16_t *mask = maskd.dims.size() > 0 ? (uint16_t *)maskd.cpuData : nullptr;
+
+        int batch = (mask != nullptr && maskd.dims.size() == 3) ? maskd.dims[0] : 1;
+        batch = intParams.find("mask___batch") != intParams.end() ? intParams.find("mask___batch")->second : batch;
+
+        int maskStride = (mask != nullptr) ? (maskd.dims.size() == 3 ? maskd.strides[0] : maskd.Count(0)) : 0;
+        std::fill(output, output + outputd.Count(0), 0.0f);
+
+        // auto *pool = GetAlivePool();
+        // int threads = pool->threads.size();
+
+        std::vector<MultiThreadSingleAttentionFloat16Op *> ops;
+        for (int o = 0; o < q0; o++) {
+            ops.push_back(new MultiThreadSingleAttentionFloat16Op(q + o * q_stride,
+                                                                  k + (o / group) * k_stride,
+                                                                  v + (o / group) * v_stride,
+                                                                  mask + (o / (q0 / batch)) * maskStride,
+                                                                  output + o * output_stride,
+                                                                  scale,
+                                                                  q1,
+                                                                  q2,
+                                                                  k1,
+                                                                  v2));
+        }
+
+        // for (int st = 0; st < ops.size(); st += threads) {
+        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
+        //         pool->PushOp(i - st, ops[i]);
+        //     }
+        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
+        //         pool->Wait(i - st);
+        //     }
+        // }
+    } else {
+        ErrorInFastLLM("Attention error: unsupport dataType.\n");
+    }
+}
