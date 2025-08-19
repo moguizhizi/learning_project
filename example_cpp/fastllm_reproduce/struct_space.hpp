@@ -15,6 +15,9 @@
 #include <unordered_map>
 #include <vector>
 
+// 提前声明 Data，避免循环依赖
+class Data;
+
 struct SafeTensorItem {
     std::string tensorName;
     std::string fileName;
@@ -268,10 +271,6 @@ struct NumaClient {
 
     void Launch(int opType);
     void Wait();
-};
-
-struct MultiThreadBaseOp {
-    virtual void Run() = 0;
 };
 
 struct MultiThreadSingleAttentionOp : MultiThreadBaseOp {
