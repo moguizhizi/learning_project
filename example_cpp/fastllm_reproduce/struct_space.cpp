@@ -1177,3 +1177,27 @@ MultiThreadSingleAttentionFloat16Op::MultiThreadSingleAttentionFloat16Op(
     this->k1 = k1;
     this->v2 = v2;
 }
+
+void MultiThreadSingleAttentionFloat16Op::Run() {
+    std::vector<float> fqd, fkd, fvd, fod, fmaskd;
+
+    fqd.resize(this->q1 * this->q2);
+    fkd.resize(this->k1 * this->q2);
+    fvd.resize(this->k1 * this->v2);
+    fmaskd.resize(this->maskd ? this->q1 * this->k1 : 0);
+    fod.resize(this->q1 * this->v2);
+    if (this->maskd) {
+        Float16ToFloat32(this->maskd, fmaskd.data(), (int)fmaskd.size());
+    }
+
+    Float16ToFloat32(this->qd, fqd.data(), (int)fqd.size());
+    Float16ToFloat32(this->kd, fkd.data(), (int)fkd.size());
+    Float16ToFloat32(this->vd, fvd.data(), (int)fvd.size());
+    Float16ToFloat32(this->od, fod.data(), (int)fod.size());
+
+    MultiThreadSingleAttentionOp(
+        fqd.data(), fkd.data(), fvd.data(), this->maskd ? fmaskd.data() : nullptr, fod.data(), this->scale, this->q1, this->q2, this->k1, this->v2)
+        .Run();
+
+    Float32ToFloat16(fod.data(), this->od, (int)fod.size());
+}
