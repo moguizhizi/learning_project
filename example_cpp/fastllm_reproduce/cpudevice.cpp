@@ -272,3 +272,10 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
         ErrorInFastLLM("Attention error: unsupport dataType.\n");
     }
 }
+
+void CpuCopyKVCacheOp::Reshape(const std::string &opType,
+                               const DataDict &datas,
+                               const FloatDict &floatParams,
+                               const IntDict &intParams) {
+    return;
+}
