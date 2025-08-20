@@ -7,7 +7,7 @@
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input");
     }
 
     Data &data = *(datas.find("input")->second);
@@ -41,7 +41,7 @@ void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const F
 void CpuToFloat32::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input");
     }
 
     Data &data = *(datas.find("input")->second);
@@ -75,7 +75,7 @@ void CpuToFloat32::Run(const std::string &opType, const DataDict &datas, const F
 void CpuConvertToFloat16::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input or output");
     }
 
     Data *inputs = datas.find("input")->second;
@@ -90,7 +90,7 @@ void CpuConvertToFloat16::Reshape(const std::string &opType, const DataDict &dat
 void CpuConvertToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input or output");
     }
 
     Data *inputs = datas.find("input")->second;
@@ -109,7 +109,7 @@ void CpuConvertToFloat16::Run(const std::string &opType, const DataDict &datas, 
 void CpuConvertToFloat32::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input or output");
     }
 
     Data *inputs = datas.find("input")->second;
@@ -124,7 +124,7 @@ void CpuConvertToFloat32::Reshape(const std::string &opType, const DataDict &dat
 void CpuConvertToFloat32::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is input or output");
     }
 
     Data *inputs = datas.find("input")->second;
@@ -143,7 +143,7 @@ void CpuConvertToFloat32::Run(const std::string &opType, const DataDict &datas, 
 void CpuAttention::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("q") == datas.end() || datas.find("k") == datas.end() || datas.find("v") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is q or k or v or output");
     }
 
     Data *q = datas.find("q")->second;
@@ -169,7 +169,7 @@ void CpuAttention::Reshape(const std::string &opType, const DataDict &datas, con
 void CpuAttention::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("q") == datas.end() || datas.find("k") == datas.end() || datas.find("v") == datas.end() || datas.find("output") == datas.end()) {
-        return;
+        ErrorInFastLLM("key error, key value is q or k or v or output");
     }
 
     Data &qd = *(datas.find("q")->second);
@@ -273,9 +273,26 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
     }
 }
 
-void CpuCopyKVCacheOp::Reshape(const std::string &opType,
-                               const DataDict &datas,
-                               const FloatDict &floatParams,
-                               const IntDict &intParams) {
-    return;
+void CpuCopyKVCacheOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) { return; }
+
+void CpuCopyKVCacheOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("newCache") == datas.end() || datas.find("oldCache") == datas.end()) {
+        ErrorInFastLLM("key error, key value is newKVCache or oldKVCache");
+    }
+
+    Data &newCache = *(datas.find("newCache")->second);
+    Data &oldCache = *(datas.find("oldCache")->second);
+    int newBsStart = intParams.find("newBsStart") != intParams.end() ? intParams.find("newBsStart")->second : 0;
+    int oldBsStart = intParams.find("oldBsStart") != intParams.end() ? intParams.find("oldBsStart")->second : 0;
+    int bs = intParams.find("bs") != intParams.end() ? intParams.find("bs")->second : 0;
+    int offset = intParams.find("offset") != intParams.end() ? intParams.find("offset")->second : 0;
+
+    int unitSize = oldCache.unitSize;
+    for (int o = 0; o < bs; o++) {
+        uint8_t *cur = newCache.cpuData + (newBsStart + o) * newCache.strides[0] * unitSize;
+        cur = cur + offset * newCache.strides[1] * unitSize;
+        uint8_t *old = oldCache.cpuData + (oldBsStart + o) * oldCache.strides[0] * unitSize;
+        std::memcpy(cur, old, oldCache.dims[1] * oldCache.dims[2] * unitSize);
+    }
 }
