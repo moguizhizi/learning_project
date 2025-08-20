@@ -296,3 +296,33 @@ void CpuCopyKVCacheOp::Run(const std::string &opType, const DataDict &datas, con
         std::memcpy(cur, old, oldCache.dims[1] * oldCache.dims[2] * unitSize);
     }
 }
+
+void CpuEmbedding::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end() || datas.find("weight") == datas.end() || datas.find("output") == datas.end()) {
+        ErrorInFastLLM("key error, key value is input or weight or output");
+    }
+
+    Data &input = *(datas.find("input")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &output = *(datas.find("output")->second);
+
+    AssertInFastLLM(weight.dims.size() == 2, "Embedding's weight's dim should be 2.\n");
+    AssertInFastLLM(weight.dataType == DataType::FLOAT32 || weight.dataType == DataType::FLOAT16 || weight.dataType == DataType::BFLOAT16,
+                    "Embedding's weight's type should be float32 or float16 or bfloat16.\n");
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+                    "Embedding's input's type should be float32 or float16.\n");
+
+    weight.weightType = WeightType::EMBEDDING;
+    int vocabSize = weight.dims[0];
+    int embeddingsSize = weight.dims[1];
+
+    std::vector<int> dims = input.dims;
+    dims.push_back(embeddingsSize);
+    output.dataType = input.dataType;
+    if (weight.dataType == DataType::FLOAT16) {
+        output.dataType = DataType::FLOAT16;
+    }
+
+    output.Resize(dims);
+}
