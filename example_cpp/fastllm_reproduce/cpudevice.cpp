@@ -1,5 +1,6 @@
 #include "cpudevice.h"
 #include "basellm.h"
+#include "fastllm.h"
 #include "file_utils.hpp"
 #include "utils.h"
 #include <cstring>
@@ -325,4 +326,100 @@ void CpuEmbedding::Reshape(const std::string &opType, const DataDict &datas, con
     }
 
     output.Resize(dims);
+}
+
+void CpuEmbedding::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end() || datas.find("weight") == datas.end() || datas.find("output") == datas.end()) {
+        ErrorInFastLLM("key error, key value is input or weight or output");
+    }
+
+    Data &input = *(datas.find("input")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &output = *(datas.find("output")->second);
+
+    output.Allocate();
+
+    int inputlen = input.dims[0];
+    int embeddingsSize = weight.dims[1];
+
+    std::vector<float> tempInputData;
+    std::vector<float> tempOutputData;
+
+    tempInputData.resize(inputlen);
+    tempOutputData.resize(inputlen * embeddingsSize);
+
+    float *inputData = tempInputData.data();
+    float *outputData = tempOutputData.data();
+
+    for (int i = 0; i < inputlen; i++) {
+        if (input.dataType == DataType::FLOAT32) {
+            inputData[i] = ((float *)input.cpuData)[i];
+        } else if (input.dataType == DataType::FLOAT16) {
+            inputData[i] = half_to_float(((uint16_t *)input.cpuData)[i]);
+        } else {
+            ErrorInFastLLM("Embedding error: unsupport dataType.\n");
+        }
+    }
+
+    if (GetLowMemMode()) {
+        FILE *file = fopen(weight.fileName.c_str(), "rb");
+        if (weight.dataType == DataType::FLOAT32) {
+            for (int i = 0; i < inputlen; i++) {
+                int inputId = (int)(inputData[i] + 1e-9);
+#if defined(_WIN32) or defined(_WIN64)
+                _fseeki64(file, weight.filePos + (long long)inputId * embeddingsSize * sizeof(float), 0);
+#else
+                fseek(file, weight.filePos + (long long)inputId * embeddingsSize * sizeof(float), 0);
+#endif
+                fread(outputData + i * embeddingsSize, sizeof(float), embeddingsSize, file);
+            }
+        } else if (weight.dataType == DataType::FLOAT16) {
+            for (int i = 0; i < inputlen; i++) {
+                int inputId = (int)(inputData[i] + 1e-9);
+#if defined(_WIN32) or defined(_WIN64)
+                _fseeki64(file, weight.filePos + (long long)inputId * embeddingsSize * sizeof(uint16_t), 0);
+#else
+                fseek(file, weight.filePos + (long long)inputId * embeddingsSize * sizeof(uint16_t), 0);
+#endif
+
+                uint16_t *temp = new uint16_t[embeddingsSize];
+                std::memset(temp, 0, embeddingsSize * sizeof(uint16_t));
+                fread(temp, sizeof(uint16_t), embeddingsSize, file);
+
+                for (int j = 0; j < embeddingsSize; j++) {
+                    outputData[i * embeddingsSize + j] = half_to_float(temp[j]);
+                }
+                delete[] temp;
+            }
+        } else {
+        }
+        fclose(file);
+    } else {
+        if (weight.dataType == DataType::FLOAT32) {
+            for (int i = 0; i < inputlen; i++) {
+                int inputId = (int)(inputData[i] + 1e-9);
+                std::memcpy(outputData + i * embeddingsSize * sizeof(float),
+                            weight.cpuData + inputId * embeddingsSize * sizeof(float),
+                            embeddingsSize * sizeof(float));
+            }
+        } else if (weight.dataType == DataType::FLOAT16) {
+            for (int i = 0; i < inputlen; i++) {
+                int inputId = (int)(inputData[i] + 1e-9);
+                for (int j = 0; j < embeddingsSize; j++) {
+                    outputData[i * embeddingsSize + j] = half_to_float(((uint16_t *)weight.cpuData)[inputId * embeddingsSize + j]);
+                }
+            }
+        }
+    }
+
+    if (output.dataType == DataType::FLOAT32) {
+        std::memcpy(output.cpuData, (uint8_t *)outputData, inputlen * embeddingsSize * sizeof(float));
+    } else if (output.dataType == DataType::FLOAT16) {
+        for (int i = 0; i < inputlen * embeddingsSize; i++) {
+            ((uint16_t *)output.cpuData)[i] = float_to_half(outputData[i]);
+        }
+    } else {
+        ErrorInFastLLM("Embedding error: unsupport dataType.\n");
+    }
 }

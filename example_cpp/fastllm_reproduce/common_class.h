@@ -30,6 +30,9 @@ class Data {
     int unitSizeDiv = 1;
     std::string name;
 
+    std::string fileName;
+    long long filePos;
+
     // 以下参数用于量化，对FLOAT数据不适用
     int perChannelAxis = -1;       // 沿哪个轴分通道量化，-1代表没有分通道
     int group = -1, groupCnt = -1; // 分组量化，group代表组数，groupCnt代表每组有多少个元素，-1代表不使用分组量化

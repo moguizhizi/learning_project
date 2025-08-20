@@ -98,3 +98,5 @@ template <typename T> static std::vector<T> AppendVector(const std::vector<T> &a
 
 void barrier();
 void ToDataType(const Data &input, DataType dataType);
+
+bool GetLowMemMode();
