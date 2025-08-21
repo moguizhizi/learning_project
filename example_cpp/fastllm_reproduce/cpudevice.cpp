@@ -3,6 +3,7 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "utils.h"
+#include <cmath>
 #include <cstring>
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -421,5 +422,155 @@ void CpuEmbedding::Run(const std::string &opType, const DataDict &datas, const F
         }
     } else {
         ErrorInFastLLM("Embedding error: unsupport dataType.\n");
+    }
+}
+
+void CpuLayerNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    if (datas.find("input") == datas.end() || datas.find("output") == datas.end() || datas.find("gamma") == datas.end() ||
+        datas.find("beta") == datas.end()) {
+
+        ErrorInFastLLM("key error, key value is input or output or gamma or beta");
+    }
+
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &gamma = *(datas.find("gamma")->second);
+    Data &beta = *(datas.find("beta")->second);
+
+    output.Allocate();
+
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.strides[axis];
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+    float *gammaData = (float *)gamma.cpuData;
+    float *betaData = (float *)beta.cpuData;
+
+    float *inputWalk = nullptr;
+    float *outputWalk = nullptr;
+
+    if (inner == 1) {
+
+        for (int i = 0; i < outer; i++) {
+            float mean = 0.f, s2 = 0.f, var = 0.f;
+            int j = 0;
+#ifdef __aarch64__
+            float32x4_t sums = vdupq_n_f32(0.0);
+            float32x4_t sums2 = vdupq_n_f32(0.0);
+            for (; j + 3 < channels; j += 4) {
+                float32x4_t vi = vld1q_f32(inputData + j);
+                sums = vaddq_f32(sums, vi);
+                sums2 = vaddq_f32(sums2, vmulq_f32(vi, vi));
+            }
+            mean = sums[0] + sums[1] + sums[2] + sums[3];
+            s2 = sums2[0] + sums2[1] + sums2[2] + sums2[3];
+#endif
+#ifdef __AVX2__
+            __m256 sum_vec = _mm256_setzero_ps();
+            __m256 squared_sum_vec = _mm256_setzero_ps();
+
+            for (; j < channels - 7; j += 8) {
+                __m256 data_vec = _mm256_loadu_ps(inputData + j);
+                sum_vec = _mm256_add_ps(sum_vec, data_vec);
+
+                __m256 squared_data_vec = _mm256_mul_ps(data_vec, data_vec);
+                squared_sum_vec = _mm256_add_ps(squared_sum_vec, squared_data_vec);
+            }
+
+            float sum_array[8];
+            _mm256_storeu_ps(sum_array, sum_vec);
+            mean = sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3] + sum_array[4] + sum_array[5] + sum_array[6] + sum_array[7];
+
+            float squared_sum_array[8];
+            _mm256_storeu_ps(squared_sum_array, squared_sum_vec);
+            s2 = squared_sum_array[0] + squared_sum_array[1] + squared_sum_array[2] + squared_sum_array[3] + squared_sum_array[4] +
+                 squared_sum_array[5] + squared_sum_array[6] + squared_sum_array[7];
+#endif
+            for (; j < channels; j++) {
+                mean += inputData[j];
+                s2 += inputData[j] * inputData[j];
+            }
+            mean /= channels;
+            var = sqrt(s2 / channels - mean * mean + 1e-10);
+            j = 0;
+#ifdef __aarch64__
+            float32x4_t means = vdupq_n_f32(mean);
+            float32x4_t vars = vdupq_n_f32(1.0 / var);
+            for (; j + 3 < channels; j += 4) {
+                float32x4_t va = vld1q_f32(gammaData + j), vb = vld1q_f32(betaData + j);
+                float32x4_t vi = vld1q_f32(inputData + j);
+                float32x4_t vo = vaddq_f32(vmulq_f32(vmulq_f32(vsubq_f32(vi, means), vars), va), vb);
+                vst1q_f32(outputData + j, vo);
+            }
+#endif
+            for (; j < channels; j++) {
+                float a = gammaData[j], b = betaData[j];
+                outputData[j] = (inputData[j] - mean) / var * a + b;
+            }
+
+            inputData += channels;
+            outputData += channels;
+        }
+        return;
+
+    } else {
+
+        float *mean = new float[inner]();
+        float *var = new float[inner]();
+
+        for (int i = 0; i < outer; i++) {
+            std::fill(mean, mean + inner, 0.0f);
+            std::fill(var, var + inner, 0.0f);
+
+            inputWalk = inputData;
+            outputWalk = outputData;
+            for (int j = 0; j < channels; j++) {
+                for (int k = 0; k < inner; k++) {
+                    mean[k] = mean[k] + *inputWalk;
+                    inputWalk = inputWalk + 1;
+                }
+            }
+
+            for (int k = 0; k < inner; k++) {
+                mean[k] = mean[k] / channels;
+            }
+
+            inputWalk = inputData;
+            for (int j = 0; j < channels; j++) {
+                for (int k = 0; k < inner; k++) {
+                    float x = *inputWalk - mean[k];
+                    var[k] = var[k] + x * x;
+                    inputWalk = inputWalk + 1;
+                }
+            }
+
+            for (int k = 0; k < inner; k++) {
+                var[k] = std::sqrt(var[k] / channels + 1e-5);
+            }
+
+            inputWalk = inputData;
+            for (int j = 0; j < channels; j++) {
+                float a = gammaData[j];
+                float b = betaData[j];
+                for (int k = 0; k < inner; k++) {
+                    *outputWalk = (*inputWalk - mean[k]) / var[k] * a + b;
+                    inputWalk = inputWalk + 1;
+                    outputWalk = outputWalk + 1;
+                }
+            }
+
+            inputData = inputData + channels * inner;
+            outputData = outputData + channels * inner;
+        }
+
+        delete[] mean;
+        delete[] var;
     }
 }
