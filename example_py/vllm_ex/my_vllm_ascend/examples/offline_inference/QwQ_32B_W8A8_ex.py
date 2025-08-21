@@ -3,7 +3,7 @@
 import os
 from vllm import LLM, SamplingParams
 
-os.environ["ASCEND_RT_VISIBLE_DEVICES"] = "4,5,6,7"
+os.environ["ASCEND_RT_VISIBLE_DEVICES"] = "2,3,4,5"
 
 prompts = [
     "Hello, my name is",
@@ -15,7 +15,8 @@ llm = LLM(
         model="/home/llm_model/vllm-ascend/QwQ-32B-W8A8",
         max_model_len=26240,
         load_format="runai_streamer",
-        tensor_parallel_size=4,
+        pipeline_parallel_size=1,
+        tensor_parallel_size=4,      # 纯 PP 时设为 1
         quantization="ascend",
 )
 
