@@ -40,3 +40,7 @@ class CpuEmbedding : BaseOperator {
 class CpuLayerNormOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CpuRMSNormOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
