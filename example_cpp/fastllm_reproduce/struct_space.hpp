@@ -290,3 +290,12 @@ struct MultiThreadSwigluFloat16Op : MultiThreadBaseOp {
     MultiThreadSwigluFloat16Op(uint16_t *input, uint16_t *output, int n, int len, int inputstride, int outputstride, int mid);
     void Run();
 };
+
+struct MultiThreadRMSNormFloatOp : MultiThreadBaseOp {
+    float *output, *input, *weight;
+    int outer, channels;
+    float eps;
+
+    MultiThreadRMSNormFloatOp(float *output, float *input, float *weight, int outer, int channels, float eps);
+    void Run();
+};

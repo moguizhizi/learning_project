@@ -1249,3 +1249,46 @@ void MultiThreadSwigluFloat16Op::Run() {
         }
     }
 }
+
+MultiThreadRMSNormFloatOp::MultiThreadRMSNormFloatOp(float *output, float *input, float *weight, int outer, int channels, float eps) {
+    this->output;
+    this->input = input;
+    this->weight = weight;
+    this->outer = outer;
+    this->channels = channels;
+    this->eps = eps;
+}
+
+void MultiThreadRMSNormFloatOp::Run() {
+    for (int i = 0; i < outer; i++) {
+        float mean = 0.f;
+        int j = 0;
+#ifdef __aarch64__
+        float32x4_t sums = vdupq_n_f32(0.0);
+        for (; j + 3 < channels; j += 4) {
+            float32x4_t vi = vld1q_f32(input + j);
+            sums = vaddq_f32(sums, vmulq_f32(vi, vi));
+        }
+        mean = sums[0] + sums[1] + sums[2] + sums[3];
+#endif
+        for (; j < channels; j++) {
+            mean += input[j] * input[j];
+        }
+        float scale = 1.0 / sqrt(mean / channels + eps);
+        j = 0;
+#ifdef __aarch64__
+        float32x4_t vscale = vdupq_n_f32(scale);
+        for (; j + 3 < channels; j += 4) {
+            float32x4_t vi = vld1q_f32(input + j);
+            float32x4_t vw = vld1q_f32(weight + j);
+            vst1q_f32(output + j, vmulq_f32(vmulq_f32(vi, vscale), vw));
+        }
+#endif
+        for (; j < channels; j++) {
+            output[j] = input[j] * scale * weight[j];
+        }
+
+        input += channels;
+        output += channels;
+    }
+}

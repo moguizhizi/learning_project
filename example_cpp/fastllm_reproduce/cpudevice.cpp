@@ -574,3 +574,7 @@ void CpuLayerNormOp::Run(const std::string &opType, const DataDict &datas, const
         delete[] var;
     }
 }
+
+void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    
+}
