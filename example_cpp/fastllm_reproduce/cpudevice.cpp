@@ -575,6 +575,27 @@ void CpuLayerNormOp::Run(const std::string &opType, const DataDict &datas, const
     }
 }
 
-void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
-    
+void RunMultiThreadRMSNormFloat(float *output, float *input, float *weight, int outer, int channels, float eps, AliveThreadPool *pool) {
+    if (outer == 1) {
+        (MultiThreadRMSNormFloatOp(output, input, weight, outer, channels, eps)).Run();
+        return;
+    }
+    int threadNum = pool->threads.size();
+    int per = outer / pool->threads.size();
+    int cur = 0;
+    std::vector<MultiThreadRMSNormFloatOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? outer : cur + per + (cur + per * (threadNum - i) < outer));
+        ops.push_back(new MultiThreadRMSNormFloatOp(output + cur * channels, input + cur * channels, weight, end - cur, channels, eps));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
 }
+
+void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}

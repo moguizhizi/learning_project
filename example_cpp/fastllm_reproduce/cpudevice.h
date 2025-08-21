@@ -1,5 +1,6 @@
 #pragma once // 或者用 #ifndef 方式
 
+#include "alivethreadpool.h"
 #include "device.h"
 
 class CpuToFloat16 : BaseOperator {
@@ -44,3 +45,5 @@ class CpuLayerNormOp : BaseOperator {
 class CpuRMSNormOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+void RunMultiThreadRMSNormFloat(float *output, float *input, float *weight, int outer, int channels, float eps, AliveThreadPool *pool);
