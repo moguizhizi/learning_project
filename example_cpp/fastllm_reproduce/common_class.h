@@ -65,6 +65,7 @@ class Data {
     uint64_t Count(int i) const;
     uint64_t GetBytes() const;
     void Allocate();
+    void Allocate(float v);
     void FreeSpace();
     void MallocSpace(uint64_t size_t);
     void Expansion(const std::vector<int> &dims); // dims的格式[num_head, seqlen, head_dim]，且必须与原data的dims只保持seqlen的不同

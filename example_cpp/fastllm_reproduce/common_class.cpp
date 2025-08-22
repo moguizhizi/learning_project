@@ -116,6 +116,34 @@ void Data::Allocate() {
     }
 }
 
+void Data::Allocate(float v) {
+    AssertInFastLLM(this->dataType == DataType::FLOAT32 || this->dataType == DataType::FLOAT16,
+                    "Allocate error: Data's type should be float32 or float16.\n");
+    this->Allocate();
+    if (this->dataDevice == DataDevice::CPU) {
+        if (this->dataType == DataType::FLOAT32) {
+            float *f = (float *)cpuData;
+            std::fill(f, f + Count(0), v);
+        } else if (this->dataType == DataType::FLOAT16) {
+            uint16_t *h = (uint16_t *)cpuData;
+            std::fill(h, h + Count(0), float_to_half(v));
+        }
+    }
+    if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+        if (this->dataType == DataType::FLOAT32) {
+            std::vector<float> f = std::vector<float>(Count(0), v);
+            FastllmCudaCopyFromHostToDevice(cudaData, f.data(), Count(0) * sizeof(float));
+        } else if (this->dataType == DataType::FLOAT16) {
+            std::vector<uint16_t> f = std::vector<uint16_t>(Count(0), float_to_half(v));
+            FastllmCudaCopyFromHostToDevice(cudaData, f.data(), Count(0) * sizeof(uint16_t));
+        }
+#endif
+    } else {
+        // TODO: 别的设备上的初始化
+    }
+}
+
 void Data::MallocSpace(uint64_t size_t) {
     this->expansionSize = size_t;
     this->expansionBytes = (this->expansionSize * this->unitSize - 1) / this->unitSizeDiv + 1;
