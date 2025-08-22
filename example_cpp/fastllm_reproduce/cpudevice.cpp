@@ -598,4 +598,45 @@ void RunMultiThreadRMSNormFloat(float *output, float *input, float *weight, int 
     }
 }
 
-void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {}
+void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+
+    float eps = floatParams.find("eps") != floatParams.end() ? floatParams.find("eps")->second : 1e-5;
+    int dimsLen = input.dims.size();
+    int axis = dimsLen - 1;
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+
+    if (input.dataType == DataType::FLOAT32) {
+        float *inputData = (float *)input.cpuData;
+        float *outputData = (float *)output.cpuData;
+        float *weightData = (float *)weight.cpuData;
+        RunMultiThreadRMSNormFloat(outputData, inputData, weightData, outer, channels, eps, GetAlivePool());
+    } else if (input.dataType == DataType::FLOAT16) {
+        uint16_t *inputData = (uint16_t *)input.cpuData;
+        uint16_t *outputData = (uint16_t *)output.cpuData;
+        float *weightData = (float *)weight.cpuData;
+
+        for (int i = 0; i < outer; i++) {
+            float mean = 0.f;
+            int j = 0;
+            for (; j < channels; j++) {
+                float x = g_fp16ToFp32Manager.dict[inputData[j]];
+                mean += x * x;
+            }
+            float scale = 1.0 / sqrt(mean / channels + eps);
+            j = 0;
+            for (; j < channels; j++) {
+                outputData[j] = float_to_half(g_fp16ToFp32Manager.dict[inputData[j]] * scale * weightData[j]);
+            }
+
+            inputData += channels;
+            outputData += channels;
+        }
+    } else {
+        ErrorInFastLLM("RMSNorm error: unsupport dataType.\n");
+    }
+}

@@ -513,3 +513,5 @@ void barrier() {
 }
 
 bool GetLowMemMode() { return false; }
+
+AliveThreadPool *GetAlivePool() { return nullptr; }
