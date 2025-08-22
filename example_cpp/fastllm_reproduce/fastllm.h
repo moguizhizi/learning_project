@@ -30,6 +30,8 @@ static bool FileExists(std::string filePath) {
 }
 #endif
 
+#include "alivethreadpool.h"
+
 static std::map<DataType, std::vector<std::string>> dataTypeNames = {{DataType::FLOAT32, {"float32", "fp32"}},
                                                                      {DataType::BFLOAT16, {"bfloat32", "bf32"}},
                                                                      {DataType::INT16, {"int16"}},
@@ -100,3 +102,5 @@ void barrier();
 void ToDataType(const Data &input, DataType dataType);
 
 bool GetLowMemMode();
+
+AliveThreadPool *GetAlivePool();
