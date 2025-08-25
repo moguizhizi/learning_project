@@ -640,3 +640,39 @@ void CpuRMSNormOp::Run(const std::string &opType, const DataDict &datas, const F
         ErrorInFastLLM("RMSNorm error: unsupport dataType.\n");
     }
 }
+
+bool CpuConv2DOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) { return true; }
+
+void CpuConv2DOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+
+    int kernelH = intParams.find("kernelH")->second;
+    int kernelW = intParams.find("kernelW")->second;
+    int padH = intParams.find("padH")->second;
+    int padW = intParams.find("padW")->second;
+    int strideH = intParams.find("strideH")->second;
+    int strideW = intParams.find("strideW")->second;
+    int outputChannels = intParams.find("outputChannels")->second;
+    int inputChannels = intParams.find("inputChannels")->second;
+
+    AssertInFastLLM(weight.dims.size() == 4, "Conv2D's weight's shape's size should be 4.\n");
+    AssertInFastLLM(input.dims[1] == inputChannels, "Conv2D's input's shape error.\n");
+
+    int inputHeight = input.dims[2];
+    int inputWidth = input.dims[3];
+
+    int outputHeight = (inputHeight + 2 * padH - kernelH) / strideH + 1;
+    int outputWidth = (inputWidth + 2 * padW - kernelW) / strideW + 1;
+
+    weight.weightType = WeightType::CONV2D;
+
+    std::vector<int> dims = input.dims;
+    dims[1] = outputChannels;
+    dims[2] = outputHeight;
+    dims[3] = outputWidth;
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
