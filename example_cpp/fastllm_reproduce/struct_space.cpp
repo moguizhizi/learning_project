@@ -1388,3 +1388,55 @@ void MultiThreadInt4GroupLinearOp::Run() {
         }
     }
 }
+
+MultiThreadBase3GroupLinearOp::MultiThreadBase3GroupLinearOp(float *inputData,
+                                                             uint8_t *weightData,
+                                                             float *biasData,
+                                                             float *outputData,
+                                                             int n,
+                                                             int m,
+                                                             int k,
+                                                             int st,
+                                                             int end,
+                                                             int group,
+                                                             int groupCnt,
+                                                             uint16_t *halfScales) {
+    this->inputData = inputData;
+    this->weightData = weightData;
+    this->biasData = biasData;
+    this->outputData = outputData;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->st = st;
+    this->end = end;
+    this->group = group;
+    this->groupCnt = groupCnt;
+    this->halfScales = halfScales;
+}
+
+void MultiThreadBase3GroupLinearOp::Run() {
+
+    std::vector<uint8_t> base = {1, 3, 9, 27, 81};
+    int bytesPerGroup = (this->groupCnt - 1) / 5 + 1;
+
+    for (int i = 0; i < this->n; i++) {
+        for (int j = this->st; j < this->end; j++) {
+            float now = this->biasData[j];
+            for (int g = 0; g < this->group; g++) {
+                uint8_t *cur = this->weightData + j * this->group * bytesPerGroup + g * bytesPerGroup;
+                int gstart = g * this->groupCnt;
+                int gend = std::min((g + 1) * this->groupCnt, this->m);
+
+                float sum = 0.0f;
+                for (int id = gstart; g < gend; g++) {
+                    sum += this->inputData[i * this->m + id] * (cur[(id - gstart) / 5] / base[(id - gstart) % 5] % 3 - 1);
+                }
+
+                now += g_bf16tofp32.dict[halfScales[j * this->group + g]] * sum;
+            }
+
+            this->outputData[i * this->k + j] = now;
+        }
+    }
+}
