@@ -974,3 +974,67 @@ void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue) {
         maxValue = std::max(maxValue, a[j]);
     }
 }
+
+void QuantizationAll(float *fValue, uint8_t *uValue, int len, LowBitConfig *config) {
+    float scale = config->scale;
+    float zeroPoint = config->zeroPoint;
+    int j = 0;
+#ifdef __aarch64__
+    float32x4_t scales = vdupq_n_f32(scale);
+    float32x4_t zeros = vdupq_n_f32(zeroPoint + 0.5);
+    int32x4_t maxds = vcombine_s32(vcreate_s32(0x000000ff000000ff), vcreate_s32(0x000000ff000000ff));
+    int32x4_t minds = vcombine_s32(vcreate_s32(0x0000000000000000), vcreate_s32(0x0000000000000000));
+    for (; j + 7 < len; j += 8) {
+        float32x4_t fin1 = vld1q_f32(fValue + j);
+        float32x4_t fin2 = vld1q_f32(fValue + j + 4);
+        fin1 = vaddq_f32(vdivq_f32(fin1, scales), zeros);
+        fin2 = vaddq_f32(vdivq_f32(fin2, scales), zeros);
+        int32x4_t out1 = vcvtq_s32_f32(fin1);
+        int32x4_t out2 = vcvtq_s32_f32(fin2);
+        out1 = vmaxq_s32(out1, minds);
+        out1 = vminq_s32(out1, maxds);
+        out2 = vmaxq_s32(out2, minds);
+        out2 = vminq_s32(out2, maxds);
+        uint16x8_t out3 = vpaddq_u16(vreinterpretq_u16_s32(out1), vreinterpretq_u16_s32(out2));
+        uint8x8_t out = vmovn_u16(out3);
+        vst1_u8(uValue + j, out);
+    }
+#endif
+#ifdef __AVX2__
+    __m256 vScale = _mm256_set1_ps(scale);
+    __m256 vZeroPoint = _mm256_set1_ps(zeroPoint);
+    __m256 vZero = _mm256_setzero_ps();
+    __m256 vHalf = _mm256_set1_ps(0.5f);
+    __m256 vMax = _mm256_set1_ps(255.0f);
+    for (; j + 7 < len; j += 8) {
+        // Load 8 floats
+        __m256 vValue = _mm256_loadu_ps(&fValue[j]);
+
+        // fValue[j] / scale + zeroPoint + 0.5
+        __m256 vScaled = _mm256_div_ps(vValue, vScale);
+        __m256 vWithZP = _mm256_add_ps(vScaled, vZeroPoint);
+        __m256 vWithHalf = _mm256_add_ps(vWithZP, vHalf);
+
+        // max(..., 0.0)
+        __m256 vClampedLow = _mm256_max_ps(vWithHalf, vZero);
+
+        // min(..., 255.0)
+        __m256 vClampedHigh = _mm256_min_ps(vClampedLow, vMax);
+
+        // Convert to int32 (truncate)
+        __m256i vInt32 = _mm256_cvtps_epi32(vClampedHigh);
+
+        // Pack into 16-bit integers
+        __m128i vInt16 = _mm_packus_epi32(_mm256_extractf128_si256(vInt32, 0), _mm256_extractf128_si256(vInt32, 1));
+
+        // Pack into 8-bit integers
+        __m128i vInt8 = _mm_packus_epi16(vInt16, vInt16);
+
+        // Store the lower 64 bits (8 bytes)
+        _mm_storel_epi64((__m128i *)&uValue[j], vInt8);
+    }
+#endif
+    for (; j < len; j++) {
+        uValue[j] = (uint8_t)(std::min(255., (double)std::max(fValue[j] / scale + zeroPoint + 0.5, 0.0)));
+    }
+}
