@@ -870,3 +870,67 @@ void Int4GroupLinearPart(float *inputData,
         }
     }
 }
+
+// float的input, int4的weight, 直接计算得到float的output
+void Int4LinearPart(
+    float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end) {
+    for (int i = 0; i < n; i++) {
+        for (int j = st; j < end; j++) {
+            float now = biasData ? biasData[j] : 0.0f;
+            int l = 0;
+#ifdef __aarch64__X
+            float32x4_t scales = vdupq_n_f32(configs[j].scale);
+            uint8x8_t zeros = vdup_n_u8(configs[j].zeroPoint);
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            float32x4_t sum0 = {0, 0, 0, 0};
+            float32x4_t sum1 = {0, 0, 0, 0};
+
+            for (; l + 15 < m; l += 16) {
+                uint8x8_t ori = vld1_u8(weightData + (j * m + l) / 2);
+                float32x4x2_t in0 = vld2q_f32(inputData + i * m + l + 0);
+                float32x4x2_t in1 = vld2q_f32(inputData + i * m + l + 8);
+                uint8x8_t a = vand_u8(ori, maskLow);
+                uint16x8_t result = vsubl_u8(a, zeros);
+                int16x8_t sresult = vreinterpretq_s16_u16(result);
+                int16x4_t result1 = vget_low_s16(sresult);
+                int16x4_t result2 = vget_high_s16(sresult);
+                int32x4_t result3 = vmovl_s16(result1);
+                int32x4_t result4 = vmovl_s16(result2);
+                float32x4_t f1 = vmulq_f32(scales, vcvtq_f32_s32(result3));
+                float32x4_t f2 = vmulq_f32(scales, vcvtq_f32_s32(result4));
+                sum0 = vaddq_f32(sum0, vmulq_f32(in0.val[1], f1));
+                sum1 = vaddq_f32(sum1, vmulq_f32(in1.val[1], f2));
+
+                a = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+                result = vsubl_u8(a, zeros);
+                sresult = vreinterpretq_s16_u16(result);
+                result1 = vget_low_s16(sresult);
+                result2 = vget_high_s16(sresult);
+                result3 = vmovl_s16(result1);
+                result4 = vmovl_s16(result2);
+                f1 = vmulq_f32(scales, vcvtq_f32_s32(result3));
+                f2 = vmulq_f32(scales, vcvtq_f32_s32(result4));
+
+                sum0 = vaddq_f32(sum0, vmulq_f32(in0.val[0], f1));
+                sum1 = vaddq_f32(sum1, vmulq_f32(in1.val[0], f2));
+            }
+            now += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+            now += sum1[0] + sum1[1] + sum1[2] + sum1[3];
+#endif
+
+            for (; l < m; l++) {
+                int id = (j * m + l) / 2;
+                float weight = 0.0f;
+                if ((j * m + l) % 2) {
+                    weight = configs[j].invQuantization(weightData[id] & 0xF);
+                } else {
+                    weight = configs[j].invQuantization(weightData[id] >> 4);
+                }
+                now += inputData[i * m + l] * weight;
+            }
+
+            outputData[i * k + j] = now;
+        }
+    }
+}
