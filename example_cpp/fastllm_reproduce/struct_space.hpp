@@ -346,3 +346,12 @@ struct MultiThreadBase3GroupLinearOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadFloat32ToBFloat16Op : MultiThreadBaseOp {
+    float *input;
+    uint16_t *output;
+    int len;
+
+    MultiThreadFloat32ToBFloat16Op(float *input, uint16_t *output, int len);
+    void Run();
+};
