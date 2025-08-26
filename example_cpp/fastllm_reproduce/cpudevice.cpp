@@ -934,3 +934,43 @@ void Int4LinearPart(
         }
     }
 }
+
+void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue) {
+    int j = 0;
+    minValue = 1e100;
+    maxValue = -1e100;
+#ifdef __aarch64__
+    float32x4_t mins = vdupq_n_f32(1e100);
+    float32x4_t maxs = vdupq_n_f32(-1e100);
+    for (; j + 3 < len; j += 4) {
+        float32x4_t v = vld1q_f32(a + j);
+        mins = vminq_f32(mins, v);
+        maxs = vmaxq_f32(maxs, v);
+    }
+    for (int l = 0; l < 4; l++) {
+        minValue = std::min(minValue, mins[l]);
+        maxValue = std::max(maxValue, maxs[l]);
+    }
+#endif
+#ifdef __AVX2__
+    __m256 mins = _mm256_set1_ps(1e100);
+    __m256 maxs = _mm256_set1_ps(-1e100);
+    for (; j + 7 < len; j += 8) {
+        __m256 v = _mm256_loadu_ps(a + j);
+        mins = _mm256_min_ps(mins, v);
+        maxs = _mm256_max_ps(maxs, v);
+    }
+    // 将 AVX2 寄存器中的最小值、最大值提取到标量
+    float temp_min[8], temp_max[8];
+    _mm256_storeu_ps(temp_min, mins);
+    _mm256_storeu_ps(temp_max, maxs);
+    for (int l = 0; l < 8; l++) {
+        minValue = std::min(minValue, temp_min[l]);
+        maxValue = std::max(maxValue, temp_max[l]);
+    }
+#endif
+    for (; j < len; j++) {
+        minValue = std::min(minValue, a[j]);
+        maxValue = std::max(maxValue, a[j]);
+    }
+}
