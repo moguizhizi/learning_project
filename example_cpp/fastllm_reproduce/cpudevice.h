@@ -87,3 +87,5 @@ void Int4GroupLinearPart(float *inputData,
 // float的input, int4的weight, 直接计算得到float的output
 void Int4LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end);
+
+void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);

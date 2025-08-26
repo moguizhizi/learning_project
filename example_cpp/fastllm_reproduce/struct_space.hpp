@@ -346,5 +346,3 @@ struct MultiThreadBase3GroupLinearOp : MultiThreadBaseOp {
 
     void Run();
 };
-
-void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);
