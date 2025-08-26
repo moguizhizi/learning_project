@@ -69,3 +69,17 @@ void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end);
+
+// float的input, int4g的weight, 直接计算得到float的output
+void Int4GroupLinearPart(float *inputData,
+                         uint8_t *weightData,
+                         float *biasData,
+                         float *outputData,
+                         LowBitConfig *configs,
+                         int n,
+                         int m,
+                         int k,
+                         int st,
+                         int end,
+                         int group,
+                         int groupCnt);
