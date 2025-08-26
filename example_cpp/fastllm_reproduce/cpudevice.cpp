@@ -732,3 +732,12 @@ void CpuConv2DOp::Run(const std::string &opType, const DataDict &datas, const Fl
         }
     }
 }
+
+void DoCpuLinearReshape(Data &input, Data &weight, Data &output) {
+    weight.weightType = WeightType::LINEAR;
+    std::vector<int> dims = input.dims;
+    dims.back() = weight.dims[0];
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
