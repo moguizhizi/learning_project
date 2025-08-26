@@ -410,6 +410,7 @@ MultiThreadGroupQuantizationOp::MultiThreadGroupQuantizationOp(
     int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8, int type) {
     this->st = st;
     this->end = end;
+    this->m = m;
     this->bit = bit;
     this->configs = configs;
     this->group = group;
