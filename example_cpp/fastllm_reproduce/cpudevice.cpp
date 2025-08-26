@@ -752,3 +752,43 @@ void CpuLinearOp::Reshape(const std::string &opType, const DataDict &datas, cons
 
     DoCpuLinearReshape(input, weight, output);
 }
+
+// float的input, int8的weight, 直接计算得到float的output
+void Int8LinearPart(
+    float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end) {
+    for (int i = 0; i < n; i++) {
+        for (int j = st; j < end; j++) {
+            float now = biasData ? biasData[j] : 0.0f;
+            int l = 0;
+
+#ifdef __aarch64__
+            float32x4_t scales = vdupq_n_f32(configs[j].scale);
+            uint8x8_t zeros = vdup_n_u8(configs[j].zeroPoint);
+            float32x4_t sum0 = {0, 0, 0, 0};
+            float32x4_t sum1 = {0, 0, 0, 0};
+            for (; l + 7 < m; l += 8) {
+                uint8x8_t a = vld1_u8(weightData + j * m + l);
+                uint16x8_t result = vsubl_u8(a, zeros);
+                int16x8_t sresult = vreinterpretq_s16_u16(result);
+                int16x4_t result1 = vget_low_s16(sresult);
+                int16x4_t result2 = vget_high_s16(sresult);
+                int32x4_t result3 = vmovl_s16(result1);
+                int32x4_t result4 = vmovl_s16(result2);
+                float32x4_t f1 = vmulq_f32(scales, vcvtq_f32_s32(result3));
+                float32x4_t f2 = vmulq_f32(scales, vcvtq_f32_s32(result4));
+
+                sum0 = vaddq_f32(sum0, vmulq_f32(vld1q_f32(inputData + i * m + l + 0), f1));
+                sum1 = vaddq_f32(sum1, vmulq_f32(vld1q_f32(inputData + i * m + l + 4), f2));
+            }
+            now += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+            now += sum1[0] + sum1[1] + sum1[2] + sum1[3];
+#endif
+
+            for (; l < m; l++) {
+                now = now + inputData[i * m + l] * configs[j].invQuantization(weightData[j * m + l]);
+            }
+
+            outputData[i * k + j] = now;
+        }
+    }
+}
