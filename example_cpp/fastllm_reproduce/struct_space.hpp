@@ -299,3 +299,27 @@ struct MultiThreadRMSNormFloatOp : MultiThreadBaseOp {
     MultiThreadRMSNormFloatOp(float *output, float *input, float *weight, int outer, int channels, float eps);
     void Run();
 };
+
+struct MultiThreadInt4GroupLinearOp : MultiThreadBaseOp {
+    float *inputData;
+    uint8_t *weightData;
+    float *biasData, *outputData;
+    uint16_t *mins, *scales;
+    int n, m, k, st, end, group, groupCnt;
+
+    MultiThreadInt4GroupLinearOp(float *inputData,
+                                 uint8_t *weightData,
+                                 float *biasData,
+                                 float *outputData,
+                                 uint16_t *mins,
+                                 uint16_t *scales,
+                                 int n,
+                                 int m,
+                                 int k,
+                                 int st,
+                                 int end,
+                                 int group,
+                                 int groupCnt);
+
+    void Run();
+};
