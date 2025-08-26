@@ -676,3 +676,59 @@ void CpuConv2DOp::Reshape(const std::string &opType, const DataDict &datas, cons
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void CpuConv2DOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &bias = *(datas.find("bias")->second);
+
+    output.Allocate(0.0f);
+
+    int kernelH = intParams.find("kernelH")->second;
+    int kernelW = intParams.find("kernelW")->second;
+    int padH = intParams.find("padH")->second;
+    int padW = intParams.find("padW")->second;
+    int strideH = intParams.find("strideH")->second;
+    int strideW = intParams.find("strideW")->second;
+    int outputChannels = intParams.find("outputChannels")->second;
+    int inputChannels = intParams.find("inputChannels")->second;
+
+    int inputHeight = input.dims[2];
+    int inputWidth = input.dims[3];
+    int outputHeight = (inputHeight + 2 * padH - kernelH) / strideH + 1;
+    int outputWidth = (inputWidth + 2 * padW - kernelW) / strideW + 1;
+
+    float *floatInput = (float *)input.cpuData;
+    float *floatOutput = (float *)output.cpuData;
+    float *floatWeight = (float *)weight.cpuData;
+    float *floatBias = (float *)bias.cpuData;
+
+    for (int oc = 0; oc < outputChannels; oc++) {
+        float *startWeight = floatWeight + oc * (inputChannels * kernelH * kernelW);
+        for (int oh = 0; oh < outputHeight; oh++) {
+            for (int ow = 0; ow < outputWidth; ow++) {
+                int ih = oh * kernelH - padH;
+                int iw = ow * strideW - padW;
+                float value = floatBias[oc];
+
+                float *curWeight = startWeight;
+                for (int c = 0; c < inputChannels; c++) {
+                    float *curInput = floatInput + c * (inputHeight * inputWidth);
+                    for (int h = 0; h < kernelH; h++) {
+                        for (int w = 0; w < kernelW; w++) {
+                            int x = ih + h;
+                            int y = iw + w;
+                            if (x >= 0 && x <= inputHeight && y >= 0 && y <= inputWidth) {
+                                value = value + curInput[x * inputWidth + y] * (*curWeight);
+                                curWeight++;
+                            }
+                        }
+                    }
+                }
+                *floatOutput = value;
+                floatOutput++;
+            }
+        }
+    }
+}
