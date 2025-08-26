@@ -323,3 +323,26 @@ struct MultiThreadInt4GroupLinearOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadBase3GroupLinearOp : MultiThreadBaseOp {
+    float *inputData;
+    uint8_t *weightData;
+    float *biasData, *outputData;
+    int n, m, k, st, end, group, groupCnt;
+    uint16_t *halfScales;
+
+    MultiThreadBase3GroupLinearOp(float *inputData,
+                                  uint8_t *weightData,
+                                  float *biasData,
+                                  float *outputData,
+                                  int n,
+                                  int m,
+                                  int k,
+                                  int st,
+                                  int end,
+                                  int group,
+                                  int groupCnt,
+                                  uint16_t *halfScales);
+
+    void Run();
+};
