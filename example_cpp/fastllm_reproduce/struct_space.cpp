@@ -1293,3 +1293,98 @@ void MultiThreadRMSNormFloatOp::Run() {
         output += channels;
     }
 }
+
+MultiThreadInt4GroupLinearOp::MultiThreadInt4GroupLinearOp(float *inputData,
+                                                           uint8_t *weightData,
+                                                           float *biasData,
+                                                           float *outputData,
+                                                           uint16_t *mins,
+                                                           uint16_t *scales,
+                                                           int n,
+                                                           int m,
+                                                           int k,
+                                                           int st,
+                                                           int end,
+                                                           int group,
+                                                           int groupCnt) {
+
+    this->inputData = inputData;
+    this->weightData = weightData;
+    this->biasData = biasData;
+    this->outputData = outputData;
+    this->mins = mins;
+    this->scales = scales;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->st = st;
+    this->end = end;
+    this->group = group;
+    this->groupCnt = groupCnt;
+}
+
+void MultiThreadInt4GroupLinearOp::Run() {
+    for (int i = 0; i < this->n; i++) {
+        for (int j = this->st; j < this->end; j++) {
+            float now = biasData ? biasData[j] : 0.0f;
+            for (int g = 0; g < this->group; g++) {
+                int gst = g * this->groupCnt;
+                int gend = std::min((g + 1) * this->groupCnt, this->m);
+                int l = gst;
+                float curScale = g_bf16tofp32.dict[this->scales[j * this->group + g]];
+                float curMin = g_bf16tofp32.dict[this->mins[j * this->group + g]];
+#ifdef __AVX2__
+                __m256 now_vec = _mm256_setzero_ps();
+                const __m256 scale_vec = _mm256_set1_ps(curScale);
+                const __m256 min_vec = _mm256_set1_ps(curMin);
+
+                for (; l + 8 <= gend; l += 8) {
+                    // 计算权重索引（每次处理4个字节）
+                    size_t weight_offset = (j * m + l) / 2;
+                    const uint8_t *weight_ptr = &weightData[weight_offset];
+
+                    // 加载4个权重字节
+                    __m128i v = _mm_loadl_epi64((const __m128i *)weight_ptr);
+
+                    // 拆分高/低4位
+                    __m128i hi = _mm_and_si128(_mm_srli_epi16(v, 4), _mm_set1_epi8(0x0F));
+                    __m128i lo = _mm_and_si128(v, _mm_set1_epi8(0x0F));
+
+                    // 交错排列成 [hi0, lo0, hi1, lo1, ...]
+                    __m128i hi_lo = _mm_unpacklo_epi8(hi, lo);
+
+                    // 将8个字节扩展为8个int32
+                    __m128i lo_nib = _mm_cvtepu8_epi32(hi_lo);
+                    __m128i hi_nib = _mm_cvtepu8_epi32(_mm_srli_si128(hi_lo, 4));
+                    __m256i nibbles = _mm256_set_m128i(hi_nib, lo_nib);
+
+                    // 转换为浮点数并计算权重
+                    __m256 weights = _mm256_fmadd_ps(_mm256_cvtepi32_ps(nibbles), scale_vec, min_vec);
+
+                    // 加载8个输入元素
+                    const float *input_ptr = &inputData[i * m + l];
+                    __m256 input = _mm256_loadu_ps(input_ptr);
+
+                    // 乘积累加
+                    now_vec = _mm256_fmadd_ps(input, weights, now_vec);
+                }
+
+                // 水平求和
+                __m128 sum128 = _mm_add_ps(_mm256_extractf128_ps(now_vec, 1), _mm256_castps256_ps128(now_vec));
+                sum128 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
+                sum128 = _mm_add_ss(sum128, _mm_shuffle_ps(sum128, sum128, 0x55));
+                now += _mm_cvtss_f32(sum128);
+#endif
+                for (; l < gend; l++) {
+                    int id = (j * m + l) / 2;
+                    if (id % 2) {
+                        now = now + this->inputData[i * m + l] * ((this->weightData[id] & 0x0F) * curScale + curMin);
+                    } else {
+                        now = now + this->inputData[i * m + l] * ((this->weightData[id] >> 4) * curScale + curMin);
+                    }
+                }
+            }
+            this->outputData[i * this->k + j] = now;
+        }
+    }
+}
