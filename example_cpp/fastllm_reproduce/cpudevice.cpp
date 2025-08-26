@@ -741,3 +741,14 @@ void DoCpuLinearReshape(Data &input, Data &weight, Data &output) {
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void CpuLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+
+    AssertInFastLLM(weight.dims.size() == 2, "Linear's weight's shape's size should be 2.\n");
+    AssertInFastLLM(input.dims.back() == weight.dims[1], "Linear's weight's shape error.\n");
+
+    DoCpuLinearReshape(input, weight, output);
+}
