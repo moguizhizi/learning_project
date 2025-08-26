@@ -1440,3 +1440,11 @@ void MultiThreadBase3GroupLinearOp::Run() {
         }
     }
 }
+
+MultiThreadFloat32ToBFloat16Op::MultiThreadFloat32ToBFloat16Op(float *input, uint16_t *output, int len) {
+    this->input = input;
+    this->output = output;
+    this->len = len;
+}
+
+void MultiThreadFloat32ToBFloat16Op::Run() { Float32ToBFloat16(input, output, len); }
