@@ -98,3 +98,30 @@ void MultiThreadLinearFloat32Float16Op::Run() {
         }
     }
 }
+
+void RunLinearFloat32Float32(float *inputData,
+                             float *weightData,
+                             float *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum) {
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadLinearFloat32Float32Op *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        ops.push_back(new MultiThreadLinearFloat32Float32Op(inputData, weightData, biasData, outputData, n, m, k, cur, end));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(startTid + i);
+        delete ops[i];
+    }
+}
