@@ -1031,6 +1031,75 @@ void MultiThreadLinearInt4Op::Run() {
     }
 }
 
+// a = [n, m], b = [k, m], c = aT(b') = [n, k]
+void MultiplyInt4MultiThread(uint8_t *a,
+                             uint8_t *b,
+                             int32_t *c,
+                             int n,
+                             int m,
+                             int k,
+                             int *weightSums,
+                             int *weightZeros,
+                             float *scales,
+                             float *bias,
+                             std::vector<LowBitConfig> &configs,
+                             int threadNum) {
+    std::vector<int> inputSums;
+    for (int i = 0; i < n; i++) {
+        int sum = 0;
+        for (int j = 0; j < m; j++) {
+            sum += a[i * m + j];
+        }
+        inputSums.push_back(sum);
+    }
+    auto *pool = GetAlivePool();
+    threadNum = pool->threads.size();
+    int per = k / threadNum;
+    int cur = 0;
+    if (threadNum == 1) {
+        MultiThreadLinearInt4Op(a,
+                                b + cur * m / 2,
+                                c + cur,
+                                n,
+                                m,
+                                k - cur,
+                                k,
+                                weightSums + cur,
+                                weightZeros + cur,
+                                scales + cur,
+                                (bias == nullptr ? (float *)nullptr : bias + cur),
+                                configs.data(),
+                                inputSums.data())
+            .Run();
+    } else {
+        std::vector<fastllm::MultiThreadLinearInt4Op *> ops;
+        for (int i = 0; i < threadNum; i++) {
+            int end = (i == threadNum - 1 ? k : cur + per + (cur + per * (threadNum - i) < k));
+            ops.push_back(new MultiThreadLinearInt4Op(a,
+                                                      b + cur * m / 2,
+                                                      c + cur,
+                                                      n,
+                                                      m,
+                                                      end - cur,
+                                                      k,
+                                                      weightSums + cur,
+                                                      weightZeros + cur,
+                                                      scales + cur,
+                                                      (bias == nullptr ? (float *)nullptr : bias + cur),
+                                                      configs.data(),
+                                                      inputSums.data()));
+            cur = end;
+        }
+        for (int i = 0; i < threadNum; i++) {
+            pool->PushOp(i, ops[i]);
+        }
+        for (int i = 0; i < threadNum; i++) {
+            pool->Wait(i);
+            delete ops[i];
+        }
+    }
+}
+
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue) {
     int j = 0;
     minValue = 1e100;
