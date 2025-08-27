@@ -68,3 +68,15 @@ struct MultiThreadLinearFloat32Float32Op : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadLinearFloat32Float16Op : MultiThreadBaseOp {
+    float *inputData;
+    uint16_t *weightData;
+    float *biasData, *outputData;
+    int n, m, k, st, end;
+
+    MultiThreadLinearFloat32Float16Op(
+        float *inputData, uint16_t *weightData, float *biasData, float *outputData, int n, int m, int k, int st, int end);
+
+    void Run();
+};
