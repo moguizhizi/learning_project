@@ -88,6 +88,33 @@ void Int4GroupLinearPart(float *inputData,
 void Int4LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end);
 
+struct MultiThreadLinearInt4Op : MultiThreadBaseOp {
+    uint8_t *a;
+    uint8_t *b;
+    int32_t *c;
+    int n, m, k, kstride;
+    int *weightSums, *weightZeros;
+    float *scales, *bias;
+    LowBitConfig *config;
+    int *inputSums;
+
+    MultiThreadLinearInt4Op(uint8_t *a,
+                            uint8_t *b,
+                            int32_t *c,
+                            int n,
+                            int m,
+                            int k,
+                            int kstride,
+                            int *weightSums,
+                            int *weightZeros,
+                            float *scales,
+                            float *bias,
+                            LowBitConfig *config,
+                            int *inputSums);
+
+    void Run();
+};
+
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);
 
 void QuantizationAll(float *fValue, uint8_t *uValue, int len, LowBitConfig *config);
