@@ -115,6 +115,20 @@ struct MultiThreadLinearInt4Op : MultiThreadBaseOp {
     void Run();
 };
 
+// a = [n, m], b = [k, m], c = aT(b') = [n, k]
+void MultiplyInt4MultiThread(uint8_t *a,
+                             uint8_t *b,
+                             int32_t *c,
+                             int n,
+                             int m,
+                             int k,
+                             int *weightSums,
+                             int *weightZeros,
+                             float *scales,
+                             float *bias,
+                             std::vector<LowBitConfig> &configs,
+                             int threadNum);
+
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);
 
 void QuantizationAll(float *fValue, uint8_t *uValue, int len, LowBitConfig *config);
