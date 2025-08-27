@@ -114,3 +114,15 @@ struct MultiThreadOnlineQuantizationOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+void OnlineQuantization(float *inputData,
+                        std::vector<uint8_t> &uinput,
+                        std::vector<LowBitConfig> &inputConfigs,
+                        int n,
+                        int m,
+                        int group,
+                        int groupCnt,
+                        std::vector<float> &inputSums,
+                        std::vector<float> &iscales,
+                        std::vector<float> &izeros,
+                        int permuteType);
