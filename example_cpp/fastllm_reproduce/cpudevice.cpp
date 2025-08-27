@@ -1,5 +1,6 @@
 #include "cpudevice.h"
 #include "basellm.h"
+#include "computeutils.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "utils.h"
@@ -1346,5 +1347,70 @@ void OnlineQuantization(float *inputData,
         MultiThreadOnlineQuantizationOp(
             inputData, uinput.data(), inputConfigs.data(), n, m, group, groupCnt, inputSums.data(), iscales.data(), izeros.data(), permuteType)
             .Run();
+    }
+}
+
+// a = [n, m], b = [k, m], c = aT(b') = [n, k]
+void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
+                                        uint8_t *b,
+                                        float *c,
+                                        int n,
+                                        int m,
+                                        int k,
+                                        int *weightSums,
+                                        float *weightMins,
+                                        float *scales,
+                                        float *bias,
+                                        std::vector<float> &inputSums,
+                                        std::vector<float> &iscales,
+                                        std::vector<float> &izeros,
+                                        std::vector<LowBitConfig> &configs,
+                                        int startTid,
+                                        int threadNum,
+                                        int group,
+                                        int groupCnt,
+                                        std::vector<MultiThreadBaseOp *> &ops,
+                                        AliveThreadPool *pool) {
+    int per = k / threadNum;
+    int cur = 0;
+
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? k : cur + per + (cur + per * (threadNum - i) < k));
+        if (group > 1) {
+            ops[startTid + i] = new MultiThreadLinearInt8Int4GroupOp(a,
+                                                                     b + cur * m / 2,
+                                                                     c + cur,
+                                                                     n,
+                                                                     m,
+                                                                     end - cur,
+                                                                     k,
+                                                                     weightSums + cur * group,
+                                                                     weightMins + cur * group,
+                                                                     scales + cur * group,
+                                                                     (bias == nullptr ? (float *)nullptr : bias + cur),
+                                                                     iscales.data(),
+                                                                     izeros.data(),
+                                                                     inputSums.data(),
+                                                                     group,
+                                                                     groupCnt);
+        } else {
+            ops[startTid + i] = new MultiThreadLinearInt4NoZeroOp(a,
+                                                                  b + cur * m / 2,
+                                                                  (int32_t *)c + cur,
+                                                                  n,
+                                                                  m,
+                                                                  end - cur,
+                                                                  k,
+                                                                  weightSums + cur * group,
+                                                                  weightMins + cur * group,
+                                                                  scales + cur * group,
+                                                                  (bias == nullptr ? (float *)nullptr : bias + cur),
+                                                                  configs.data(),
+                                                                  inputSums.data());
+        }
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[startTid + i]);
     }
 }

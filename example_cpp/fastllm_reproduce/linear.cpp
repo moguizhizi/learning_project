@@ -1,6 +1,42 @@
 #include "computeutils.h"
 #include "utils.h"
 
+MultiThreadLinearInt8Int4GroupOp::MultiThreadLinearInt8Int4GroupOp(uint8_t *a,
+                                                                   uint8_t *b,
+                                                                   float *c,
+                                                                   int n,
+                                                                   int m,
+                                                                   int k,
+                                                                   int kstride,
+                                                                   int *weightSums,
+                                                                   float *weightMins,
+                                                                   float *scales,
+                                                                   float *bias,
+                                                                   float *iscales,
+                                                                   float *izeros,
+                                                                   float *inputSums,
+                                                                   int group,
+                                                                   int groupCnt) {
+    this->a = a; // int8 激活 (n × k)
+    this->b = b; // int4 权重 (k × m) 每字节 2 值
+    this->c = c; // float 输出 (n × m)
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->kstride = kstride;
+    this->weightSums = weightSums;
+    this->weightMins = weightMins;
+    this->scales = scales;
+    this->bias = bias;
+    this->iscales = iscales;
+    this->izeros = izeros;
+    this->inputSums = inputSums;
+    this->group = group;
+    this->groupCnt = groupCnt;
+}
+
+void MultiThreadLinearInt8Int4GroupOp::Run() {}
+
 MultiThreadLinearFloat32Float32Op::MultiThreadLinearFloat32Float32Op(
     float *inputData, float *weightData, float *biasData, float *outputData, int n, int m, int k, int st, int end) {
     this->inputData = inputData;
