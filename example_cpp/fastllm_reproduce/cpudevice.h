@@ -91,3 +91,26 @@ void Int4LinearPart(
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);
 
 void QuantizationAll(float *fValue, uint8_t *uValue, int len, LowBitConfig *config);
+
+struct MultiThreadOnlineQuantizationOp : MultiThreadBaseOp {
+    float *input;
+    uint8_t *output;
+    LowBitConfig *configs;
+    int n, m, group, groupCnt;
+    float *inputSums, *iscales, *izeros;
+    int permuteType;
+
+    MultiThreadOnlineQuantizationOp(float *input,
+                                    uint8_t *output,
+                                    LowBitConfig *configs,
+                                    int n,
+                                    int m,
+                                    int group,
+                                    int groupCnt,
+                                    float *inputSums,
+                                    float *iscales,
+                                    float *izeros,
+                                    int permuteType);
+
+    void Run();
+};
