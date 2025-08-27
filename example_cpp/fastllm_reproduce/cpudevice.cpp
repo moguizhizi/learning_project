@@ -1072,7 +1072,7 @@ void MultiplyInt4MultiThread(uint8_t *a,
                                 inputSums.data())
             .Run();
     } else {
-        std::vector<fastllm::MultiThreadLinearInt4Op *> ops;
+        std::vector<MultiThreadLinearInt4Op *> ops;
         for (int i = 0; i < threadNum; i++) {
             int end = (i == threadNum - 1 ? k : cur + per + (cur + per * (threadNum - i) < k));
             ops.push_back(new MultiThreadLinearInt4Op(a,
