@@ -1131,3 +1131,55 @@ void MultiThreadOnlineQuantizationOp::Run() {
 #endif
     }
 }
+
+void OnlineQuantization(float *inputData,
+                        std::vector<uint8_t> &uinput,
+                        std::vector<LowBitConfig> &inputConfigs,
+                        int n,
+                        int m,
+                        int group,
+                        int groupCnt,
+                        std::vector<float> &inputSums,
+                        std::vector<float> &iscales,
+                        std::vector<float> &izeros,
+                        int permuteType) {
+    inputConfigs.resize(n * group);
+    uinput.resize(n * m);
+    inputSums.resize(n * group);
+    iscales.resize(n * group);
+    izeros.resize(n * group);
+
+    if (n > 1) {
+        auto pool = GetAlivePool();
+        int threadNum = pool->threads.size();
+        int per = n / pool->threads.size();
+        int cur = 0;
+        std::vector<MultiThreadOnlineQuantizationOp *> ops;
+        for (int i = 0; i < threadNum; i++) {
+            int end = (i == threadNum - 1 ? n : cur + per + (cur + per * (threadNum - i) < n));
+            ops.push_back(new MultiThreadOnlineQuantizationOp(inputData + cur * m,
+                                                              uinput.data() + cur * m,
+                                                              inputConfigs.data() + cur * group,
+                                                              end - cur,
+                                                              m,
+                                                              group,
+                                                              groupCnt,
+                                                              inputSums.data() + cur * group,
+                                                              iscales.data() + cur * group,
+                                                              izeros.data() + cur * group,
+                                                              permuteType));
+            cur = end;
+        }
+        for (int i = 0; i < threadNum; i++) {
+            pool->PushOp(i, ops[i]);
+        }
+        for (int i = 0; i < threadNum; i++) {
+            pool->Wait(i);
+            delete ops[i];
+        }
+    } else {
+        MultiThreadOnlineQuantizationOp(
+            inputData, uinput.data(), inputConfigs.data(), n, m, group, groupCnt, inputSums.data(), iscales.data(), izeros.data(), permuteType)
+            .Run();
+    }
+}
