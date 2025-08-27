@@ -935,6 +935,102 @@ void Int4LinearPart(
     }
 }
 
+MultiThreadLinearInt4Op::MultiThreadLinearInt4Op(uint8_t *a,
+                                                 uint8_t *b,
+                                                 int32_t *c,
+                                                 int n,
+                                                 int m,
+                                                 int k,
+                                                 int kstride,
+                                                 int *weightSums,
+                                                 int *weightZeros,
+                                                 float *scales,
+                                                 float *bias,
+                                                 LowBitConfig *config,
+                                                 int *inputSums) {
+
+    this->a = a;
+    this->b = b;
+    this->c = c;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->kstride = kstride;
+    this->weightSums = weightSums;
+    this->weightZeros = weightZeros;
+    this->scales = scales;
+    this->bias = bias;
+    this->config = config;
+    this->inputSums = inputSums;
+}
+
+void MultiThreadLinearInt4Op::Run() {
+    int block = 0;
+    for (; block < n; block++) {
+        uint32_t inputSum = inputSums[block];
+        uint8_t *weightWalk = b;
+        uint8_t *inputStart = a + block * m;
+
+        for (int i = 0; i < k; i++) {
+            int value = 0;
+            uint8_t *inputWalk = inputStart;
+            int j = 0;
+#ifdef __ARM_FEATURE_DOTPROD
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            uint32x2_t sum0 = {0, 0};
+
+            for (; j + 15 < m; j += 16) {
+                uint8x8_t ori = vld1_u8(weightWalk + (i * m + j) / 2);
+                uint8x8x2_t in = vld2_u8(inputWalk + j);
+                uint8x8_t va = vand_u8(ori, maskLow);
+                uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+                sum0 = vdot_u32(sum0, va, in.val[1]);
+                sum0 = vdot_u32(sum0, vb, in.val[0]);
+            }
+            value += sum0[0] + sum0[1];
+#elif defined(__aarch64__)
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            uint32x4_t sum0 = {0, 0, 0, 0};
+
+            for (; j + 15 < m; j += 16) {
+                uint8x8_t ori = vld1_u8(weightWalk + (i * m + j) / 2);
+                uint8x8x2_t in = vld2_u8(inputWalk + j);
+                uint8x8_t va = vand_u8(ori, maskLow);
+                uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+                sum0 = vpadalq_u16(sum0, vmull_u8(va, in.val[1]));
+                sum0 = vpadalq_u16(sum0, vmull_u8(vb, in.val[0]));
+            }
+            value += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+#elif defined(__AVX2__)
+            value += DotU4U8(weightWalk + i * m / 2, inputWalk, m);
+            j += m;
+#endif
+            for (; j + 1 < m; j += 2) {
+                int id = (i * m + j) / 2;
+                value += (weightWalk[id] >> 4) * inputWalk[j];
+                value += (weightWalk[id] & 0xF) * inputWalk[j + 1];
+            }
+
+            for (; j < m; j++) {
+                int id = (i * m + j) / 2;
+                if ((i * m + j) % 2) {
+                    value += (weightWalk[id] & 0xF) * inputWalk[j];
+                } else {
+                    value += (weightWalk[id] >> 4) * inputWalk[j];
+                }
+            }
+
+            value -= weightSums[i] * config[block].zeroPoint;
+            value -= inputSum * weightZeros[i];
+            value += (int)config[block].zeroPoint * weightZeros[i] * m;
+
+            ((float *)c)[block * kstride + i] = scales[i] * config[block].scale * value + (bias == nullptr ? 0.0 : bias[i]);
+        }
+    }
+}
+
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue) {
     int j = 0;
     minValue = 1e100;
