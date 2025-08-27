@@ -80,3 +80,6 @@ struct MultiThreadLinearFloat32Float16Op : MultiThreadBaseOp {
 
     void Run();
 };
+
+void RunLinearFloat32Float32(
+    float *inputData, float *weightData, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum);
