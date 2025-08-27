@@ -1038,3 +1038,96 @@ void QuantizationAll(float *fValue, uint8_t *uValue, int len, LowBitConfig *conf
         uValue[j] = (uint8_t)(std::min(255., (double)std::max(fValue[j] / scale + zeroPoint + 0.5, 0.0)));
     }
 }
+
+MultiThreadOnlineQuantizationOp::MultiThreadOnlineQuantizationOp(float *input,
+                                                                 uint8_t *output,
+                                                                 LowBitConfig *configs,
+                                                                 int n,
+                                                                 int m,
+                                                                 int group,
+                                                                 int groupCnt,
+                                                                 float *inputSums,
+                                                                 float *iscales,
+                                                                 float *izeros,
+                                                                 int permuteType) {
+    this->input = input;
+    this->output = output;
+    this->configs = configs;
+    this->n = n;
+    this->m = m;
+    this->group = group;
+    this->groupCnt = groupCnt;
+    this->inputSums = inputSums;
+    this->iscales = iscales;
+    this->izeros = izeros;
+    this->permuteType = permuteType;
+}
+
+void MultiThreadOnlineQuantizationOp::Run() {
+    int realGroup = (this->m - 1) / this->groupCnt + 1;
+    for (int i = 0; i < this->n; i++) {
+        float *cur = this->input + i * this->m;
+        uint8_t *u = this->output + i * this->m;
+        for (int g = 0; g < realGroup; g++) {
+
+            float minValue = 1e+9;
+            float maxValue = 1e-9;
+
+            int st = g * this->groupCnt;
+            int end = std::min(this->m, (g + 1) * this->groupCnt);
+            GetArrayMinMax(cur + st, end - st, minValue, maxValue);
+            this->configs[i * realGroup + g] = LowBitConfig(maxValue, minValue, 0, 8);
+            QuantizationAll(cur + st, u + st, end - st, &(this->configs[i * realGroup + g]));
+        }
+    }
+
+    if (permuteType == 0) {
+        // for INT8 * INT8
+#ifdef __AVX2__
+        for (int i = 0; i < n * m; i++) {
+            output[i] = (output[i] + !output[i]);
+        }
+#endif
+    }
+
+    if (permuteType == 1) {
+        // for INT8 * INT4
+#ifdef __AVX2__
+        Avx2InputPermute(output, n, m);
+#endif
+    }
+
+    if (inputSums != nullptr) {
+        for (int i = 0; i < n; i++) {
+            for (int g = 0; g < realGroup; g++) {
+                iscales[i * group + g] = configs[i * group + g].scale;
+                izeros[i * group + g] = configs[i * group + g].zeroPoint;
+                int sum = 0;
+                int j = g * groupCnt;
+#ifdef __AVX2__
+                const __m256i ones8 = _mm256_set1_epi8(1);
+                const __m256i ones16 = _mm256_set1_epi16(1);
+                __m256i acc = _mm256_setzero_si256();
+                for (; j + 31 < (g + 1) * groupCnt && j + 31 < m; j += 32) {
+                    __m256i data = _mm256_loadu_si256((__m256i *)(output + i * m + j));
+                    acc = _mm256_add_epi32(acc, _mm256_madd_epi16(_mm256_maddubs_epi16(data, ones8), ones16));
+                }
+                sum += I32sum(acc);
+#endif
+                for (; j < (g + 1) * groupCnt && j < m; j++) {
+                    sum += output[i * m + j];
+                }
+                inputSums[i * group + g] = sum;
+            }
+        }
+    }
+
+    if (permuteType == 0) {
+        // for INT8 * INT8
+#ifdef __AVX2__
+        for (int i = 0; i < n * m; i++) {
+            output[i] ^= 128;
+        }
+#endif
+    }
+}
