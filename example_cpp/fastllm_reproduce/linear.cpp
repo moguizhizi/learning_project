@@ -650,3 +650,51 @@ void MatMulInt8Int8(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int
     }
 #endif
 }
+
+MultiThreadLinearInt8Int8Op::MultiThreadLinearInt8Int8Op(uint8_t *a,
+                                                         uint8_t *b,
+                                                         int32_t *c,
+                                                         int n,
+                                                         int m,
+                                                         int k,
+                                                         int kstride,
+                                                         int *weightSums,
+                                                         int *weightZeros,
+                                                         float *scales,
+                                                         float *bias,
+                                                         float *iscales,
+                                                         float *izeros,
+                                                         float *inputSums) {
+    this->a = a;
+    this->b = b;
+    this->c = c;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->kstride = kstride;
+    this->weightSums = weightSums;
+    this->weightZeros = weightZeros;
+    this->scales = scales;
+    this->bias = bias;
+    this->iscales = iscales;
+    this->izeros = izeros;
+    this->inputSums = inputSums;
+}
+
+void MultiThreadLinearInt8Int8Op::Run() {
+    MatMulInt8Int8(a, b, c, n, m, k, kstride);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < k; j++) {
+            float value = ((int32_t *)c)[i * kstride + j];
+#ifdef __AVX2__
+            value += (128 * weightSums[j]);
+            value += (128 * inputSums[i]);
+            value -= m * 128 * 128;
+#endif
+            value -= weightSums[j] * izeros[i];
+            value -= inputSums[i] * weightZeros[j];
+            value += (int)izeros[i] * weightZeros[j] * m;
+            ((float *)c)[i * kstride + j] = scales[j] * iscales[i] * value + (bias == nullptr ? 0.0 : bias[j]);
+        }
+    }
+}
