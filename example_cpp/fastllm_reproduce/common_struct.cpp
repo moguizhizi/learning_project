@@ -39,7 +39,7 @@ uint8_t LowBitConfig::quantization(const float &realNumber) const {
     if (this->type == 0) {
         return (uint8_t)(std::min((double)((1 << bit) - 1), (double)std::max(realNumber / this->scale + this->zeroPoint + 0.5, 0.0)));
     } else {
-        return (uint8_t)(std::max(0.f, std::min(15.f, (realNumber - this->min) / scale + 0.5f)));
+        return (uint8_t)(std::max(0.f, std::min(15.f, (realNumber - this->min) / this->scale + 0.5f)));
     }
 }
 
