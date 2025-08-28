@@ -126,3 +126,5 @@ void RunLinearFloat32Float16(float *inputData,
                              AliveThreadPool *pool,
                              int startTid,
                              int threadNum);
+
+void MatMulInt8Int8(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int kstride);
