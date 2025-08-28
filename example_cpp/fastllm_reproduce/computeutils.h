@@ -128,3 +128,30 @@ void RunLinearFloat32Float16(float *inputData,
                              int threadNum);
 
 void MatMulInt8Int8(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int kstride);
+
+struct MultiThreadLinearInt8Int8Op : MultiThreadBaseOp {
+    uint8_t *a;
+    uint8_t *b;
+    int32_t *c;
+    int n, m, k, kstride;
+    int *weightSums, *weightZeros;
+    float *scales, *bias;
+    float *iscales, *izeros, *inputSums;
+
+    MultiThreadLinearInt8Int8Op(uint8_t *a,
+                                uint8_t *b,
+                                int32_t *c,
+                                int n,
+                                int m,
+                                int k,
+                                int kstride,
+                                int *weightSums,
+                                int *weightZeros,
+                                float *scales,
+                                float *bias,
+                                float *iscales,
+                                float *izeros,
+                                float *inputSums);
+
+    void Run();
+};
