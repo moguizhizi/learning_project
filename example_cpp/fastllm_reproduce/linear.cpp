@@ -505,3 +505,43 @@ void RunLinearFloat32Int4Group(float *inputData,
                            startTid,
                            threadNum);
 }
+
+void RunLinearFloat32Float16(float *inputData,
+                             uint16_t *weightData,
+                             float *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum) {
+#ifdef __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
+    uint16_t *temp = new uint16_t[n * m];
+    for (int i = 0; i < n * m; i++) {
+        temp[i] = float_to_half(inputData[i]);
+    }
+    inputData = (float *)temp;
+#endif
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadLinearFloat32Float16Op *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        if (i == threadNum - 1) {
+            end = k;
+        }
+        ops.push_back(new MultiThreadLinearFloat32Float16Op(inputData, weightData, biasData, outputData, n, m, k, cur, end));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(startTid + i);
+        delete ops[i];
+    }
+#ifdef __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
+    delete[] temp;
+#endif
+}
