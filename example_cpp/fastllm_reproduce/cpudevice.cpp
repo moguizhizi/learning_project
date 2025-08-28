@@ -754,6 +754,13 @@ void CpuLinearOp::Reshape(const std::string &opType, const DataDict &datas, cons
     DoCpuLinearReshape(input, weight, output);
 }
 
+bool CpuLinearOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (intParams.find("exType") != intParams.end()) {
+        return false;
+    }
+    return true;
+}
+
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end) {
