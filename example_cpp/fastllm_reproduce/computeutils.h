@@ -115,3 +115,14 @@ void RunLinearFloat32Int4Group(float *inputData,
                                AliveThreadPool *pool,
                                int startTid,
                                int threadNum);
+
+void RunLinearFloat32Float16(float *inputData,
+                             uint16_t *weightData,
+                             float *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum);
