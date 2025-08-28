@@ -168,6 +168,32 @@ void OnlineQuantization(float *inputData,
                         std::vector<float> &izeros,
                         int permuteType);
 
+struct MultiThreadLinearInt4NoZeroOp : MultiThreadBaseOp {
+    uint8_t *a, *b;
+    int32_t *c;
+    int n, m, k, kstride;
+    int *weightSums;
+    float *weightMins, *scales, *bias;
+    LowBitConfig *config;
+    float *inputSums;
+
+    MultiThreadLinearInt4NoZeroOp(uint8_t *a,
+                                  uint8_t *b,
+                                  int32_t *c,
+                                  int n,
+                                  int m,
+                                  int k,
+                                  int kstride,
+                                  int *weightSums,
+                                  float *weightMins,
+                                  float *scales,
+                                  float *bias,
+                                  LowBitConfig *config,
+                                  float *inputSums);
+
+    void Run();
+};
+
 void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
                                         uint8_t *b,
                                         float *c,
