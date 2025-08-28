@@ -1350,6 +1350,117 @@ void OnlineQuantization(float *inputData,
     }
 }
 
+MultiThreadLinearInt4NoZeroOp::MultiThreadLinearInt4NoZeroOp(uint8_t *a,
+                                                             uint8_t *b,
+                                                             int32_t *c,
+                                                             int n,
+                                                             int m,
+                                                             int k,
+                                                             int kstride,
+                                                             int *weightSums,
+                                                             float *weightMins,
+                                                             float *scales,
+                                                             float *bias,
+                                                             LowBitConfig *config,
+                                                             float *inputSums) {
+    this->a = a;
+    this->b = b;
+    this->c = c;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->kstride = kstride;
+    this->weightSums = weightSums;
+    this->weightMins = weightMins;
+    this->scales = scales;
+    this->bias = bias;
+    this->config = config;
+    this->inputSums = inputSums;
+}
+
+void MultiThreadLinearInt4NoZeroOp::Run() {
+#ifdef __ARM_FEATURE_DOTPROD
+#define RUNBLOCK(x)                                                                                                                                  \
+    for (; block + (x - 1) < n; block += (x))                                                                                                        \
+        RunSomeBlock(b, a + block * m, c, (x), sum, vi, block, k, m, kstride);
+    int block = 0;
+    uint32x2_t sum[16];
+    uint8x8x2_t vi[16];
+    RUNBLOCK(16);
+    RUNBLOCK(8);
+    RUNBLOCK(7);
+    RUNBLOCK(6);
+    RUNBLOCK(5);
+    RUNBLOCK(4);
+    RUNBLOCK(3);
+    RUNBLOCK(2);
+    RUNBLOCK(1);
+#undef RUNBLOCK
+#else
+    int block = 0;
+
+    for (; block < n; block++) {
+        uint8_t *weightWalk = b;
+        uint8_t *inputStart = a + block * m;
+
+        for (int i = 0; i < k; i++) {
+            int value = 0;
+            uint8_t *inputWalk = inputStart;
+            int j = 0;
+#ifdef __ARM_FEATURE_DOTPROD
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            uint32x2_t sum0 = {0, 0};
+
+            for (; j + 15 < m; j += 16) {
+                uint8x8_t ori = vld1_u8(weightWalk + (i * m + j) / 2);
+                uint8x8x2_t in = vld2_u8(inputWalk + j);
+                uint8x8_t va = vand_u8(ori, maskLow);
+                uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+                sum0 = vdot_u32(sum0, va, in.val[1]);
+                sum0 = vdot_u32(sum0, vb, in.val[0]);
+            }
+            value += sum0[0] + sum0[1];
+#elif defined(__aarch64__)
+            uint8x8_t maskHigh = vdup_n_u8(0xF0);
+            uint8x8_t maskLow = vdup_n_u8(0xF);
+            uint32x4_t sum0 = {0, 0, 0, 0};
+
+            for (; j + 15 < m; j += 16) {
+                uint8x8_t ori = vld1_u8(weightWalk + (i * m + j) / 2);
+                uint8x8x2_t in = vld2_u8(inputWalk + j);
+                uint8x8_t va = vand_u8(ori, maskLow);
+                uint8x8_t vb = vshr_n_u8(vand_u8(ori, maskHigh), 4);
+                sum0 = vpadalq_u16(sum0, vmull_u8(va, in.val[1]));
+                sum0 = vpadalq_u16(sum0, vmull_u8(vb, in.val[0]));
+            }
+            value += sum0[0] + sum0[1] + sum0[2] + sum0[3];
+#elif defined(__AVX2__)
+            value += DotU4U8(weightWalk + i * m / 2, inputWalk, m);
+            j += m;
+#endif
+
+            for (; j + 1 < m; j += 2) {
+                int id = (i * m + j) / 2;
+                value += (weightWalk[id] >> 4) * inputWalk[j];
+                value += (weightWalk[id] & 0xF) * inputWalk[j + 1];
+            }
+
+            c[block * kstride + i] = value;
+        }
+    }
+#endif
+    for (int block = 0; block < n; block++) {
+        for (int i = 0; i < k; i++) {
+            int value = c[block * kstride + i];
+            value -= weightSums[i] * config[block].zeroPoint;
+            ((float *)c)[block * kstride + i] = scales[i] * config[block].scale * value +
+                                                weightMins[i] * ((float)inputSums[block] - (int)config[block].zeroPoint * m) * config[block].scale +
+                                                (bias == nullptr ? 0.0 : bias[i]);
+        }
+    }
+};
+
 // a = [n, m], b = [k, m], c = aT(b') = [n, k]
 void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
                                         uint8_t *b,
