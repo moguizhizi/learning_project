@@ -1,4 +1,6 @@
+#include "common_class.h"
 #include "computeutils.h"
+#include "cpudevice.h"
 #include "utils.h"
 
 MultiThreadLinearInt8Int4GroupOp::MultiThreadLinearInt8Int4GroupOp(uint8_t *a,
@@ -414,4 +416,92 @@ void RunLinearFloat32Float32(float *inputData,
         pool->Wait(startTid + i);
         delete ops[i];
     }
+}
+
+// a = [n, m], b = [k, m], c = aT(b') = [n, k]
+void RunLinearInt8Int4Group(uint8_t *a,
+                            uint8_t *b,
+                            float *c,
+                            int n,
+                            int m,
+                            int k,
+                            int group,
+                            int groupCnt,
+                            int *weightSums,
+                            float *weightMins,
+                            float *scales,
+                            float *bias,
+                            float *inputSums,
+                            float *iscales,
+                            float *izeros,
+                            AliveThreadPool *pool,
+                            int startTid,
+                            int threadNum) {
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadLinearInt8Int4GroupOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? k : cur + per + (cur + per * (threadNum - i) < k));
+        ops.push_back(new MultiThreadLinearInt8Int4GroupOp(a,
+                                                           b + cur * m / 2,
+                                                           c + cur,
+                                                           n,
+                                                           m,
+                                                           end - cur,
+                                                           k,
+                                                           weightSums + cur * group,
+                                                           weightMins + cur * group,
+                                                           scales + cur * group,
+                                                           (bias == nullptr ? (float *)nullptr : bias + cur),
+                                                           iscales,
+                                                           izeros,
+                                                           inputSums,
+                                                           group,
+                                                           groupCnt));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(startTid + i);
+        delete ops[i];
+    }
+}
+
+void RunLinearFloat32Int4Group(float *inputData,
+                               Data &weight,
+                               float *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum) {
+    weight.CalcWeightSum();
+    std::vector<LowBitConfig> inputConfigs;
+    std::vector<uint8_t> uinput;
+    std::vector<float> inputSums, iscales, izeros;
+    OnlineQuantization(inputData, uinput, inputConfigs, n, m, group, groupCnt, inputSums, iscales, izeros, 1);
+    RunLinearInt8Int4Group(uinput.data(),
+                           (uint8_t *)weight.cpuData,
+                           outputData,
+                           n,
+                           m,
+                           k,
+                           group,
+                           groupCnt,
+                           weight.weightSum.data(),
+                           weight.mins.data(),
+                           weight.scales.data(),
+                           biasData,
+                           inputSums.data(),
+                           iscales.data(),
+                           izeros.data(),
+                           pool,
+                           startTid,
+                           threadNum);
 }

@@ -83,3 +83,35 @@ struct MultiThreadLinearFloat32Float16Op : MultiThreadBaseOp {
 
 void RunLinearFloat32Float32(
     float *inputData, float *weightData, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum);
+
+void RunLinearInt8Int4Group(uint8_t *a,
+                            uint8_t *b,
+                            float *c,
+                            int n,
+                            int m,
+                            int k,
+                            int group,
+                            int groupCnt,
+                            int *weightSums,
+                            float *weightMins,
+                            float *scales,
+                            float *bias,
+                            float *inputSums,
+                            float *iscales,
+                            float *izeros,
+                            AliveThreadPool *pool,
+                            int startTid,
+                            int threadNum);
+
+void RunLinearFloat32Int4Group(float *inputData,
+                               Data &weight,
+                               float *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum);
