@@ -545,3 +545,108 @@ void RunLinearFloat32Float16(float *inputData,
     delete[] temp;
 #endif
 }
+
+void MatMulInt8Int8(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int kstride) {
+#ifdef __ARM_FEATURE_DOTPROD
+#define RUNBLOCK(x)                                                                                                                                  \
+    for (; block + (x - 1) < n; block += (x))                                                                                                        \
+        MatMulInt8Int8RunSomeBlock(b, a + block * m, c, (x), sum, vi, block, k, m, kstride);
+    int block = 0;
+    uint32x4_t sum[16];
+    uint8x16_t vi[16];
+    RUNBLOCK(16);
+    RUNBLOCK(8);
+    RUNBLOCK(7);
+    RUNBLOCK(6);
+    RUNBLOCK(5);
+    RUNBLOCK(4);
+    RUNBLOCK(3);
+    RUNBLOCK(2);
+    RUNBLOCK(1);
+#undef RUNBLOCK
+#elif defined(__aarch64__)
+    int block = 0;
+    for (; block < n; block++) {
+        uint8_t *weightWalk = b;
+        uint8_t *inputStart = a + block * m;
+
+        for (int i = 0; i < k; i++) {
+            int value = 0;
+            uint8_t *inputWalk = inputStart;
+
+            int per = 64;
+            int cnt = m / per;
+            int sur = m % per;
+
+            uint32x4_t sum = {0};
+            uint16x8_t temp = {0};
+            uint16x8_t temp1 = {0};
+            uint16x8_t temp2 = {0};
+            uint16x8_t temp3 = {0};
+            uint16x8_t temp4 = {0};
+            uint16x8_t temp5 = {0};
+            uint16x8_t temp6 = {0};
+            uint16x8_t temp7 = {0};
+
+            while (cnt--) {
+                temp = vmull_u8(vld1_u8(inputWalk), vld1_u8(weightWalk));
+                temp1 = vmull_u8(vld1_u8(inputWalk + 8), vld1_u8(weightWalk + 8));
+                temp2 = vmull_u8(vld1_u8(inputWalk + 16), vld1_u8(weightWalk + 16));
+                temp3 = vmull_u8(vld1_u8(inputWalk + 24), vld1_u8(weightWalk + 24));
+                temp4 = vmull_u8(vld1_u8(inputWalk + 32), vld1_u8(weightWalk + 32));
+                temp5 = vmull_u8(vld1_u8(inputWalk + 40), vld1_u8(weightWalk + 40));
+                temp6 = vmull_u8(vld1_u8(inputWalk + 48), vld1_u8(weightWalk + 48));
+                temp7 = vmull_u8(vld1_u8(inputWalk + 56), vld1_u8(weightWalk + 56));
+
+                sum = vpadalq_u16(sum, temp);
+                sum = vpadalq_u16(sum, temp1);
+                sum = vpadalq_u16(sum, temp2);
+                sum = vpadalq_u16(sum, temp3);
+                sum = vpadalq_u16(sum, temp4);
+                sum = vpadalq_u16(sum, temp5);
+                sum = vpadalq_u16(sum, temp6);
+                sum = vpadalq_u16(sum, temp7);
+
+                inputWalk += per;
+                weightWalk += per;
+            }
+
+            value += (sum[0] + sum[1] + sum[2] + sum[3]);
+            while (sur--) {
+                value += (int)(*(weightWalk++)) * (*(inputWalk++));
+            }
+
+            c[block * kstride + i] = value;
+        }
+    }
+#elif defined(__AVX2__)
+    int block = 0;
+    for (; block < n; block++) {
+        uint8_t *weightWalk = b;
+        uint8_t *inputStart = a + block * m;
+
+        for (int i = 0; i < k; i++) {
+            uint8_t *inputWalk = inputStart;
+
+            c[block * kstride + i] = DotU8U8(inputWalk, weightWalk, m);
+            weightWalk += m;
+        }
+    }
+#else
+    int block = 0;
+    for (; block < n; block++) {
+        uint8_t *weightWalk = b;
+        uint8_t *inputStart = a + block * m;
+
+        for (int i = 0; i < k; i++) {
+            int value = 0;
+            uint8_t *inputWalk = inputStart;
+            for (int j = 0; j < m; j++) {
+                value += (int)(*(weightWalk++)) * (*(inputWalk++));
+            }
+
+            c[block * kstride + i] = value;
+        }
+    }
+#endif
+}
