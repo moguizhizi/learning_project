@@ -166,3 +166,16 @@ struct MultiThreadLinearFloat32Int2GroupOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+void RunLinearFloat32Int2Group(float *inputData,
+                               Data &weight,
+                               float *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum);
