@@ -698,3 +698,37 @@ void MultiThreadLinearInt8Int8Op::Run() {
         }
     }
 }
+
+MultiThreadLinearFloat32Int2GroupOp::MultiThreadLinearFloat32Int2GroupOp(
+    float *inputData, Data *weight, float *biasData, float *outputData, int n, int m, int k, int st, int end) {
+    this->inputData = inputData;
+    this->weight = weight;
+    this->biasData = biasData;
+    this->outputData = outputData;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadLinearFloat32Int2GroupOp::Run() {
+    int group = this->weight->group;
+    int groupCnt = this->weight->groupCnt;
+    std::vector<float> mins = this->weight->mins;
+    std::vector<float> scales = this->weight->scales;
+    for (int i = 0; i < this->n; i++) {
+        for (int j = this->st; j < this->end; j++) {
+            float now = biasData ? biasData[j] : 0.0f;
+            for (int l = 0; l < this->m; l++) {
+                int gid = j * group + l / groupCnt;
+                float min = mins[gid];
+                float scale = scales[gid];
+                uint8_t w = this->weight->cpuData[(j * m + l) / 4];
+                w = (w >> ((3 - l % 4) * 2)) & 3;
+                now += inputData[i * m + l] * (min + scale * w);
+            }
+            this->outputData[i * k + j] = now;
+        }
+    }
+}
