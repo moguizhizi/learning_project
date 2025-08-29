@@ -732,3 +732,32 @@ void MultiThreadLinearFloat32Int2GroupOp::Run() {
         }
     }
 }
+
+void RunLinearFloat32Int2Group(float *inputData,
+                               Data &weight,
+                               float *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum) {
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadLinearFloat32Int2GroupOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        ops.push_back(new MultiThreadLinearFloat32Int2GroupOp(inputData, &weight, biasData, outputData, n, m, k, cur, end));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(startTid + i);
+        delete ops[i];
+    }
+}
