@@ -155,3 +155,14 @@ struct MultiThreadLinearInt8Int8Op : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadLinearFloat32Int2GroupOp : MultiThreadBaseOp {
+    float *inputData;
+    Data *weight;
+    float *biasData, *outputData;
+    int n, m, k, st, end;
+
+    MultiThreadLinearFloat32Int2GroupOp(float *inputData, Data *weight, float *biasData, float *outputData, int n, int m, int k, int st, int end);
+
+    void Run();
+};
