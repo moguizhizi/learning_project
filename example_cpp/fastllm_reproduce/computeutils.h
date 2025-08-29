@@ -179,3 +179,14 @@ void RunLinearFloat32Int2Group(float *inputData,
                                AliveThreadPool *pool,
                                int startTid,
                                int threadNum);
+
+void RunLinearFloat16Float32(uint16_t *inputData,
+                             float *weightData,
+                             uint16_t *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum);
