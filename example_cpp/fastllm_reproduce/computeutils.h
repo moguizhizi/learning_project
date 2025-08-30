@@ -236,3 +236,16 @@ void RunLinearInt8Int8(uint8_t *a,
 
 void RunLinearFloat32Int8(
     float *inputData, Data &weight, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum);
+
+void RunLinearFloat16Int4Group(uint16_t *inputData,
+                               Data &weight,
+                               uint16_t *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum);

@@ -1316,3 +1316,23 @@ void RunLinearFloat32Int8(
     }
     */
 }
+
+void RunLinearFloat16Int4Group(uint16_t *inputData,
+                               Data &weight,
+                               uint16_t *outputData,
+                               float *biasData,
+                               int n,
+                               int m,
+                               int k,
+                               int group,
+                               int groupCnt,
+                               AliveThreadPool *pool,
+                               int startTid,
+                               int threadNum) {
+    std::vector<float> floatInput, floatOutput;
+    floatInput.resize(n * m);
+    floatOutput.resize(n * k);
+    Float16ToFloat32(inputData, floatInput.data(), n * m);
+    RunLinearFloat32Int4Group(floatInput.data(), weight, floatOutput.data(), biasData, n, m, k, group, groupCnt, pool, startTid, threadNum);
+    Float32ToFloat16(floatOutput.data(), outputData, n * k);
+}
