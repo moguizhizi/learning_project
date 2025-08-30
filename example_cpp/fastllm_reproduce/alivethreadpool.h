@@ -15,6 +15,7 @@ struct AliveThreadTask {
 };
 
 struct AliveThreadPool {
+    std::pair<int, int> curActivateThreadInterval; // 设定当前激活 [curActivateThreadInterval.first, curActivateThreadInterval.second) 的线程
     std::vector<std::thread *> threads;
 
     void PushOp(int tid, MultiThreadBaseOp *op);

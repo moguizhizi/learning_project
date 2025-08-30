@@ -260,3 +260,17 @@ void RunLinearFloat16FP8E4M3(uint16_t *inputData,
                              AliveThreadPool *pool,
                              int startTid,
                              int threadNum);
+
+void RunLinearFloat32FP8E4M3(
+    float *inputData, Data &weight, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum);
+
+void RunLinearFloat16Int8(uint16_t *inputData,
+                          Data &weight,
+                          uint16_t *outputData,
+                          float *biasData,
+                          int n,
+                          int m,
+                          int k,
+                          AliveThreadPool *pool,
+                          int startTid,
+                          int threadNum);

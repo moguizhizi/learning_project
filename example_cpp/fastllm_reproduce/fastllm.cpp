@@ -6,6 +6,9 @@
 #include <cstring>
 #include <regex>
 
+static int threads = 4;
+static AliveThreadPool *fastllmAliveThreadPool = nullptr;
+
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
     if (model_type == "qwen3") {
@@ -514,4 +517,6 @@ void barrier() {
 
 bool GetLowMemMode() { return false; }
 
-AliveThreadPool *GetAlivePool() { return nullptr; }
+AliveThreadPool *GetAlivePool() { return fastllmAliveThreadPool; }
+
+int GetThreads() { return threads; }

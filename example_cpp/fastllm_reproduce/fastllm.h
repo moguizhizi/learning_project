@@ -104,3 +104,5 @@ void ToDataType(const Data &input, DataType dataType);
 bool GetLowMemMode();
 
 AliveThreadPool *GetAlivePool();
+
+int GetThreads();
