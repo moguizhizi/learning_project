@@ -1858,3 +1858,31 @@ void CpuRepeatOp::Reshape(const std::string &opType, const DataDict &datas, cons
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void CpuRepeatOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int repeatTimes = intParams.find("repeatTimes") != intParams.end() ? intParams.find("repeatTimes")->second : 1;
+
+    output.Allocate();
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.strides[axis];
+    int inputStride = input.Count(axis);
+    int outputStride = output.Count(axis);
+    int unitSize = input.unitSize;
+
+    for (int o = 0; o < outer; o++) {
+        for (int t = 0; t < repeatTimes; t++) {
+            std::memcpy(output.cpuData + o * outputStride * unitSize + t * channels * inner * unitSize,
+                        input.cpuData + o * inputStride * unitSize,
+                        channels * inner * unitSize);
+        }
+    }
+}
