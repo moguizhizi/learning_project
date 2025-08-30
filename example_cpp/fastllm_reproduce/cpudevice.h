@@ -66,6 +66,7 @@ class CpuLinearOp : BaseOperator {
 
 void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
 void DoCpuLinear(Data &input, Data &weight, const Data &bias, Data &output);
+void DoCpuCatDirect(Data &input0, Data &input1, int axis);
 
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
@@ -239,5 +240,10 @@ class CpuRepeatOp : BaseOperator {
 
 class CpuCatOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuCatDirectOp : BaseOperator {
+  protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
