@@ -220,3 +220,14 @@ class CpuSplitOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+struct MultiThreadSliceOp : MultiThreadBaseOp {
+    uint8_t *input, *output;
+    int outer, inputStride, outputStride, copyLen;
+
+    MultiThreadSliceOp(uint8_t *output, uint8_t *input, int outer, int outputStride, int inputStride, int copyLen);
+
+    void Run();
+};
+
+static void RunMultiThreadSlice(uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool);

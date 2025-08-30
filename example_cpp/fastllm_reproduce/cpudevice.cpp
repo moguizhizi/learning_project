@@ -1773,3 +1773,40 @@ void CpuSplitOp::Reshape(const std::string &opType, const DataDict &datas, const
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+MultiThreadSliceOp::MultiThreadSliceOp(uint8_t *output, uint8_t *input, int outer, int outputStride, int inputStride, int copyLen) {
+    this->output = output;
+    this->input = input;
+    this->outputStride = outputStride;
+    this->inputStride = inputStride;
+    this->copyLen = copyLen;
+}
+
+void MultiThreadSliceOp::Run() {
+    for (int o = 0; o < outer; o++) {
+        memcpy(output + o * outputStride, input + o * inputStride, copyLen);
+    }
+}
+
+static void RunMultiThreadSlice(uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool) {
+    if (outer == 1) {
+        (MultiThreadSliceOp(output, input, outer, outputStride, inputStride, copyLen)).Run();
+        return;
+    }
+    int threadNum = pool->threads.size();
+    int per = outer / pool->threads.size();
+    int cur = 0;
+    std::vector<MultiThreadSliceOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? outer : cur + per + (cur + per * (threadNum - i) < outer));
+        ops.push_back(new MultiThreadSliceOp(output + cur * outputStride, input + cur * inputStride, end - cur, outputStride, inputStride, copyLen));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
+}
