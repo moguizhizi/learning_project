@@ -1754,3 +1754,22 @@ void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
         pool->PushOp(startTid + i, ops[startTid + i]);
     }
 }
+
+void CpuSplitOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int start = intParams.find("start") != intParams.end() ? intParams.find("start")->second : 0;
+    int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : -1;
+
+    int dimslen = input.dims.size();
+    axis = (axis % dimslen + dimslen) % dimslen;
+
+    std::vector<int> dims = input.dims;
+    start = std::max(0, std::min(dims[axis] - 1, start));
+    end = std::max(0, std::min(dims[axis], end));
+
+    dims[axis] = end - start;
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
