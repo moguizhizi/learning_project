@@ -1842,3 +1842,19 @@ void CpuSplitOp::Run(const std::string &opType, const DataDict &datas, const Flo
                         (end - start) * inner * unitSize,
                         GetAlivePool());
 }
+
+void CpuRepeatOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int repeatTimes = intParams.find("repeatTimes") != intParams.end() ? intParams.find("repeatTimes")->second : 1;
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    std::vector<int> dims = input.dims;
+    dims[axis] *= repeatTimes;
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}

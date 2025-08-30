@@ -231,3 +231,8 @@ struct MultiThreadSliceOp : MultiThreadBaseOp {
 };
 
 static void RunMultiThreadSlice(uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool);
+
+class CpuRepeatOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
