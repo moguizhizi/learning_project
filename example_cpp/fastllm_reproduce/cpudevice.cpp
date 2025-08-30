@@ -1923,3 +1923,39 @@ void CpuCatOp::Reshape(const std::string &opType, const DataDict &datas, const F
     output.dataType = input0.dataType;
     output.Resize(dims);
 }
+
+void CpuCatOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    Data &output = *(datas.find("output")->second);
+
+    output.Allocate();
+
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+
+    if (input0.dims.size() == 0 && input1.dims.size() > 0) {
+        output.CopyFrom(input1);
+        return;
+    }
+
+    if (input1.dims.size() == 0 && input0.dims.size() > 0) {
+        output.CopyFrom(input0);
+        return;
+    }
+
+    int dimsLen = input0.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    int outer = output.Count(0) / output.Count(axis);
+    int input0Stride = input0.Count(axis);
+    int input1Stride = input1.Count(axis);
+    int outputStride = output.Count(axis);
+    int unitSize = input0.unitSize;
+
+    for (int o = 0; o < outer; o++) {
+        std::memcpy(output.cpuData + o * outputStride * unitSize, input0.cpuData + o * input0Stride * unitSize, input0Stride * unitSize);
+        std::memcpy(output.cpuData + o * outputStride * unitSize + input0Stride * unitSize,
+                    input1.cpuData + o * input1Stride * unitSize,
+                    input1Stride * unitSize);
+    }
+}
