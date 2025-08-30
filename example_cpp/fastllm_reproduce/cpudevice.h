@@ -65,6 +65,7 @@ class CpuLinearOp : BaseOperator {
 };
 
 void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
+void DoCpuLinear(Data &input, Data &weight, const Data &bias, Data &output);
 
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
