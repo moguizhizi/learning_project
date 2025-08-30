@@ -1272,3 +1272,47 @@ void RunLinearInt8Int8(uint8_t *a,
         delete ops[i];
     }
 }
+
+void RunLinearFloat32Int8(
+    float *inputData, Data &weight, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum) {
+    weight.CalcWeightSum();
+    std::vector<LowBitConfig> inputConfigs;
+    std::vector<uint8_t> uinput;
+    std::vector<float> inputSums, iscales, izeros;
+    OnlineQuantization(inputData, uinput, inputConfigs, n, m, 1, m, inputSums, iscales, izeros, 0);
+
+    RunLinearInt8Int8(uinput.data(),
+                      (uint8_t *)weight.cpuData,
+                      outputData,
+                      n,
+                      m,
+                      k,
+                      weight.weightSum.data(),
+                      weight.zeros.data(),
+                      weight.scales.data(),
+                      biasData,
+                      inputSums.data(),
+                      iscales.data(),
+                      izeros.data(),
+                      pool,
+                      startTid,
+                      threadNum);
+    /*
+    这部分是float输入，float输出
+    int threadNum = threads;
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<std::thread *> threads;
+    for (int i = 0; i < threadNum - 1; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        threads.push_back(new std::thread(&Int8LinearPart, inputData, weightData, biasData, outputData,
+                                            weight.perChannelsConfigs.data(), n, m, k, cur, end));
+        cur = end;
+    }
+    Int8LinearPart(inputData, weightData, biasData, outputData, weight.perChannelsConfigs.data(), n, m, k, cur, k);
+    for (int i = 0; i < threadNum - 1; i++) {
+        threads[i]->join();
+        delete threads[i];
+    }
+    */
+}
