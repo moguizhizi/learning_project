@@ -1351,3 +1351,40 @@ void RunLinearFloat16Int4Group(uint16_t *inputData,
     RunLinearFloat32Int4Group(floatInput.data(), weight, floatOutput.data(), biasData, n, m, k, group, groupCnt, pool, startTid, threadNum);
     Float32ToFloat16(floatOutput.data(), outputData, n * k);
 }
+
+void RunLinearFloat16FP8E4M3(uint16_t *inputData,
+                             Data &weight,
+                             uint16_t *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum) {
+    std::vector<float> floatOutput;
+    floatOutput.resize(n * k);
+
+    std::vector<uint16_t> bf16Input;
+    bf16Input.resize(n * m);
+    Float16ToBFloat16(inputData, bf16Input.data(), n * m);
+
+    int per = k / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadLinearBFloat16FP8E4M3Op *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        ops.push_back(new MultiThreadLinearBFloat16FP8E4M3Op(
+            bf16Input.data(), weight.cpuData, biasData, floatOutput.data(), n, m, k, cur, end, weight.scales.data(), weight.blockK, weight.blockM));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(startTid + i);
+        delete ops[i];
+    }
+
+    Float32ToFloat16(floatOutput.data(), outputData, n * k);
+}
