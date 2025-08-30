@@ -2270,3 +2270,146 @@ void CpuMatMulOp::Reshape(const std::string &opType, const DataDict &datas, cons
     output.dataType = input0.dataType;
     output.Resize(dims);
 }
+
+void CpuMatMulOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    Data &output = *(datas.find("output")->second);
+
+    output.Allocate();
+
+    float alpha = floatParams.find("alpha") != floatParams.end() ? floatParams.find("alpha")->second : 1.0f;
+    int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : 1;
+    int input0Spatial = input0.Count(input0.dims.size() - 2) * group;
+    int input1Spatial = input1.Count(input1.dims.size() - 2);
+    int input0Stride = input0.strides[input0.dims.size() - 2];
+    int input1Stride = input1.strides[input1.dims.size() - 2];
+    int n = input0.dims[input0.dims.size() - 2] * group;
+    int m = input0.dims.back();
+    int k = input1.dims[input1.dims.size() - 1];
+    int batch0 = input0.Count(0) / input0Spatial;
+    int batch1 = input1.Count(0) / input1Spatial;
+
+    int outputSpatial = output.Count(output.dims.size() - 2) * group;
+    int threadNum = GetThreads();
+#ifdef _WIN64
+    threadNum = 1;
+#endif
+    if (batch0 * n * m * k < 64 * 4096) {
+        threadNum = 1;
+    }
+    threadNum = std::min(threadNum, 4);
+    // TODO: 汇编优化
+    int per = batch0 / threadNum;
+    int cur = 0;
+    if (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) {
+        auto *pool = GetAlivePool();
+        int threads = pool->threads.size();
+        std::vector<MultiThreadMatMulSingleOp *> ops;
+        for (int o = 0; o < batch0; o++) {
+            ops.push_back(new MultiThreadMatMulSingleOp((float *)input0.cpuData,
+                                                        (float *)input1.cpuData,
+                                                        (float *)output.cpuData,
+                                                        input0Spatial,
+                                                        input1Spatial,
+                                                        outputSpatial,
+                                                        input0Stride,
+                                                        input1Stride,
+                                                        n,
+                                                        m,
+                                                        k,
+                                                        alpha,
+                                                        o,
+                                                        o + 1));
+        }
+        for (int st = 0; st < ops.size(); st += threads) {
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->PushOp(i - st, ops[i]);
+            }
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->Wait(i - st);
+            }
+        }
+    } else if (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT16) {
+        std::vector<uint16_t> fp16InputData;
+        fp16InputData.resize(input0.Count(0));
+        Float32ToFloat16((float *)input0.cpuData, fp16InputData.data(), input0.Count(0));
+
+        auto *pool = GetAlivePool();
+        int threads = pool->threads.size();
+        std::vector<MultiThreadMatMulFloat16SingleOp *> ops;
+        for (int o = 0; o < batch0; o++) {
+            ops.push_back(new MultiThreadMatMulFloat16SingleOp((uint16_t *)fp16InputData.data(),
+                                                               (uint16_t *)input1.cpuData,
+                                                               (uint16_t *)output.cpuData,
+                                                               input0Spatial,
+                                                               input1Spatial,
+                                                               outputSpatial,
+                                                               input0Stride,
+                                                               input1Stride,
+                                                               n,
+                                                               m,
+                                                               k,
+                                                               alpha,
+                                                               o,
+                                                               o + 1));
+        }
+        for (int st = 0; st < ops.size(); st += threads) {
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->PushOp(i - st, ops[i]);
+            }
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->Wait(i - st);
+            }
+        }
+    } else if (input0.dataType == DataType::FLOAT16) {
+        auto *pool = GetAlivePool();
+        int threads = pool->threads.size();
+        std::vector<MultiThreadMatMulFloat16SingleOp *> ops;
+        if (batch0 == 1) {
+            int partn = std::max(1, n / threads);
+            for (int o = 0; o < n; o += partn) {
+                int len = std::min(partn, n - o);
+                ops.push_back(new MultiThreadMatMulFloat16SingleOp(((uint16_t *)input0.cpuData) + o * m,
+                                                                   (uint16_t *)input1.cpuData,
+                                                                   ((uint16_t *)output.cpuData) + o * k,
+                                                                   input0Spatial,
+                                                                   input1Spatial,
+                                                                   outputSpatial,
+                                                                   input0Stride,
+                                                                   input1Stride,
+                                                                   len,
+                                                                   m,
+                                                                   k,
+                                                                   alpha,
+                                                                   0,
+                                                                   1));
+            }
+        } else {
+            for (int o = 0; o < batch0; o++) {
+                ops.push_back(new MultiThreadMatMulFloat16SingleOp((uint16_t *)input0.cpuData,
+                                                                   (uint16_t *)input1.cpuData,
+                                                                   (uint16_t *)output.cpuData,
+                                                                   input0Spatial,
+                                                                   input1Spatial,
+                                                                   outputSpatial,
+                                                                   input0Stride,
+                                                                   input1Stride,
+                                                                   n,
+                                                                   m,
+                                                                   k,
+                                                                   alpha,
+                                                                   o,
+                                                                   o + 1));
+            }
+        }
+        for (int st = 0; st < ops.size(); st += threads) {
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->PushOp(i - st, ops[i]);
+            }
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->Wait(i - st);
+            }
+        }
+    }
+}
