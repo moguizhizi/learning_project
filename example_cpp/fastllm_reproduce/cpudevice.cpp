@@ -1886,3 +1886,40 @@ void CpuRepeatOp::Run(const std::string &opType, const DataDict &datas, const Fl
         }
     }
 }
+
+void CpuCatOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    Data &output = *(datas.find("output")->second);
+
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+
+    if (input0.dims.size() == 0 && input1.dims.size() > 0) {
+        output.Resize(input1.dims);
+        return;
+    }
+    if (input1.dims.size() == 0 && input0.dims.size() > 0) {
+        output.Resize(input0.dims);
+        return;
+    }
+
+    AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
+                        (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16),
+                    "Cat's input's type should be float32 or float16.\n");
+    AssertInFastLLM(input0.dims.size() == input1.dims.size(), "Cat Error: input's shape's size should be same.");
+
+    int dimsLen = input0.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    for (int i = 0; i < dimsLen; i++) {
+        if (i != axis) {
+            AssertInFastLLM(input0.dims[i] == input1.dims[i], "Cat Error: input's shape doesn't match.");
+        }
+    }
+
+    std::vector<int> dims = input0.dims;
+    dims[axis] += input1.dims[axis];
+
+    output.dataType = input0.dataType;
+    output.Resize(dims);
+}
