@@ -215,3 +215,8 @@ void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
                                         int groupCnt,
                                         std::vector<MultiThreadBaseOp *> &ops,
                                         AliveThreadPool *pool);
+
+class CpuSplitOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
