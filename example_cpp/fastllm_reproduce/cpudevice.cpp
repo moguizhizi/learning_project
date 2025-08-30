@@ -2123,3 +2123,66 @@ void MultiThreadMatMulFloat16SingleOp::Run() {
     delete[] input1;
     delete[] output;
 }
+
+MultiThreadMatMulTransBSingleOp::MultiThreadMatMulTransBSingleOp(float *input0Base,
+                                                                 float *input1Base,
+                                                                 float *outputBase,
+                                                                 int input0Spatial,
+                                                                 int input1Spatial,
+                                                                 int outputSpatial,
+                                                                 int input0Stride,
+                                                                 int input1Stride,
+                                                                 int n,
+                                                                 int m,
+                                                                 int k,
+                                                                 float alpha,
+                                                                 int st,
+                                                                 int end) {
+    this->input0Base = input0Base;
+    this->input1Base = input1Base;
+    this->outputBase = outputBase;
+    this->input0Spatial = input0Spatial;
+    this->input1Spatial = input1Spatial;
+    this->outputSpatial = outputSpatial;
+    this->input0Stride = input0Stride;
+    this->input1Stride = input1Stride;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->alpha = alpha;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadMatMulTransBSingleOp::Run() {
+    for (int b = st; b < end; b++) {
+        float *input0Data = input0Base + b * input0Spatial;
+        float *input1Data = input1Base + b * input1Spatial;
+        float *outputData = outputBase + b * outputSpatial;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < k; j++) {
+                float now = 0.0f;
+                int l = 0;
+#ifdef __aarch64__
+                float32x4_t sum = {0, 0, 0, 0};
+                for (; l + 3 < m; l += 4) {
+                    sum = vaddq_f32(sum, vmulq_f32(vld1q_f32(input0Data + i * input0Stride + l), vld1q_f32(input1Data + j * input1Stride + l)));
+                }
+                now += sum[0] + sum[1] + sum[2] + sum[3];
+#elif defined(__AVX__)
+                __m256 vsum = _mm256_set1_ps(0.0f);
+                for (; l + 7 < m; l += 8) {
+                    __m256 vx = _mm256_loadu_ps((const float *)(input0Data + i * input0Stride + l));
+                    __m256 vy = _mm256_loadu_ps((const float *)(input1Data + j * input1Stride + l));
+                    vsum = _mm256_add_ps(vsum, _mm256_mul_ps(vx, vy));
+                }
+                now += Floatsum(vsum);
+#endif
+                for (; l < m; l++) {
+                    now += input0Data[i * input0Stride + l] * input1Data[j * input1Stride + l];
+                }
+                outputData[i * k + j] = now * alpha;
+            }
+        }
+    }
+}

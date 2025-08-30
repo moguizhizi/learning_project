@@ -297,3 +297,27 @@ struct MultiThreadMatMulFloat16SingleOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadMatMulTransBSingleOp : MultiThreadBaseOp {
+    float *input0Base, *input1Base, *outputBase;
+    int input0Spatial, input1Spatial, outputSpatial;
+    int input0Stride, input1Stride, n, m, k;
+    float alpha;
+    int st, end;
+
+    MultiThreadMatMulTransBSingleOp(float *input0Base,
+                                    float *input1Base,
+                                    float *outputBase,
+                                    int input0Spatial,
+                                    int input1Spatial,
+                                    int outputSpatial,
+                                    int input0Stride,
+                                    int input1Stride,
+                                    int n,
+                                    int m,
+                                    int k,
+                                    float alpha,
+                                    int st,
+                                    int end);
+    void Run();
+};
