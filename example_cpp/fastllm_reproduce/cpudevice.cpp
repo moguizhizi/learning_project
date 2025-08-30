@@ -2243,3 +2243,30 @@ void MultiThreadMatMulTransBFloat16SingleOp::Run() {
         }
     }
 }
+
+void CpuMatMulOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    Data &output = *(datas.find("output")->second);
+
+    AssertInFastLLM(input0.dataDevice == input1.dataDevice, "MatMul error: inputs should use same device.\n");
+    AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
+                        (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16) ||
+                        (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT16),
+                    "MatMul's input's type should be float32 or float16.\n");
+    AssertInFastLLM(input0.dims.size() >= 2 && input1.dims.size() >= 2, "MatMul's input's shape's size should be >= 2.\n");
+    AssertInFastLLM(input0.dims.back() == input1.dims[input1.dims.size() - 2], "MatMul's shape error.\n");
+    int input0Spatial = input0.Count(input0.dims.size() - 2);
+    int input1Spatial = input1.Count(input1.dims.size() - 2);
+    int batch0 = input0.Count(0) / input0Spatial;
+    int batch1 = input1.Count(0) / input1Spatial;
+    int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : 1;
+    AssertInFastLLM(batch0 == batch1 * group, "MatMul: input0.dims[1] should be equal to input1.dims[0] * group.\n");
+    // AssertInFastLLM(batch0 == batch1, "MatMul's shape error.\n");
+
+    std::vector<int> dims = input0.dims;
+    dims.back() = input1.dims[input1.dims.size() - 1];
+
+    output.dataType = input0.dataType;
+    output.Resize(dims);
+}
