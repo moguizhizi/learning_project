@@ -190,3 +190,29 @@ void RunLinearFloat16Float32(uint16_t *inputData,
                              AliveThreadPool *pool,
                              int startTid,
                              int threadNum);
+
+struct MultiThreadLinearFloat16Float16Op : MultiThreadBaseOp {
+    uint16_t *inputData;
+    uint16_t *weightData;
+    float *biasData;
+    uint16_t *outputData;
+    int n, m, k, st, end;
+
+    MultiThreadLinearFloat16Float16Op(
+        uint16_t *inputData, uint16_t *weightData, float *biasData, uint16_t *outputData, int n, int m, int k, int st, int end);
+
+    void Run();
+};
+
+void MatMulFloat16Float16(uint16_t *inputData, uint16_t *weightData, float *biasData, uint16_t *outputData, int n, int m, int k, int st, int end);
+
+void RunLinearFloat16Float16(uint16_t *inputData,
+                             uint16_t *weightData,
+                             uint16_t *outputData,
+                             float *biasData,
+                             int n,
+                             int m,
+                             int k,
+                             AliveThreadPool *pool,
+                             int startTid,
+                             int threadNum);
