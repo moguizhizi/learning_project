@@ -247,3 +247,28 @@ class CpuCatDirectOp : BaseOperator {
   protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+struct MultiThreadMatMulSingleOp : MultiThreadBaseOp {
+    float *input0Base, *input1Base, *outputBase;
+    int input0Spatial, input1Spatial, outputSpatial;
+    int input0Stride, input1Stride, n, m, k;
+    float alpha;
+    int st, end;
+
+    MultiThreadMatMulSingleOp(float *input0Base,
+                              float *input1Base,
+                              float *outputBase,
+                              int input0Spatial,
+                              int input1Spatial,
+                              int outputSpatial,
+                              int input0Stride,
+                              int input1Stride,
+                              int n,
+                              int m,
+                              int k,
+                              float alpha,
+                              int st,
+                              int end);
+
+    void Run();
+};
