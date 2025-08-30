@@ -1760,7 +1760,7 @@ void CpuSplitOp::Reshape(const std::string &opType, const DataDict &datas, const
     Data &output = *(datas.find("output")->second);
     int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
     int start = intParams.find("start") != intParams.end() ? intParams.find("start")->second : 0;
-    int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : -1;
+    int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : 0;
 
     int dimslen = input.dims.size();
     axis = (axis % dimslen + dimslen) % dimslen;
@@ -1809,4 +1809,36 @@ static void RunMultiThreadSlice(uint8_t *output, uint8_t *input, int outer, int 
         pool->Wait(i);
         delete ops[i];
     }
+}
+
+void CpuSplitOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int start = intParams.find("start") != intParams.end() ? intParams.find("start")->second : 0;
+    int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : 0;
+
+    output.Allocate();
+
+    int dimslen = input.dims.size();
+    axis = (axis % dimslen + dimslen) % dimslen;
+
+    std::vector<int> dims = input.dims;
+    start = std::max(0, std::min(dims[axis] - 1, start));
+    end = std::max(0, std::min(dims[axis], end));
+
+    int outer = input.Count(0) / input.Count(axis);
+    int inputStride = input.Count(axis);
+    int outputStride = output.Count(axis);
+    int inner = input.strides[axis];
+    int unitSize = input.unitSize;
+
+    RunMultiThreadSlice(output.cpuData,
+                        input.cpuData + start * inner * unitSize,
+                        outer,
+                        inputStride * unitSize,
+                        outputStride * unitSize,
+                        (end - start) * inner * unitSize,
+                        GetAlivePool());
 }
