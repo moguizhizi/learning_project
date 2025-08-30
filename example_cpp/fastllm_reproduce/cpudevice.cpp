@@ -974,6 +974,15 @@ bool CpuLinearOp::CanRun(const std::string &opType, const DataDict &datas, const
     return true;
 }
 
+void CpuLinearOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &bias = *(datas.find("bias")->second);
+    AssertInFastLLM(bias.dataType == DataType::FLOAT32, "Linear's bias' type should be float32.\n");
+    DoCpuLinear(input, weight, bias, output);
+}
+
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end) {
