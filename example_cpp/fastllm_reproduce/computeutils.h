@@ -233,3 +233,6 @@ void RunLinearInt8Int8(uint8_t *a,
                        AliveThreadPool *pool,
                        int startTid,
                        int threadNum);
+
+void RunLinearFloat32Int8(
+    float *inputData, Data &weight, float *outputData, float *biasData, int n, int m, int k, AliveThreadPool *pool, int startTid, int threadNum);
