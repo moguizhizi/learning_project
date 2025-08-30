@@ -66,7 +66,21 @@ struct BF16ToFP16Manager {
     BF16ToFP16Manager();
 };
 
+struct FP16SiluManager {
+    uint16_t dict[65536];
+
+    FP16SiluManager();
+};
+
+struct FP16SigmoidManager {
+    uint16_t dict[65536];
+
+    FP16SigmoidManager();
+};
+
 // ===== 全局变量声明（注意 extern）=====
 extern FP16ToFP32Manager g_fp16ToFp32Manager;
 extern BF16ToFP32Manager g_bf16tofp32;
 extern BF16ToFP16Manager g_bf16tofp16;
+extern FP16SiluManager g_fp16SiluManager;
+extern FP16SigmoidManager g_fp16SigmoidManager;

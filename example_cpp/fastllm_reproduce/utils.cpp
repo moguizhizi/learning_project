@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <cmath>
 #include <cstring>
 
 uint32_t as_uint(const float x) { return *(uint32_t *)&x; }
@@ -141,7 +142,25 @@ BF16ToFP16Manager::BF16ToFP16Manager() {
     }
 }
 
+FP16SiluManager::FP16SiluManager() {
+    for (int i = 0; i < 65536; i++) {
+        float x = half_to_float(i);
+        float y = x / (1.0 + expf(-x));
+        dict[i] = float_to_half(y);
+    }
+}
+
+FP16SigmoidManager::FP16SigmoidManager() {
+    for (int i = 0; i < 65536; i++) {
+        float x = half_to_float(i);
+        float y = 1.0 / (1.0 + expf(-x));
+        dict[i] = float_to_half(y);
+    }
+}
+
 // ===== 全局变量定义（只有 cpp 里有一次）=====
 FP16ToFP32Manager g_fp16ToFp32Manager;
 BF16ToFP32Manager g_bf16tofp32;
 BF16ToFP16Manager g_bf16tofp16;
+FP16SiluManager g_fp16SiluManager;
+FP16SigmoidManager g_fp16SigmoidManager;
