@@ -2000,13 +2000,57 @@ void DoCpuCatDirect(Data &input0, Data &input1, int axis) {
     }
 }
 
-void CpuCatDirectOp::Run(const std::string &opType,
-                         const DataDict &datas,
-                         const FloatDict &floatParams,
-                         const IntDict &intParams) {
+void CpuCatDirectOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input0 = *(datas.find("input0")->second);
     Data &input1 = *(datas.find("input1")->second);
 
     int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
     DoCpuCatDirect(input0, input1, axis);
 }
+
+MultiThreadMatMulSingleOp::MultiThreadMatMulSingleOp(float *input0Base,
+                                                     float *input1Base,
+                                                     float *outputBase,
+                                                     int input0Spatial,
+                                                     int input1Spatial,
+                                                     int outputSpatial,
+                                                     int input0Stride,
+                                                     int input1Stride,
+                                                     int n,
+                                                     int m,
+                                                     int k,
+                                                     float alpha,
+                                                     int st,
+                                                     int end) {
+    this->input0Base = input0Base;
+    this->input1Base = input1Base;
+    this->outputBase = outputBase;
+    this->input0Spatial = input0Spatial;
+    this->input1Spatial = input1Spatial;
+    this->outputSpatial = outputSpatial;
+    this->input0Stride = input0Stride;
+    this->input1Stride = input1Stride;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->alpha = alpha;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadMatMulSingleOp::Run() {
+    for (int b = this->st; b < this->end; b++) {
+        float *inputData0 = this->input0Base + b * this->input0Spatial;
+        float *inputData1 = this->input1Base + b * this->input1Spatial;
+        float *outputData = this->outputBase + b * this->outputSpatial;
+
+        std::fill(outputData, outputData + n * k, 0.0f);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                float now = inputData0[i * this->input0Stride + j] * alpha;
+                for (int l = 0; l < k; l++) {
+                    outputData[i * k + l] += now * inputData1[j * k + l];
+                }
+            }
+        }
+    }
