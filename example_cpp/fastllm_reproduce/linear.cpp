@@ -4,6 +4,21 @@
 #include "utils.h"
 #include <cstring>
 
+MultiThreadLinearBFloat16FP8E4M3Op::MultiThreadLinearBFloat16FP8E4M3Op(uint16_t *inputData,
+                                                                       uint8_t *weightData,
+                                                                       float *biasData,
+                                                                       float *outputData,
+                                                                       int n,
+                                                                       int m,
+                                                                       int k,
+                                                                       int st,
+                                                                       int end,
+                                                                       float *scales,
+                                                                       int blockK,
+                                                                       int blockM) {}
+
+void MultiThreadLinearBFloat16FP8E4M3Op::Run() {}
+
 MultiThreadLinearInt8Int4GroupOp::MultiThreadLinearInt8Int4GroupOp(uint8_t *a,
                                                                    uint8_t *b,
                                                                    float *c,
