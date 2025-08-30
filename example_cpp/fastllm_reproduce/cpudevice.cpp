@@ -1959,3 +1959,54 @@ void CpuCatOp::Run(const std::string &opType, const DataDict &datas, const Float
                     input1Stride * unitSize);
     }
 }
+
+void DoCpuCatDirect(Data &input0, Data &input1, int axis) {
+    AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
+                        (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16),
+                    "CatDirect's input's type should be float32 or float16.\n");
+    AssertInFastLLM(input0.dataDevice == input1.dataDevice, "CatDirect error: inputs should use same device.\n");
+
+    if (input0.dims.size() == 0) {
+        input0.Resize(input1.dims);
+        AssertInFastLLM(input0.expansionDims.size() == input1.dims.size() && input1.dims[axis] <= input0.expansionDims[axis],
+                        "CatDirect Error: input0's expansion size is not enough.\n");
+        int outer = input1.Count(0) / input1.Count(axis);
+        int input0Stride = input0.Count(axis);
+        int input1Stride = input1.Count(axis);
+        int inner = input0.strides[axis];
+        int unitSize = input0.unitSize;
+        for (int o = 0; o < outer; o++) {
+            memcpy(input0.cpuData + o * input0Stride * unitSize, input1.cpuData + o * input1Stride * unitSize, input1.dims[axis] * inner * unitSize);
+        }
+
+        return;
+    }
+
+    std::vector<int> dims = input0.dims;
+    std::vector<int> oldDims = dims;
+    dims[axis] += input1.dims[axis];
+    input0.Resize(dims);
+    int outer = input0.Count(0) / input0.Count(axis);
+    int input0Stride = input0.Count(axis);
+    int input1Stride = input1.Count(axis);
+
+    int inner = input0.strides[axis];
+    int unitSize = input0.unitSize;
+
+    for (int o = 0; o < outer; o++) {
+        memcpy(input0.cpuData + o * input0Stride * unitSize + oldDims[axis] * inner * unitSize,
+               input1.cpuData + (o * input1Stride) * unitSize,
+               input1.dims[axis] * inner * unitSize);
+    }
+}
+
+void CpuCatDirectOp::Run(const std::string &opType,
+                         const DataDict &datas,
+                         const FloatDict &floatParams,
+                         const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    DoCpuCatDirect(input0, input1, axis);
+}
