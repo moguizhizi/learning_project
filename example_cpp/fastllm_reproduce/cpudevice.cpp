@@ -2581,3 +2581,37 @@ void CpuMatMulTransBOp::Run(const std::string &opType, const DataDict &datas, co
         }
     }
 }
+
+void CpuSiluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+                    "Silu error: Data's type should be float32 or float16.\n");
+    int len = input.Count(0);
+
+    if (input.dataType == DataType::FLOAT16) {
+        uint16_t *inputData = (uint16_t *)input.cpuData;
+        uint16_t *outputData = (uint16_t *)output.cpuData;
+        for (int i = 0; i < len; i++) {
+            outputData[i] = g_fp16SiluManager.dict[inputData[i]];
+        }
+    } else {
+        float *inputData = (float *)input.cpuData;
+        float *outputData = (float *)output.cpuData;
+        int i = 0;
+#ifdef __aarch64__
+        float32x4_t c1 = vdupq_n_f32(1.0f);
+        for (; i + 3 < len; i += 4) {
+            float32x4_t vx = vld1q_f32(inputData + i);
+            float32x4_t vdiv = vaddq_f32(c1, exp_ps(vnegq_f32(vx)));
+            vx = vdivq_f32(vx, vdiv);
+            vst1q_f32(outputData + i, vx);
+        }
+#endif
+        for (; i < len; i++) {
+            float x = inputData[i];
+            outputData[i] = x / (1.0 + expf(-x));
+        }
+    }
+}
