@@ -2054,3 +2054,72 @@ void MultiThreadMatMulSingleOp::Run() {
             }
         }
     }
+}
+
+MultiThreadMatMulFloat16SingleOp::MultiThreadMatMulFloat16SingleOp(uint16_t *input0Base,
+                                                                   uint16_t *input1Base,
+                                                                   uint16_t *outputBase,
+                                                                   int input0Spatial,
+                                                                   int input1Spatial,
+                                                                   int outputSpatial,
+                                                                   int input0Stride,
+                                                                   int input1Stride,
+                                                                   int n,
+                                                                   int m,
+                                                                   int k,
+                                                                   float alpha,
+                                                                   int st,
+                                                                   int end) {
+    this->input0Base = input0Base;
+    this->input1Base = input1Base;
+    this->outputBase = outputBase;
+    this->input0Spatial = input0Spatial;
+    this->input1Spatial = input1Spatial;
+    this->outputSpatial = outputSpatial;
+    this->input0Stride = input0Stride;
+    this->input1Stride = input1Stride;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->alpha = alpha;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadMatMulFloat16SingleOp::Run() {
+    float *input0 = new float[n * m];
+    float *input1 = new float[m * k];
+    float *output = new float[n * k];
+
+    for (int b = st; b < end; b++) {
+        uint16_t *input0Data = input0Base + b * input0Spatial;
+        uint16_t *input1Data = input1Base + b * input1Spatial;
+        uint16_t *outputData = outputBase + b * outputSpatial;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                input0[i * m + j] = g_fp16ToFp32Manager.dict[input0Data[i * input0Stride + j]];
+            }
+        }
+        for (int j = 0; j < m; j++) {
+            for (int l = 0; l < k; l++) {
+                input1[j * k + l] = g_fp16ToFp32Manager.dict[input1Data[j * k + l]];
+            }
+        }
+        std::fill(output, output + n * k, 0.0f);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                float now = input0[i * m + j] * alpha;
+                for (int l = 0; l < k; l++) {
+                    output[i * k + l] += (now * input1[j * k + l]);
+                }
+            }
+        }
+        for (int i = 0; i < n * k; i++) {
+            outputData[i] = float_to_half(output[i]);
+        }
+    }
+
+    delete[] input0;
+    delete[] input1;
+    delete[] output;
+}
