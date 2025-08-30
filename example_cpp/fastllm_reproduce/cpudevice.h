@@ -321,3 +321,26 @@ struct MultiThreadMatMulTransBSingleOp : MultiThreadBaseOp {
                                     int end);
     void Run();
 };
+
+struct MultiThreadMatMulTransBFloat16SingleOp : MultiThreadBaseOp {
+    uint16_t *input0Base, *input1Base, *outputBase;
+    int input0Spatial, input1Spatial, outputSpatial;
+    int input0Stride, input1Stride, n, m, k;
+    float alpha;
+    int st, end;
+    MultiThreadMatMulTransBFloat16SingleOp(uint16_t *input0Base,
+                                           uint16_t *input1Base,
+                                           uint16_t *outputBase,
+                                           int input0Spatial,
+                                           int input1Spatial,
+                                           int outputSpatial,
+                                           int input0Stride,
+                                           int input1Stride,
+                                           int n,
+                                           int m,
+                                           int k,
+                                           float alpha,
+                                           int st,
+                                           int end);
+    void Run();
+};

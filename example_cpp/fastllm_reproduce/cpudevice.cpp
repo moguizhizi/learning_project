@@ -2186,3 +2186,60 @@ void MultiThreadMatMulTransBSingleOp::Run() {
         }
     }
 }
+
+MultiThreadMatMulTransBFloat16SingleOp::MultiThreadMatMulTransBFloat16SingleOp(uint16_t *input0Base,
+                                                                               uint16_t *input1Base,
+                                                                               uint16_t *outputBase,
+                                                                               int input0Spatial,
+                                                                               int input1Spatial,
+                                                                               int outputSpatial,
+                                                                               int input0Stride,
+                                                                               int input1Stride,
+                                                                               int n,
+                                                                               int m,
+                                                                               int k,
+                                                                               float alpha,
+                                                                               int st,
+                                                                               int end) {
+    this->input0Base = input0Base;
+    this->input1Base = input1Base;
+    this->outputBase = outputBase;
+    this->input0Spatial = input0Spatial;
+    this->input1Spatial = input1Spatial;
+    this->outputSpatial = outputSpatial;
+    this->input0Stride = input0Stride;
+    this->input1Stride = input1Stride;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->alpha = alpha;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadMatMulTransBFloat16SingleOp::Run() {
+    for (int b = st; b < end; b++) {
+        uint16_t *input0Data = input0Base + b * input0Spatial;
+        uint16_t *input1Data = input1Base + b * input1Spatial;
+        uint16_t *outputData = outputBase + b * outputSpatial;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < k; j++) {
+                float now = 0.0f;
+                int l = 0;
+#if defined(__AVX__)
+                __m256 vsum = _mm256_set1_ps(0.0f);
+                for (; l + 7 < m; l += 8) {
+                    __m256 vx = _mm256_cvtph_ps(_mm_loadu_si128((__m128i *)(input0Data + i * input0Stride + l)));
+                    __m256 vy = _mm256_cvtph_ps(_mm_loadu_si128((__m128i *)(input1Data + j * input1Stride + l)));
+                    vsum = _mm256_add_ps(vsum, _mm256_mul_ps(vx, vy));
+                }
+                now += Floatsum(vsum);
+#endif
+                for (; l < m; l++) {
+                    now += g_fp16ToFp32Manager.dict[input0Data[i * input0Stride + l]] * g_fp16ToFp32Manager.dict[input1Data[j * input1Stride + l]];
+                }
+                outputData[i * k + j] = float_to_half(now * alpha);
+            }
+        }
+    }
+}
