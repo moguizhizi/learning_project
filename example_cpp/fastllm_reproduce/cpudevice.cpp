@@ -2615,3 +2615,19 @@ void CpuSiluOp::Run(const std::string &opType, const DataDict &datas, const Floa
         }
     }
 }
+
+void CpuTanHOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "GeluNew error: Data's type should be float32.\n");
+
+    float temp = sqrt(2.0f / M_PI), factor = 0.044715;
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+    int len = input.Count(0);
+    int i = 0;
+    for (; i < len; i++) {
+        outputData[i] = tanhf(inputData[i]);
+    }
+}
