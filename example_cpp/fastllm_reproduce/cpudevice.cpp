@@ -3087,3 +3087,16 @@ void CpuMulToOp::Run(const std::string &opType, const DataDict &datas, const Flo
         }
     }
 }
+
+MultiThreadAddToFloatOp::MultiThreadAddToFloatOp(float *input, float *output, int len, float alpha) {
+    this->input = input;
+    this->output = output;
+    this->len = len;
+    this->alpha = alpha;
+}
+
+void MultiThreadAddToFloatOp::Run() {
+    for (int i = 0; i < len; i++) {
+        output[i] += input[i] * alpha;
+    }
+}

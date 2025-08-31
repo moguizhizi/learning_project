@@ -426,3 +426,13 @@ class CpuAddOp : BaseOperator {
 class CpuMulToOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
+    float *input, *output;
+    int len;
+    float alpha;
+
+    MultiThreadAddToFloatOp(float *input, float *output, int len, float alpha);
+
+    void Run();
+};
