@@ -3123,3 +3123,27 @@ static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, i
         delete ops[i];
     }
 }
+
+void CpuAddToOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    float alpha = floatParams.find("alpha") != floatParams.end() ? floatParams.find("alpha")->second : 1.0;
+
+    AssertInFastLLM(input0.dataType == DataType::FLOAT32 || input0.dataType == DataType::FLOAT16,
+                    "AddTo error: Data's type should be float32 or float16.\n");
+    AssertInFastLLM(input0.dims == input1.dims, "AddTo error: input's shape should be same.\n");
+
+    int len = input0.Count(0);
+
+    if (input0.dataType == DataType::FLOAT32) {
+        float *input0Data = (float *)input0.cpuData;
+        float *input1Data = (float *)input1.cpuData;
+        RunMultiThreadAddToFloat(input0Data, input1Data, alpha, len, GetAlivePool());
+    } else if (input0.dataType == DataType::FLOAT16) {
+        uint16_t *input0Data = (uint16_t *)input0.cpuData;
+        uint16_t *input1Data = (uint16_t *)input1.cpuData;
+        for (int i = 0; i < len; i++) {
+            input0Data[i] = float_to_half(g_fp16ToFp32Manager.dict[input0Data[i]] + g_fp16ToFp32Manager.dict[input1Data[i]] * alpha);
+        }
+    }
+}
