@@ -438,3 +438,7 @@ struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
 };
 
 static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, int len, AliveThreadPool *pool);
+
+class CpuAddToOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
