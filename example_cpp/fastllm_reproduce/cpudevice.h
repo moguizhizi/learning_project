@@ -394,3 +394,11 @@ class CpuSwigluOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+struct MultiThreadSwigluOp : MultiThreadBaseOp {
+    int n, len, inputstride, outputstride, mid;
+    float *input, *output;
+
+    MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid);
+    void Run();
+};
