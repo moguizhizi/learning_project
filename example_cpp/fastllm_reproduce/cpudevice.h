@@ -67,7 +67,6 @@ class CpuLinearOp : BaseOperator {
 void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
 void DoCpuLinear(Data &input, Data &weight, const Data &bias, Data &output);
 void DoCpuCatDirect(Data &input0, Data &input1, int axis);
-void DoCpuSwigluReshape(Data &input, Data &output);
 
 // float的input, int8的weight, 直接计算得到float的output
 void Int8LinearPart(
@@ -396,17 +395,22 @@ class CpuSwigluOp : BaseOperator {
 };
 
 struct MultiThreadSwigluOp : MultiThreadBaseOp {
-    int n, len, inputstride, outputstride, mid;
     float *input, *output;
+    int mid, len, n, inputStride, outputStride;
 
-    MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid);
+    MultiThreadSwigluOp(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride);
+
     void Run();
 };
 
 struct MultiThreadSwigluFloat16Op : MultiThreadBaseOp {
-    int n, len, inputstride, outputstride, mid;
     uint16_t *input, *output;
+    int mid, len, n, inputStride, outputStride;
 
-    MultiThreadSwigluFloat16Op(uint16_t *input, uint16_t *output, int n, int len, int inputstride, int outputstride, int mid);
+    MultiThreadSwigluFloat16Op(uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride);
+
     void Run();
 };
+
+void DoCpuSwigluReshape(Data &input, Data &output);
+void DoCpuSwiglu(Data &input, Data &output);

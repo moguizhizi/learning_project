@@ -2801,13 +2801,6 @@ void CpuGeluNewOp::Run(const std::string &opType, const DataDict &datas, const F
     }
 }
 
-void DoCpuSwigluReshape(Data &input, Data &output) {
-    std::vector<int> dims = input.dims;
-    dims[dims.size() - 1] /= 2;
-    output.dataType = input.dataType;
-    output.Resize(dims);
-}
-
 void CpuSwigluOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
@@ -2890,21 +2883,20 @@ void CpuSwigluOp::Run(const std::string &opType, const DataDict &datas, const Fl
     }
 }
 
-MultiThreadSwigluOp::MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid) {
+MultiThreadSwigluOp::MultiThreadSwigluOp(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride) {
     this->input = input;
     this->output = output;
     this->n = n;
     this->len = len;
-    this->inputstride = inputstride;
-    this->outputstride = outputstride;
+    this->inputStride = inputStride;
+    this->outputStride = outputStride;
     this->mid = mid;
 }
 
 void MultiThreadSwigluOp::Run() {
-    for (int o = 0; o < this->n; o++) {
-        float *cur = this->input + o * this->inputstride;
-        float *out = this->output + o * this->outputstride;
-
+    for (int o = 0; o < n; o++) {
+        float *cur = (float *)input + o * inputStride;
+        float *out = (float *)output + o * outputStride;
         int i = 0;
 #ifdef __aarch64__
         float32x4_t c1 = vdupq_n_f32(1.0f);
@@ -2933,30 +2925,28 @@ void MultiThreadSwigluOp::Run() {
             _mm256_storeu_ps(&out[i], result);
         }
 #endif
-
         for (; i < len; i++) {
-            float x = cur[i], y = cur[i + this->mid];
+            float x = cur[i], y = cur[i + mid];
             out[i] = (x / (1.0 + expf(-x))) * y;
         }
     }
 }
 
 MultiThreadSwigluFloat16Op::MultiThreadSwigluFloat16Op(
-    uint16_t *input, uint16_t *output, int n, int len, int inputstride, int outputstride, int mid) {
+    uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride) {
     this->input = input;
     this->output = output;
     this->n = n;
     this->len = len;
-    this->inputstride = inputstride;
-    this->outputstride = outputstride;
+    this->inputStride = inputStride;
+    this->outputStride = outputStride;
     this->mid = mid;
 }
 
 void MultiThreadSwigluFloat16Op::Run() {
-    for (int o = 0; o < this->n; o++) {
-        uint16_t *cur = this->input + o * this->inputstride;
-        uint16_t *out = this->output + o * this->outputstride;
-
+    for (int o = 0; o < n; o++) {
+        uint16_t *cur = (uint16_t *)input + o * inputStride;
+        uint16_t *out = (uint16_t *)output + o * outputStride;
         int i = 0;
 #ifdef __AVX2__
         for (; i + 7 < len; i += 8) { // Process 8 elements at a time
@@ -2982,8 +2972,35 @@ void MultiThreadSwigluFloat16Op::Run() {
         }
 #endif
         for (; i < len; i++) {
-            float x = g_fp16ToFp32Manager.dict[cur[i]], y = g_fp16ToFp32Manager.dict[cur[i + this->mid]];
+            float x = g_fp16ToFp32Manager.dict[cur[i]], y = g_fp16ToFp32Manager.dict[cur[i + mid]];
             out[i] = float_to_half((x / (1.0 + expf(-x))) * y);
         }
+    }
+}
+
+void DoCpuSwigluReshape(Data &input, Data &output) {
+    std::vector<int> dims = input.dims;
+    dims[dims.size() - 1] /= 2;
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
+
+void DoCpuSwiglu(Data &input, Data &output) {
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+                    "Swiglu error: Data's type should be float32 or float16.\n");
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+
+    int spatial = input.Count(input.dims.size() - 1), mid = spatial / 2;
+    int outer = input.Count(0) / spatial;
+
+    if (input.dataType == DataType::FLOAT32) {
+        (MultiThreadSwigluOp((float *)inputData, spatial / 2, spatial / 2, (float *)outputData, outer, spatial, spatial / 2)).Run();
+    } else if (input.dataType == DataType::FLOAT16) {
+        (MultiThreadSwigluFloat16Op((uint16_t *)inputData, spatial / 2, spatial / 2, (uint16_t *)outputData, outer, spatial, spatial / 2)).Run();
+    } else {
+        printf("Unsupport swiglu type.");
     }
 }
