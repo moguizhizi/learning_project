@@ -275,13 +275,7 @@ struct MultiThreadSingleAttentionFloat16Op : MultiThreadBaseOp {
     void Run();
 };
 
-struct MultiThreadSwigluOp : MultiThreadBaseOp {
-    int n, len, inputstride, outputstride, mid;
-    float *input, *output;
 
-    MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid);
-    void Run();
-};
 
 struct MultiThreadSwigluFloat16Op : MultiThreadBaseOp {
     int n, len, inputstride, outputstride, mid;
