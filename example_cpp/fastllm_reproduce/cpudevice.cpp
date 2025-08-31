@@ -3056,3 +3056,34 @@ void CpuAddOp::Run(const std::string &opType, const DataDict &datas, const Float
         }
     }
 }
+
+void CpuMulToOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    AssertInFastLLM(input0.dims == input1.dims, "MulTo error: input's shape should be same.\n");
+
+    int len = input0.Count(0);
+    int inner = input1.Count(0);
+    AssertInFastLLM(len % inner == 0, "MulTo error: Data`s shape can`t perform MulTo operation.\n");
+    int round = (len / inner);
+
+    if (input0.dataType == DataType::FLOAT16) {
+        uint16_t *input0Data = (uint16_t *)input0.cpuData;
+        uint16_t *input1Data = (uint16_t *)input1.cpuData;
+        for (int j = 0; j < round; j++) {
+            for (int i = 0; i < len; i++) {
+                input0Data[i] = float_to_half(g_fp16ToFp32Manager.dict[input0Data[i]] * g_fp16ToFp32Manager.dict[input1Data[i]]);
+            }
+            input0Data += inner;
+        }
+    } else {
+        float *input0Data = (float *)input0.cpuData;
+        float *input1Data = (float *)input1.cpuData;
+        for (int j = 0; j < round; j++) {
+            for (int i = 0; i < len; i++) {
+                input0Data[i] *= input1Data[i];
+            }
+            input0Data += inner;
+        }
+    }
+}
