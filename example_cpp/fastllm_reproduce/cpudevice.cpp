@@ -208,8 +208,8 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
         int maskStride = (mask != nullptr) ? (maskd.dims.size() == 3 ? maskd.strides[0] : maskd.Count(0)) : 0;
         std::fill(output, output + outputd.Count(0), 0.0f);
 
-        // auto *pool = GetAlivePool();
-        // int threads = pool->threads.size();
+        auto *pool = GetAlivePool();
+        int threads = pool->threads.size();
 
         std::vector<MultiThreadSingleAttentionOp *> ops;
         for (int o = 0; o < q0; o++) {
@@ -225,14 +225,14 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
                                                            v2));
         }
 
-        // for (int st = 0; st < ops.size(); st += threads) {
-        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
-        //         pool->PushOp(i - st, ops[i]);
-        //     }
-        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
-        //         pool->Wait(i - st);
-        //     }
-        // }
+        for (int st = 0; st < ops.size(); st += threads) {
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->PushOp(i - st, ops[i]);
+            }
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->Wait(i - st);
+            }
+        }
     } else if (qd.dataType == DataType::FLOAT16) {
         uint16_t *q = (uint16_t *)qd.cpuData;
         uint16_t *k = (uint16_t *)kd.cpuData;
@@ -246,8 +246,8 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
         int maskStride = (mask != nullptr) ? (maskd.dims.size() == 3 ? maskd.strides[0] : maskd.Count(0)) : 0;
         std::fill(output, output + outputd.Count(0), 0.0f);
 
-        // auto *pool = GetAlivePool();
-        // int threads = pool->threads.size();
+        auto *pool = GetAlivePool();
+        int threads = pool->threads.size();
 
         std::vector<MultiThreadSingleAttentionFloat16Op *> ops;
         for (int o = 0; o < q0; o++) {
@@ -263,14 +263,14 @@ void CpuAttention::Run(const std::string &opType, const DataDict &datas, const F
                                                                   v2));
         }
 
-        // for (int st = 0; st < ops.size(); st += threads) {
-        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
-        //         pool->PushOp(i - st, ops[i]);
-        //     }
-        //     for (int i = st; i < ops.size() && i < st + threads; i++) {
-        //         pool->Wait(i - st);
-        //     }
-        // }
+        for (int st = 0; st < ops.size(); st += threads) {
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->PushOp(i - st, ops[i]);
+            }
+            for (int i = st; i < ops.size() && i < st + threads; i++) {
+                pool->Wait(i - st);
+            }
+        }
     } else {
         ErrorInFastLLM("Attention error: unsupport dataType.\n");
     }
