@@ -442,3 +442,7 @@ static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, i
 class CpuAddToOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CpuAttentionMaskOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
