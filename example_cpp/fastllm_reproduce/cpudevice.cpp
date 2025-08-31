@@ -2631,3 +2631,19 @@ void CpuTanHOp::Run(const std::string &opType, const DataDict &datas, const Floa
         outputData[i] = tanhf(inputData[i]);
     }
 }
+
+void CpuReluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "Relu error: Data's type should be float32.\n");
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+    int len = input.Count(0);
+    int i = 0;
+    for (; i < len; i++) {
+        float x = inputData[i];
+        outputData[i] = x > 0 ? x : 0;
+    }
+}
