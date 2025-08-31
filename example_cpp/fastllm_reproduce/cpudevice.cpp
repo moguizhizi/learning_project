@@ -3147,3 +3147,55 @@ void CpuAddToOp::Run(const std::string &opType, const DataDict &datas, const Flo
         }
     }
 }
+
+void CpuAttentionMaskOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &mask = *(datas.find("mask")->second);
+    float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
+
+    int n = input.dims[0];
+    int m = input.dims[1];
+    int spatial = input.Count(2);
+
+    AssertInFastLLM(mask.dataType == DataType::FLOAT32 || mask.dataType == input.dataType, "AttentionMask: mask's datatype should be float32.");
+    if (input.dataType == DataType::FLOAT32 && mask.dataType == DataType::FLOAT32) {
+        float *attnData = (float *)input.cpuData;
+        float *maskData = (float *)mask.cpuData;
+        for (int on = 0; on < n; on++) {
+            for (int om = 0; om < m; om++) {
+                for (int i = 0; i < spatial; i++) {
+                    if (maskData[on * spatial + i] > 0.99) {
+                        attnData[(on * m + om) * spatial + i] = maskValue;
+                    }
+                }
+            }
+        }
+    } else if (input.dataType == DataType::FLOAT16 && mask.dataType == DataType::FLOAT32) {
+        uint16_t *attnData = (uint16_t *)input.cpuData;
+        float *maskData = (float *)mask.cpuData;
+        for (int on = 0; on < n; on++) {
+            for (int om = 0; om < m; om++) {
+                for (int i = 0; i < spatial; i++) {
+                    if (maskData[on * spatial + i] > 0.99) {
+                        attnData[(on * m + om) * spatial + i] = float_to_half(maskValue);
+                    }
+                }
+            }
+        }
+    } else if (input.dataType == DataType::FLOAT16 && mask.dataType == DataType::FLOAT16) {
+        std::vector<float> floatMaskData;
+        floatMaskData.resize(mask.Count(0));
+        Float16ToFloat32((uint16_t *)mask.cpuData, floatMaskData.data(), mask.Count(0));
+        uint16_t *attnData = (uint16_t *)input.cpuData;
+        for (int on = 0; on < n; on++) {
+            for (int om = 0; om < m; om++) {
+                for (int i = 0; i < spatial; i++) {
+                    if (floatMaskData[on * spatial + i] > 0.99) {
+                        attnData[(on * m + om) * spatial + i] = float_to_half(maskValue);
+                    }
+                }
+            }
+        }
+    } else {
+        AssertInFastLLM(false, "AttentionMask error: Data's type should be float32 or float16.\n");
+    }
