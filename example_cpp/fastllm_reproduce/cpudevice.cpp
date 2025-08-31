@@ -3199,3 +3199,26 @@ void CpuAttentionMaskOp::Run(const std::string &opType, const DataDict &datas, c
     } else {
         AssertInFastLLM(false, "AttentionMask error: Data's type should be float32 or float16.\n");
     }
+}
+
+void CpuAttentionExtendedMaskOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &mask = *(datas.find("mask")->second);
+    int spatial = input.dims[3], n = input.dims[0], m = input.dims[1] * input.dims[2];
+
+    AssertInFastLLM(mask.dataType == DataType::FLOAT32, "AttentionExtendedMask: mask's datatype should be float32.");
+    if (input.dataType == DataType::FLOAT32) {
+        float *maskData = (float *)mask.cpuData;
+        float *attnData = (float *)input.cpuData;
+        for (int on = 0; on < n; on++) {
+            for (int om = 0; om < m; om++) {
+                int o = on * m + om;
+                for (int i = 0; i < spatial; i++) {
+                    attnData[o * spatial + i] += maskData[on * spatial + i];
+                }
+            }
+        }
+    } else {
+        ErrorInFastLLM("AttentionExtendedMask error: unsupport input's dataType.\n");
+    }
+}
