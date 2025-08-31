@@ -2718,3 +2718,85 @@ void CpuGeluOp::Run(const std::string &opType, const DataDict &datas, const Floa
         outputData[i] = x * 0.5f * (1.0f + erf(x / sqrt(2.0)));
     }
 }
+
+void CpuGeluNewOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "GeluNew error: Data's type should be float32.\n");
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+    int len = input.Count(0);
+    int i = 0;
+#ifdef __aarch64__
+    float32x4_t c0 = vdupq_n_f32(0.044715f);
+    float32x4_t c1 = vdupq_n_f32(1.0f);
+    float32x4_t c2 = vdupq_n_f32(0.7978845608028654f);
+    float32x4_t c3 = vdupq_n_f32(0.5f);
+
+    for (; i + 3 < len; i += 4) {
+        float32x4_t vx = vld1q_f32(inputData + i);
+        float32x4_t v1 = vaddq_f32(c1, vmulq_f32(vmulq_f32(c0, vx), vx));
+        float32x4_t v2 = vmulq_f32(vmulq_f32(c2, vx), v1);
+        float32x4_t vex = exp_ps(v2);
+        float32x4_t venegx = exp_ps(vnegq_f32(v2));
+        float32x4_t vtan = vdivq_f32(vsubq_f32(vex, venegx), vaddq_f32(vex, venegx));
+        float32x4_t vout = vmulq_f32(vmulq_f32(c3, vx), vaddq_f32(c1, vtan));
+        vst1q_f32(outputData + i, vout);
+    }
+#endif
+#ifdef __AVX2__
+    auto var1 = _mm256_set1_ps(0.044715f);
+    auto var2 = _mm256_set1_ps(0.7978845608028654f);
+    auto var3 = _mm256_set1_ps(378.f);
+    auto var4 = _mm256_set1_ps(17325.f);
+    auto var5 = _mm256_set1_ps(135135.f);
+    auto var6 = _mm256_set1_ps(28.f);
+    auto var7 = _mm256_set1_ps(3150.f);
+    auto var8 = _mm256_set1_ps(62370.f);
+    auto var9 = _mm256_set1_ps(135135.f);
+    auto var10 = _mm256_set1_ps(0.5);
+    auto varOne = _mm256_set1_ps(1.f);
+    auto varNegOne = _mm256_set1_ps(-1.f);
+
+    for (; i < len - 7; i += 8) {
+        auto x = _mm256_loadu_ps(inputData + i);
+        // sqrt(2 / PI) * (0.044715 * x^3 + x)
+        auto y = _mm256_mul_ps(x, x);
+        y = _mm256_mul_ps(y, x);
+        y = _mm256_mul_ps(y, var1);
+        y = _mm256_add_ps(y, x);
+        y = _mm256_mul_ps(y, var2);
+
+        // y = tanh(y)
+        {
+            auto y2 = _mm256_mul_ps(y, y);
+            auto w = _mm256_add_ps(y2, var3);
+            w = _mm256_mul_ps(w, y2);
+            w = _mm256_add_ps(w, var4);
+            w = _mm256_mul_ps(w, y2);
+            w = _mm256_add_ps(w, var5);
+            w = _mm256_mul_ps(w, y);
+            auto z = _mm256_mul_ps(y2, var6);
+            z = _mm256_add_ps(z, var7);
+            z = _mm256_mul_ps(z, y2);
+            z = _mm256_add_ps(z, var8);
+            z = _mm256_mul_ps(z, y2);
+            z = _mm256_add_ps(z, var9);
+            z = _mm256_div_ps(w, z);
+            z = _mm256_max_ps(z, varNegOne);
+            y = _mm256_min_ps(z, varOne);
+        }
+
+        y = _mm256_add_ps(y, varOne);
+        y = _mm256_mul_ps(y, x);
+        y = _mm256_mul_ps(y, var10);
+        _mm256_storeu_ps(outputData + i, y);
+    }
+#endif
+    for (; i < len; i++) {
+        float x = inputData[i];
+        outputData[i] = 0.5f * x * (1.0f + tanhf(0.7978845608028654f * x * (1.0f + 0.044715f * x * x)));
+    }
+}
