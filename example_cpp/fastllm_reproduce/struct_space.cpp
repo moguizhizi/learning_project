@@ -1153,53 +1153,6 @@ void MultiThreadSingleAttentionFloat16Op::Run() {
     Float32ToFloat16(fod.data(), this->od, (int)fod.size());
 }
 
-MultiThreadSwigluFloat16Op::MultiThreadSwigluFloat16Op(
-    uint16_t *input, uint16_t *output, int n, int len, int inputstride, int outputstride, int mid) {
-    this->input = input;
-    this->output = output;
-    this->n = n;
-    this->len = len;
-    this->inputstride = inputstride;
-    this->outputstride = outputstride;
-    this->mid = mid;
-}
-
-void MultiThreadSwigluFloat16Op::Run() {
-    for (int o = 0; o < this->n; o++) {
-        uint16_t *cur = this->input + o * this->inputstride;
-        uint16_t *out = this->output + o * this->outputstride;
-
-        int i = 0;
-#ifdef __AVX2__
-        for (; i + 7 < len; i += 8) { // Process 8 elements at a time
-            __m128i x_half = _mm_loadu_si128((const __m128i *)&cur[i]);
-            __m256 x = _mm256_cvtph_ps(x_half); // Convert float16 to float32
-
-            // Load 8 float16 values from cur[i+mid..i+mid+7] and convert to float32
-            __m128i y_half = _mm_loadu_si128((const __m128i *)&cur[i + mid]);
-            __m256 y = _mm256_cvtph_ps(y_half); // Convert float16 to float32
-
-            // Compute sigmoid: 1.0 / (1.0 + expf(-x))
-            __m256 neg_x = _mm256_sub_ps(_mm256_setzero_ps(), x);
-            __m256 exp_neg_x = exp256_ps(neg_x); // See note below about exp_ps
-            __m256 denom = _mm256_add_ps(_mm256_set1_ps(1.0f), exp_neg_x);
-            __m256 sigmoid = _mm256_div_ps(x, denom);
-
-            // Multiply by y and store result
-            __m256 result = _mm256_mul_ps(sigmoid, y);
-
-            // Convert result back to float16 and store
-            __m128i result_half = _mm256_cvtps_ph(result, _MM_FROUND_TO_NEAREST_INT);
-            _mm_storeu_si128((__m128i *)&out[i], result_half);
-        }
-#endif
-        for (; i < len; i++) {
-            float x = g_fp16ToFp32Manager.dict[cur[i]], y = g_fp16ToFp32Manager.dict[cur[i + this->mid]];
-            out[i] = float_to_half((x / (1.0 + expf(-x))) * y);
-        }
-    }
-}
-
 MultiThreadRMSNormFloatOp::MultiThreadRMSNormFloatOp(float *output, float *input, float *weight, int outer, int channels, float eps) {
     this->output;
     this->input = input;

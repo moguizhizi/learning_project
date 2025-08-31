@@ -402,3 +402,11 @@ struct MultiThreadSwigluOp : MultiThreadBaseOp {
     MultiThreadSwigluOp(float *input, float *output, int n, int len, int inputstride, int outputstride, int mid);
     void Run();
 };
+
+struct MultiThreadSwigluFloat16Op : MultiThreadBaseOp {
+    int n, len, inputstride, outputstride, mid;
+    uint16_t *input, *output;
+
+    MultiThreadSwigluFloat16Op(uint16_t *input, uint16_t *output, int n, int len, int inputstride, int outputstride, int mid);
+    void Run();
+};
