@@ -436,3 +436,5 @@ struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, int len, AliveThreadPool *pool);

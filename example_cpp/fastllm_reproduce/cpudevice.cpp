@@ -3100,3 +3100,26 @@ void MultiThreadAddToFloatOp::Run() {
         output[i] += input[i] * alpha;
     }
 }
+
+static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, int len, AliveThreadPool *pool) {
+    if (len < 256 * 1024) {
+        (MultiThreadAddToFloatOp(output, input, alpha, len)).Run();
+        return;
+    }
+    int threadNum = pool->threads.size();
+    int per = len / pool->threads.size();
+    int cur = 0;
+    std::vector<MultiThreadAddToFloatOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? len : cur + per + (cur + per * (threadNum - i) < len));
+        ops.push_back(new MultiThreadAddToFloatOp(output + cur, input + cur, alpha, end - cur));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
+}
