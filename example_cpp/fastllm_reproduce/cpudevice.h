@@ -380,3 +380,7 @@ class CpuSigmoidOp : BaseOperator {
 };
 
 float erf(float a);
+
+class CpuGeluOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
