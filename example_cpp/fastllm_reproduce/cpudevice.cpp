@@ -3255,7 +3255,7 @@ void CpuTopKOp::Run(const std::string &opType, const DataDict &datas, const Floa
 
     if (topk == 1) {
         for (int o = 0; o < outer; o++) {
-            float maxValue = 1e-9;
+            float maxValue = -1e100;
             int idx = -1;
             for (int i = 0; i < channel; i++) {
                 if (inputData[i] > maxValue) {
@@ -3289,4 +3289,25 @@ void CpuTopKOp::Run(const std::string &opType, const DataDict &datas, const Floa
             inputData = inputData + channel;
         }
     }
+}
+
+void CpuPermuteOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &axisData = *(datas.find("axis")->second);
+    std::vector<int> axis;
+    for (int i = 0; i < axisData.Count(0); i++) {
+        axis.push_back(((int32_t *)axisData.cpuData)[i]);
+    }
+
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+                    "Permute error: datatype should be float32 or float16.");
+    AssertInFastLLM(axis.size() == input.dims.size(), "Permute error: axis's size should be equal to data's shape's size.");
+    std::vector<int> new_dims;
+    for (int i = 0; i < axis.size(); i++) {
+        new_dims.push_back(input.dims[axis[i]]);
+    }
+
+    output.dataType = input.dataType;
+    output.Resize(new_dims);
 }
