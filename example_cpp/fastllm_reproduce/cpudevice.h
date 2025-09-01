@@ -466,3 +466,5 @@ class CpuPermuteOp : BaseOperator {
 };
 
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
+
+void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
