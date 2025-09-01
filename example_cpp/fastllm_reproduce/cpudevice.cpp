@@ -3364,3 +3364,14 @@ void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, in
         }
     }
 }
+
+MultiThreadTransposeOp::MultiThreadTransposeOp(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
+    this->pDst = pDst;
+    this->pSrc = pSrc;
+    this->n = n;
+    this->m = m;
+    this->dstStride = dstStride;
+    this->srcStride = srcStride;
+}
+
+void MultiThreadTransposeOp::Run() { Transpose(pDst, pSrc, dstStride, srcStride, n, m); }
