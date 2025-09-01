@@ -12,7 +12,7 @@ prompts = [
 
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 llm = LLM(
-        model="/home/llm_model/vllm-ascend/QwQ-32B-W8A8",
+        model="/home/llm_model/vllm-ascend/Qwen2___5-VL-3B-Instruct",
         max_model_len=26240,
         load_format="runai_streamer",
         pipeline_parallel_size=1,
