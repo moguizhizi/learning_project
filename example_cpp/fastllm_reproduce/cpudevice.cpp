@@ -3237,3 +3237,56 @@ void CpuTopKOp::Reshape(const std::string &opType, const DataDict &datas, const 
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void CpuTopKOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : 1;
+
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "TopK error: Data's type should be float32.\n");
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+
+    int dimlens = input.dims.size();
+    int outer = input.Count(0) / input.Count(dimlens - 1);
+    int channel = input.dims[dimlens - 1];
+
+    if (topk == 1) {
+        for (int o = 0; o < outer; o++) {
+            float maxValue = 1e-9;
+            int idx = -1;
+            for (int i = 0; i < channel; i++) {
+                if (inputData[i] > maxValue) {
+                    maxValue = inputData[o * channel + i];
+                    idx = i;
+                }
+            }
+            outputData[o * 2] = idx;
+            outputData[o * 2 + 1] = maxValue;
+            inputData = inputData + channel;
+        }
+    } else {
+        for (int o = 0; o < outer; o++) {
+            std::set<std::pair<float, int>> vec;
+            for (int i = 0; i < channel; i++) {
+                if (vec.size() == topk && vec.begin()->first < inputData[i]) {
+                    vec.erase(vec.begin());
+                    vec.insert(std::make_pair(inputData[i], i));
+                } else {
+                    vec.insert(std::make_pair(inputData[i], i));
+                }
+            }
+
+            int j = topk - 1;
+            for (auto &t : vec) {
+                outputData[o * topk * 2 + j * 2] = t.second;
+                outputData[o * topk * 2 + j * 2 + 1] = t.first;
+                j--;
+            }
+
+            inputData = inputData + channel;
+        }
+    }
+}
