@@ -3311,3 +3311,46 @@ void CpuPermuteOp::Reshape(const std::string &opType, const DataDict &datas, con
     output.dataType = input.dataType;
     output.Resize(new_dims);
 }
+
+void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
+    if (n < 4 || m < 4) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                pDst[j * dstStride + i] = pSrc[i * srcStride + j];
+            }
+        }
+        return;
+    }
+
+#ifdef __aarch64__
+    float32x4x2_t q01 = vtrnq_f32(vld1q_f32(pSrc), vld1q_f32(pSrc + srcStride));
+    float32x4x2_t q23 = vtrnq_f32(vld1q_f32(pSrc + 2 * srcStride), vld1q_f32(pSrc + 3 * srcStride));
+
+    float32x4_t qq0 = q01.val[0];
+    float32x2_t d00 = vget_low_f32(qq0);
+    float32x2_t d01 = vget_high_f32(qq0);
+
+    float32x4_t qq1 = q01.val[1];
+    float32x2_t d10 = vget_low_f32(qq1);
+    float32x2_t d11 = vget_high_f32(qq1);
+
+    float32x4_t qq2 = q23.val[0];
+    float32x2_t d20 = vget_low_f32(qq2);
+    float32x2_t d21 = vget_high_f32(qq2);
+
+    float32x4_t qq3 = q23.val[1];
+    float32x2_t d30 = vget_low_f32(qq3);
+    float32x2_t d31 = vget_high_f32(qq3);
+
+    vst1q_f32(pDst, vcombine_f32(d00, d20));
+    vst1q_f32(pDst + 1 * dstStride, vcombine_f32(d10, d30));
+    vst1q_f32(pDst + 2 * dstStride, vcombine_f32(d01, d21));
+    vst1q_f32(pDst + 3 * dstStride, vcombine_f32(d11, d31));
+#else
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            pDst[j * dstStride + i] = pSrc[i * srcStride + j];
+        }
+    }
+#endif
+}

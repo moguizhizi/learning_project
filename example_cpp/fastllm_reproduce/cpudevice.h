@@ -464,3 +464,5 @@ class CpuPermuteOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
