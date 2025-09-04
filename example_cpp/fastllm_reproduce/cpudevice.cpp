@@ -3485,3 +3485,22 @@ void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int
         delete ops[i];
     }
 }
+
+void SwigluMultiThreadFloat16(uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool) {
+    int threadNum = pool->threads.size();
+    int per = len / threadNum;
+    int cur = 0;
+    std::vector<MultiThreadSwigluFloat16Op *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? len : cur + per + (cur + per * (threadNum - i) < len));
+        ops.push_back(new MultiThreadSwigluFloat16Op(input + cur, mid, end - cur, output + cur, n, inputStride, outputStride));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
+}

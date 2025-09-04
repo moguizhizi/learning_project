@@ -501,3 +501,4 @@ struct MultiThreadGeluOp : MultiThreadBaseOp {
 
 void GeluMultiThread(float *input, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
 void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
+void SwigluMultiThreadFloat16(uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
