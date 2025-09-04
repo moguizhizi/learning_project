@@ -500,3 +500,4 @@ struct MultiThreadGeluOp : MultiThreadBaseOp {
 };
 
 void GeluMultiThread(float *input, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
+void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
