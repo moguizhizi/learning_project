@@ -3375,3 +3375,35 @@ MultiThreadTransposeOp::MultiThreadTransposeOp(float *pDst, float *pSrc, int dst
 }
 
 void MultiThreadTransposeOp::Run() { Transpose(pDst, pSrc, dstStride, srcStride, n, m); }
+
+MultiThreadSiluOp::MultiThreadSiluOp(float *input, int len, float *output, int n, int inputStride, int outputStride) {
+    this->input = input;
+    this->output = output;
+    this->n = n;
+    this->len = len;
+    this->inputStride = inputStride;
+    this->outputStride = outputStride;
+    this->mid = mid;
+}
+
+void MultiThreadSiluOp::Run() {
+    for (int o = 0; o < n; o++) {
+        float *cur = (float *)input + o * inputStride;
+        float *out = (float *)output + o * outputStride;
+
+        int i = 0;
+#ifdef __aarch64__
+        float32x4_t c1 = vdupq_n_f32(1.0f);
+        for (; i + 3 < len; i += 4) {
+            float32x4_t vx = vld1q_f32(cur + i);
+            float32x4_t vdiv = vaddq_f32(c1, exp_ps(vnegq_f32(vx)));
+            vx = vdivq_f32(vx, vdiv);
+            vst1q_f32(out + i, vx);
+        }
+#endif
+        for (; i < len; i++) {
+            float x = cur[i];
+            out[i] = x / (1.0 + expf(-x));
+        }
+    }
+}
