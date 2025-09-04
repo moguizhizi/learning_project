@@ -3428,3 +3428,22 @@ void SiluMultiThread(float *input, int len, float *output, int n, int inputStrid
 }
 
 float gelu(float x) { return x * 0.5f * (1.0f + erf(x / sqrt(2.0))); }
+
+MultiThreadGeluOp::MultiThreadGeluOp(float *input, int len, float *output, int n, int inputStride, int outputStride) {
+    this->input = input;
+    this->output = output;
+    this->n = n;
+    this->len = len;
+    this->inputStride = inputStride;
+    this->outputStride = outputStride;
+}
+
+void MultiThreadGeluOp::Run() {
+    for (int o = 0; o < n; o++) {
+        float *cur = (float *)input + o * inputStride;
+        float *out = (float *)output + o * outputStride;
+        for (int i = 0; i < len; i++) {
+            out[i] = gelu(cur[i]);
+        }
+    }
+}
