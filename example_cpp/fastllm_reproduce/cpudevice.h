@@ -498,3 +498,5 @@ struct MultiThreadGeluOp : MultiThreadBaseOp {
     MultiThreadGeluOp(float *input, int len, float *output, int n, int inputStride, int outputStride);
     void Run();
 };
+
+void GeluMultiThread(float *input, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
