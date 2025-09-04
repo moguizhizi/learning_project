@@ -486,3 +486,5 @@ struct MultiThreadSiluOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+void SiluMultiThread(float *input, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
