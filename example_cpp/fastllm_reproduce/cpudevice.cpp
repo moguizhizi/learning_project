@@ -3426,3 +3426,5 @@ void SiluMultiThread(float *input, int len, float *output, int n, int inputStrid
         delete ops[i];
     }
 }
+
+float gelu(float x) { return x * 0.5f * (1.0f + erf(x / sqrt(2.0))); }
