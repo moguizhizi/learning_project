@@ -477,3 +477,12 @@ struct MultiThreadTransposeOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadSiluOp : MultiThreadBaseOp {
+    float *input, *output;
+    int mid, len, n, inputStride, outputStride;
+
+    MultiThreadSiluOp(float *input, int len, float *output, int n, int inputStride, int outputStride);
+
+    void Run();
+};
