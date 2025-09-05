@@ -19,3 +19,10 @@ void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, con
     AssertInFastLLM(input.dims.back() == weight.dims[1], "Linear's weight's shape error.\n");
     DoCudaLinearReshape(input, weight, output);
 }
+
+bool CudaLinearOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (intParams.find("exType") != intParams.end()) {
+        return false;
+    }
+    return true;
+}
