@@ -318,3 +318,11 @@ __global__ void FastllmGeluKernel(float *a, float *b, int len) {
         b[idx] = x * 0.5f * (1.0f + erff(x / 1.41421));
     }
 }
+
+__global__ void FastllmGeluNewKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = 0.5f * x * (1.0f + tanhf(0.7978845608028654f * x * (1.0f + 0.044715f * x * x)));
+    }
+}
