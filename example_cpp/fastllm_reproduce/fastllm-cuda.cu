@@ -286,3 +286,23 @@ void FastllmCudaFinishOutput(Data &output, void *data) {
         FastllmCudaFree(data);
     }
 }
+
+bool FastllmCudaGelu(const Data &input, Data &output) {
+    void *cudaInput = FastllmCudaPrepareInput(input);
+    void *cudaOutput = FastllmCudaPrepareOutput(output);
+
+    if (input.dataType == DataType::FLOAT16) {
+
+    } else if (input.dataType == DataType::FLOAT32) {
+    }
+
+    return true;
+}
+
+__global__ void FastllmGeluKernel(half *a, half *b, int len) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len) {
+        float x = __half2float(a[idx]);
+        b[idx] = __float2half(x * 0.5f * (1.0f + erff(x / 1.41421)));
+    }
+}
