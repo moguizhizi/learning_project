@@ -26,4 +26,5 @@ void FastllmCudaMemcpy2DDeviceToDevice(void *dst, size_t dpitch, const void *src
 void *FastllmCudaDirectMalloc(size_t size);
 void FastllmCudaMemset0(void *ret, size_t size);
 void *FastllmCudaPrepareInput(const Data &input);
-void *FastllmCudaPrepareOutput(Data &output)
+void FastllmCudaFinishInput(const Data &input, void *data);
+void *FastllmCudaPrepareOutput(Data &output);
