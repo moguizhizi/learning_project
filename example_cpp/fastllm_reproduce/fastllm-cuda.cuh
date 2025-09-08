@@ -12,6 +12,10 @@ extern std::map<int, int> cudaBuffersMinId;
 extern std::map<int, size_t> noBusyCnt;
 extern std::map<int, std::vector<CudaMemoryBuffer>> bigBuffersMap;
 
+__global__ void FastllmGeluKernel(half *a, half *b, int len);
+__global__ void FastllmGeluKernel(float *a, float *b, int len);
+__global__ void FastllmGeluNewKernel(float *a, float *b, int len);
+
 void *FastllmCudaMalloc(size_t);
 void showError(cudaError_t result, char const *const message, const char *const file, int const line);
 void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size);
@@ -31,7 +35,4 @@ void FastllmCudaFinishInput(const Data &input, void *data);
 void *FastllmCudaPrepareOutput(Data &output);
 void FastllmCudaFinishOutput(Data &output, void *data);
 bool FastllmCudaGelu(const Data &input, Data &output);
-
-__global__ void FastllmGeluKernel(half *a, half *b, int len);
-__global__ void FastllmGeluKernel(float *a, float *b, int len);
-__global__ void FastllmGeluNewKernel(float *a, float *b, int len);
+bool FastllmCudaGeluNew(const Data &input, Data &output);
