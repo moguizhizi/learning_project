@@ -24,8 +24,9 @@ __global__ void FastllmMulKernel(half *a, half *b, half v, int len);
 __global__ void FastllmAddToKernel(float *a, float *b, float alpha, int len);
 __global__ void FastllmAddToKernel(half *a, half *b, half alpha, int len);
 __global__ void FastllmMulToKernel(float *a, float *b, float alpha, int len);
+__global__ void FastllmMulToKernel(half *a, half *b, float alpha, int len)
 
-void *FastllmCudaMalloc(size_t);
+    void *FastllmCudaMalloc(size_t);
 void showError(cudaError_t result, char const *const message, const char *const file, int const line);
 void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size);
 void FastllmCudaCopyFromDeviceToHost(void *dst, void *src, size_t size);
