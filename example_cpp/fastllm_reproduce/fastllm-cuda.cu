@@ -1,5 +1,9 @@
 #include "fastllm-cuda.cuh"
 
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 530
+#define CUDA_NO_TENSOR_CORE
+#endif
+
 std::map<int, std::vector<CudaMemoryBuffer>> cudaBuffersMap;
 std::map<int, int> cudaBuffersMinId;
 std::map<int, size_t> noBusyCnt;
@@ -42,6 +46,19 @@ __global__ void FastllmSiluKernel(float *a, float *b, int len) {
     if (idx < len) {
         float x = a[idx];
         b[idx] = x / (1.0 + expf(-x));
+    }
+}
+
+__global__ void FastllmSiluKernel(half *a, half *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+#ifdef CUDA_NO_TENSOR_CORE
+        float x = __half2float(a[idx]);
+        b[idx] = __float2half((x / (1.0 + expf(-x))));
+#else
+        half x = a[idx];
+        b[idx] = __hdiv(x, __hadd(__float2half(1.0), hexp(-x)));
+#endif
     }
 }
 
