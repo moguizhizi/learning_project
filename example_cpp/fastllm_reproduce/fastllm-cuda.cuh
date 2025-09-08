@@ -34,3 +34,4 @@ bool FastllmCudaGelu(const Data &input, Data &output);
 
 __global__ void FastllmGeluKernel(half *a, half *b, int len);
 __global__ void FastllmGeluKernel(float *a, float *b, int len);
+__global__ void FastllmGeluNewKernel(float *a, float *b, int len);
