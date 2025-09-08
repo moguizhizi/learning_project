@@ -279,3 +279,10 @@ void *FastllmCudaPrepareOutput(Data &output) {
     }
     return ret;
 }
+
+void FastllmCudaFinishOutput(Data &output, void *data) {
+    if (output.dataDevice != DataDevice::CUDA) {
+        FastllmCudaCopyFromDeviceToHost(output.cpuData, data, output.expansionBytes);
+        FastllmCudaFree(data);
+    }
+}

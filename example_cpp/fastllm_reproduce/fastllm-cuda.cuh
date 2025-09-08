@@ -28,3 +28,4 @@ void FastllmCudaMemset0(void *ret, size_t size);
 void *FastllmCudaPrepareInput(const Data &input);
 void FastllmCudaFinishInput(const Data &input, void *data);
 void *FastllmCudaPrepareOutput(Data &output);
+void FastllmCudaFinishOutput(Data &output, void *data);
