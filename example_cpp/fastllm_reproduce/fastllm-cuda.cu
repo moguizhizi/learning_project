@@ -264,6 +264,12 @@ void *FastllmCudaPrepareInput(const Data &input) {
     return ret;
 }
 
+void FastllmCudaFinishInput(const Data &input, void *data) {
+    if (input.dataDevice != DataDevice::CUDA) {
+        FastllmCudaFree(data);
+    }
+}
+
 void *FastllmCudaPrepareOutput(Data &output) {
     void *ret;
     if (output.dataDevice == DataDevice::CUDA) {
