@@ -288,14 +288,18 @@ void FastllmCudaFinishOutput(Data &output, void *data) {
 }
 
 bool FastllmCudaGelu(const Data &input, Data &output) {
-    void *cudaInput = FastllmCudaPrepareInput(input);
-    void *cudaOutput = FastllmCudaPrepareOutput(output);
+    int len = input.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int threadPerBlock = std::min(256, len);
 
     if (input.dataType == DataType::FLOAT16) {
-
+        FastllmGeluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)cudaInput, (half *)cudaOutput, len);
     } else if (input.dataType == DataType::FLOAT32) {
+        FastllmGeluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len);
     }
-
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
     return true;
 }
 
@@ -304,5 +308,13 @@ __global__ void FastllmGeluKernel(half *a, half *b, int len) {
     if (idx < len) {
         float x = __half2float(a[idx]);
         b[idx] = __float2half(x * 0.5f * (1.0f + erff(x / 1.41421)));
+    }
+}
+
+__global__ void FastllmGeluKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = x * 0.5f * (1.0f + erff(x / 1.41421));
     }
 }
