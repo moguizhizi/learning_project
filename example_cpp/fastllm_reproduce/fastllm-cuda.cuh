@@ -20,6 +20,7 @@ __global__ void FastllmSiluKernel(half *a, half *b, int len);
 __global__ void FastllmAddKernel(float *a, float *b, float v, int len);
 __global__ void FastllmAddKernel(half *a, half *b, half v, int len);
 __global__ void FastllmMulKernel(float *a, float *b, float v, int len);
+__global__ void FastllmMulKernel(half *a, half *b, half v, int len);
 
 void *FastllmCudaMalloc(size_t);
 void showError(cudaError_t result, char const *const message, const char *const file, int const line);
