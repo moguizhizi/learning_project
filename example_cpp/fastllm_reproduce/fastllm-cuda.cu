@@ -123,6 +123,17 @@ __global__ void FastllmMulToKernel(float *a, float *b, float alpha, int len) {
     }
 }
 
+__global__ void FastllmMulToKernel(half *a, half *b, float alpha, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+#ifdef CUDA_NO_TENSOR_CORE
+        a[idx] = __float2half(__half2float(b[idx]) * alpha * __half2float(a[idx]));
+#else
+        a[idx] *= (half)((float)b[idx] * alpha);
+#endif
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
