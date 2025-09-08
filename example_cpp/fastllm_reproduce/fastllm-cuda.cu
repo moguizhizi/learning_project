@@ -69,6 +69,17 @@ __global__ void FastllmAddKernel(float *a, float *b, float v, int len) {
     }
 }
 
+__global__ void FastllmAddKernel(half *a, half *b, half v, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+#ifdef CUDA_NO_TENSOR_CORE
+        b[idx] = __float2half(__half2float(a[idx]) + __half2float(v));
+#else
+        b[idx] = __hadd(a[idx], v);
+#endif
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
