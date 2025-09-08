@@ -37,6 +37,14 @@ __global__ void FastllmGeluNewKernel(float *a, float *b, int len) {
     }
 }
 
+__global__ void FastllmSiluKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = x / (1.0 + expf(-x));
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
