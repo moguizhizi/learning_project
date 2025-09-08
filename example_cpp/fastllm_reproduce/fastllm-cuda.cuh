@@ -25,3 +25,4 @@ void FastllmCudaClearBigBuffer();
 void FastllmCudaMemcpy2DDeviceToDevice(void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height);
 void *FastllmCudaDirectMalloc(size_t size);
 void FastllmCudaMemset0(void *ret, size_t size);
+void *FastllmCudaPrepareInput(const Data &input);
