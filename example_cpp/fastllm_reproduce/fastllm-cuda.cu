@@ -13,6 +13,30 @@ void showError(cudaError_t result, char const *const message, const char *const 
     }
 }
 
+__global__ void FastllmGeluKernel(half *a, half *b, int len) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len) {
+        float x = __half2float(a[idx]);
+        b[idx] = __float2half(x * 0.5f * (1.0f + erff(x / 1.41421)));
+    }
+}
+
+__global__ void FastllmGeluKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = x * 0.5f * (1.0f + erff(x / 1.41421));
+    }
+}
+
+__global__ void FastllmGeluNewKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = 0.5f * x * (1.0f + tanhf(0.7978845608028654f * x * (1.0f + 0.044715f * x * x)));
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
@@ -303,26 +327,13 @@ bool FastllmCudaGelu(const Data &input, Data &output) {
     return true;
 }
 
-__global__ void FastllmGeluKernel(half *a, half *b, int len) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < len) {
-        float x = __half2float(a[idx]);
-        b[idx] = __float2half(x * 0.5f * (1.0f + erff(x / 1.41421)));
-    }
-}
-
-__global__ void FastllmGeluKernel(float *a, float *b, int len) {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < len) {
-        float x = a[idx];
-        b[idx] = x * 0.5f * (1.0f + erff(x / 1.41421));
-    }
-}
-
-__global__ void FastllmGeluNewKernel(float *a, float *b, int len) {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < len) {
-        float x = a[idx];
-        b[idx] = 0.5f * x * (1.0f + tanhf(0.7978845608028654f * x * (1.0f + 0.044715f * x * x)));
-    }
+bool FastllmCudaGeluNew(const Data &input, Data &output) {
+    int len = input.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int threadPerBlock = std::min(256, len);
+    FastllmGeluNewKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len);
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
 }
