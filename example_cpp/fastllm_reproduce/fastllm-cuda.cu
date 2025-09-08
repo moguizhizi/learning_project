@@ -239,3 +239,27 @@ void *FastllmCudaDirectMalloc(size_t size) {
 }
 
 void FastllmCudaMemset0(void *ret, size_t size) { cudaMemset(ret, 0, size); }
+
+void *FastllmCudaPrepareInput(const Data &input) {
+    void *ret = nullptr;
+    if (input.dataDevice == DataDevice::CUDA) {
+        // 已经在 CUDA 上
+        ret = (void *)input.cudaData;
+    } else {
+        // 在 CPU 上，需要先在 GPU 上分配显存
+        cudaError_t err = cudaMalloc(&ret, input.expansionBytes);
+        if (err != cudaSuccess) {
+            checkCudaErrors("Error: CUDA malloc failed!", err);
+            return nullptr;
+        }
+
+        // 拷贝数据
+        err = cudaMemcpy(ret, input.cpuData, input.expansionBytes, cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            checkCudaErrors("Error: CUDA memcpy H2D failed!", err);
+            cudaFree(ret);
+            return nullptr;
+        }
+    }
+    return ret;
+}
