@@ -2,6 +2,7 @@
 
 #include "struct_space.hpp"
 #include <cstdio>
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <map>
 #include <vector>
@@ -29,3 +30,6 @@ void *FastllmCudaPrepareInput(const Data &input);
 void FastllmCudaFinishInput(const Data &input, void *data);
 void *FastllmCudaPrepareOutput(Data &output);
 void FastllmCudaFinishOutput(Data &output, void *data);
+bool FastllmCudaGelu(const Data &input, Data &output);
+
+__global__ void FastllmGeluKernel(half *a, half *b, int len);
