@@ -263,3 +263,13 @@ void *FastllmCudaPrepareInput(const Data &input) {
     }
     return ret;
 }
+
+void *FastllmCudaPrepareOutput(Data &output) {
+    void *ret;
+    if (output.dataDevice == DataDevice::CUDA) {
+        ret = (float *)output.cudaData;
+    } else {
+        ret = (float *)FastllmCudaMalloc(output.expansionBytes);
+    }
+    return ret;
+}
