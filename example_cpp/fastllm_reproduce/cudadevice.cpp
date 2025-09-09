@@ -75,3 +75,29 @@ void CudaToFloat16::Run(const std::string &opType, const DataDict &datas, const 
         AssertInFastLLM(false, "CudaToFloat16 only support float32 to float16.\n");
     }
 }
+
+void CudaToFloat32::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+
+    if (input.dataType == DataType::FLOAT32) {
+        return;
+    }
+
+    if (input.dims.size() == 0) {
+        input.dataType = DataType::FLOAT32;
+        input.UpdateUnitSize();
+        return;
+    }
+
+    if (input.dataType == DataType::FLOAT16) {
+        uint16_t *old = (uint16_t *)input.cudaData;
+        int len = input.Count(0);
+        input.dataType = DataType::FLOAT32;
+        input.UpdateUnitSize();
+        input.cudaData = FastllmCudaMalloc(input.GetBytes());
+        FastllmHalfToFloat(old, input.cudaData, len);
+        FastllmCudaFree(old);
+    } else {
+        AssertInFastLLM(false, "CudaToFloat32 only support float16 to float32.\n");
+    }
+}

@@ -49,3 +49,4 @@ void FastllmCudaFinishOutput(Data &output, void *data);
 bool FastllmCudaGelu(const Data &input, Data &output);
 bool FastllmCudaGeluNew(const Data &input, Data &output);
 bool FastllmFloatToHalf(void *a, void *b, int len);
+bool FastllmHalfToFloat(void *a, void *b, int len);

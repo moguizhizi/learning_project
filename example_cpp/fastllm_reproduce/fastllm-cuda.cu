@@ -455,3 +455,10 @@ bool FastllmFloatToHalf(void *a, void *b, int len) {
     DeviceSync();
     return true;
 }
+
+bool FastllmHalfToFloat(void *a, void *b, int len) {
+    int threadPerBlock = std::min(256, len);
+    FastllmCudaHalf2FloatKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)a, (float *)b, len);
+    DeviceSync();
+    return true;
+}
