@@ -110,3 +110,18 @@ void CudaConvertToFloat16::Reshape(const std::string &opType, const DataDict &da
     if (input->expansionDims.size() != 0)
         output->Expansion(input->expansionDims);
 }
+
+void CudaConvertToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    if (input.dataType == DataType::FLOAT16) {
+        FastllmCudaCopyFromDeviceToDevice(output.cudaData, input.cudaData, input.GetBytes());
+        return;
+    }
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmFloatToHalf(input.cudaData, output.cudaData, input.Count(0));
+    } else {
+        ErrorInFastLLM("ToFloat16: unsupport dataType.\n");
+    }
+}
