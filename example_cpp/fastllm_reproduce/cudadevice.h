@@ -14,6 +14,7 @@ class CudaDevice : BaseDevice {
     bool CopyDataFromCPU(void *dst, void *src, size_t size);
 };
 
+void DoCudaAttentionReshape(Data &q, Data &v, Data &output);
 void DoCudaLinearReshape(Data &input, Data &weight, Data &output);
 
 class CudaLinearOp : BaseOperator {
