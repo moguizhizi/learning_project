@@ -441,3 +441,10 @@ bool FastllmCudaGeluNew(const Data &input, Data &output) {
     FastllmCudaFinishOutput(output, cudaOutput);
     return true;
 }
+
+bool FastllmFloatToHalf(void *a, void *b, int len) {
+    int threadPerBlock = std::min(256, len);
+    FastllmCudaFloat2HalfKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((float *)a, (half *)b, len);
+    DeviceSync();
+    return true;
+}
