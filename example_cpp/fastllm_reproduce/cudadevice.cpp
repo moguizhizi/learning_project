@@ -1,5 +1,28 @@
 #include "cudadevice.h"
+#include "fastllm-cuda.cuh"
 #include "file_utils.hpp"
+
+CudaDevice::CudaDevice() {}
+
+bool CudaDevice::Malloc(void **ret, size_t size) {
+    *ret = FastllmCudaMalloc(size);
+    return true;
+}
+
+bool CudaDevice::Free(void *ret) {
+    FastllmCudaFree(ret);
+    return true;
+}
+
+bool CudaDevice::CopyDataFromCPU(void *dst, void *src, size_t size) {
+    FastllmCudaCopyFromHostToDevice(dst, src, size);
+    return true;
+}
+
+bool CudaDevice::CopyDataToCPU(void *dst, void *src, size_t size) {
+    FastllmCudaCopyFromDeviceToHost(dst, src, size);
+    return true;
+}
 
 void DoCudaLinearReshape(Data &input, Data &weight, Data &output) {
     weight.weightType = WeightType::LINEAR;
