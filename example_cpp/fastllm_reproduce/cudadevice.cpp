@@ -49,3 +49,29 @@ bool CudaLinearOp::CanRun(const std::string &opType, const DataDict &datas, cons
     }
     return true;
 }
+
+void CudaToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+
+    if (input.dataType == DataType::FLOAT16) {
+        return;
+    }
+
+    if (input.dims.size() == 0) {
+        input.dataType = DataType::FLOAT16;
+        input.UpdateUnitSize();
+        return;
+    }
+
+    if (input.dataType == DataType::FLOAT32) {
+        float *old = (float *)input.cudaData;
+        int len = input.Count(0);
+        input.dataType = DataType::FLOAT16;
+        input.UpdateUnitSize();
+        input.cudaData = FastllmCudaMalloc(input.GetBytes());
+        FastllmFloatToHalf(old, input.cudaData, len);
+        FastllmCudaFree(old);
+    } else {
+        AssertInFastLLM(false, "CudaToFloat16 only support float32 to float16.\n");
+    }
+}
