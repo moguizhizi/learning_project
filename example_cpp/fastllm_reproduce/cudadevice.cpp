@@ -24,6 +24,12 @@ bool CudaDevice::CopyDataToCPU(void *dst, void *src, size_t size) {
     return true;
 }
 
+void DoCudaAttentionReshape(Data &q, Data &v, Data &output) {
+    std::vector<int> dims = {q.dims[0], q.dims[1], v.dims[2]};
+    output.dataType = q.dataType;
+    output.Resize(dims);
+}
+
 void DoCudaLinearReshape(Data &input, Data &weight, Data &output) {
     weight.weightType = WeightType::LINEAR;
     std::vector<int> dims = input.dims;
