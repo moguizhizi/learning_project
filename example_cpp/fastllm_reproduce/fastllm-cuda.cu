@@ -141,6 +141,13 @@ __global__ void FastllmCudaFloat2HalfKernel(float *a, half *b, int len) {
     }
 }
 
+__global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        b[idx] = __half2float(a[idx]);
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
