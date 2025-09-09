@@ -125,3 +125,12 @@ void CudaConvertToFloat16::Run(const std::string &opType, const DataDict &datas,
         ErrorInFastLLM("ToFloat16: unsupport dataType.\n");
     }
 }
+
+void CudaConvertToFloat32::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data *input = (datas.find("input")->second);
+    Data *output = (datas.find("output")->second);
+    output->dataType = DataType::FLOAT32;
+    output->Resize(input->dims);
+    if (input->expansionDims.size() != 0)
+        output->Expansion(input->expansionDims);
+}
