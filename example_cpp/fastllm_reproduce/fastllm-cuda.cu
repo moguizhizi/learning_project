@@ -462,3 +462,23 @@ bool FastllmHalfToFloat(void *a, void *b, int len) {
     DeviceSync();
     return true;
 }
+
+static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
+cublasHandle_t getFastllmCublasHandle() {
+    int id = -1;
+    cudaGetDevice(&id);
+    if (s_fastllmCublasHandleMap.find(id) != s_fastllmCublasHandleMap.end()) {
+        return s_fastllmCublasHandleMap[id];
+    }
+
+    cublasHandle_t handler = nullptr;
+    auto status = cublasCreate(&handler);
+    if (status != cublasStatus_t::CUBLAS_STATUS_SUCCESS) {
+        printf("CUBLAS initialization failed\n");
+        return nullptr;
+    }
+
+    s_fastllmCublasHandleMap[id] = handler;
+
+    return handler;
+}
