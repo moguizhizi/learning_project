@@ -2,6 +2,7 @@
 
 #include "struct_space.hpp"
 #include <cstdio>
+#include <cublas_v2.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <map>
@@ -50,3 +51,4 @@ bool FastllmCudaGelu(const Data &input, Data &output);
 bool FastllmCudaGeluNew(const Data &input, Data &output);
 bool FastllmFloatToHalf(void *a, void *b, int len);
 bool FastllmHalfToFloat(void *a, void *b, int len);
+cublasHandle_t getFastllmCublasHandle();
