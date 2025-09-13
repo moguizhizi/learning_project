@@ -173,6 +173,64 @@ template <int THREAD_PER_BLOCK> __global__ void SimpleMask(half *a, half *b, hal
     }
 }
 
+template <int THREAD_PER_BLOCK> __device__ void FastllmSoftmaxKernelInner1Func(float *input, float *output, int channels, float *maxp, float *sump) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    __shared__ float maxV;
+
+    unsigned int tid = threadIdx.x;
+    float maxValue = -1e100;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        maxValue = max(maxValue, input[i]);
+    }
+    sdata[tid] = maxValue;
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] = max(sdata[tid], sdata[tid + s])
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        maxV = sdata[0];
+        if (maxp != nullptr) {
+            maxp[0] = sdata[0];
+        }
+    }
+
+    __syncthreads();
+
+    float sum = 0;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        sum += expf(input[i] - maxV);
+    }
+    sdata[tid] = sum;
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        if (fabs(sdata[0]) < 1e-6) {
+            sdata[0] = 0.0001;
+        }
+        if (sump != nullptr) {
+            sump[0] = sdata[0];
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        output[i] = expf(input[i] - maxV) / sdata[0];
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
