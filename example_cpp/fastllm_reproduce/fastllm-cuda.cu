@@ -164,6 +164,15 @@ template <int THREADS_PER_BLOCK> __global__ void SimpleMask(float *a, float *b, 
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void SimpleMask(half *a, half *b, half maskValue, int spatial) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < spatial) {
+        if (__half2float(b[i]) > 0.99) {
+            a[i] = maskValue;
+        }
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
