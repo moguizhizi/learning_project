@@ -155,6 +155,15 @@ template <int THREADS_PER_BLOCK, typename T> __global__ void CausalMask(T *a, T 
     }
 }
 
+template <int THREADS_PER_BLOCK> __global__ void SimpleMask(float *a, float *b, float maskValue, int spatial) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < spatial) {
+        if (b[idx] > 0.99) {
+            a[idx] = maskValue;
+        }
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
