@@ -148,6 +148,13 @@ __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len) {
     }
 }
 
+template <int THREADS_PER_BLOCK, typename T> __global__ void CausalMask(T *a, T maskValue, int q, int k, int base) {
+    a += blockIdx.x * k;
+    for (int i = base + blockIdx.x + threadIdx.x + 1; i < k; i += THREADS_PER_BLOCK) {
+        a[i] = maskValue;
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
