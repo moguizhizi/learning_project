@@ -1157,6 +1157,53 @@ bool FastllmCudaMul(const Data &input, float v, Data &output) {
     return true;
 }
 
+bool FastllmCudaSoftmaxBatch(Data **inputs, Data **outputs, int axis, int batch) {
+    int total = 0;
+    for (int b = 0; b < batch; b++) {
+        auto &input = *inputs[b];
+        int dimsLen = input.dims.size();
+        axis = (axis % dimsLen + dimsLen) % dimsLen;
+        int outer = input.Count(0) / input.Count(axis);
+        total += outer;
+    }
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(sizeof(uint8_t *) * total * 3);
+    uint8_t **cpuPointers = new uint8_t *[total * 3];
+    int cur = 0;
+
+    for (int b = 0; b < batch; b++) {
+        auto &input = *inputs[b];
+        auto &output = *outputs[b];
+        float *cudaInput = (float *)input.cudaData;
+        float *cudaOutput = (float *)output.cudaData;
+
+        int dimsLen = input.dims.size();
+        axis = (axis % dimsLen + dimsLen) % dimsLen;
+        int outer = input.Count(0) / input.Count(axis);
+        int channels = input.dims[axis];
+        int inner = input.Count(axis + 1);
+
+        if (inner == 1) {
+            for (int o = 0; o < outer; o++) {
+                cpuPointers[cur * 3 + 0] = (uint8_t *)(cudaInput + o * channels);
+                cpuPointers[cur * 3 + 1] = (uint8_t *)(cudaOutput + o * channels);
+                cpuPointers[cur * 3 + 2] = (uint8_t *)((size_t)channels);
+                cur++;
+            }
+        } else {
+            printf("softmax error.\n");
+            exit(0);
+        }
+    }
+
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * total * 3, cudaMemcpyHostToDevice);
+    FastllmSoftmaxKernelBatchInner1<float, 256><<<total, 256>>>(pointers);
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
