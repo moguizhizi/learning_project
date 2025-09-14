@@ -54,4 +54,5 @@ bool FastllmFloatToHalf(void *a, void *b, int len);
 bool FastllmHalfToFloat(void *a, void *b, int len);
 bool FastllmBF16ToFloat(void *a, void *b, int len);
 bool FastllmCudaEmbedding(const Data &input, const Data &weight, Data &output);
+bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &output, int axis);
 cublasHandle_t getFastllmCublasHandle();
