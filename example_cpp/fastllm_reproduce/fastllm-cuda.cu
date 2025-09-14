@@ -327,6 +327,13 @@ template <typename T, int THREAD_PER_BLOCK> __global__ void FastllmSoftmaxKernel
         (T *)pointer[o * 3], (T *)pointer[o * 3 + 1], (int)((size_t)pointer[o * 3 + 2]), nullptr, nullptr);
 }
 
+template <typename T, int THREAD_PER_BLOCK> __global__ void FastllmSoftmaxKernelBatchInner1(uint8_t **pointer, int outer) {
+    int o = blockIdx.x;
+    int channels = (int)((size_t)pointer[o / outer * 2 + 1]);
+    FastllmSoftmaxKernelInner1Func<THREAD_PER_BLOCK>(
+        (T *)pointer[o / outer * 2] + (o % outer) * channels, (T *)pointer[o / outer * 2] + (o % outer) * channels, channels, nullptr, nullptr);
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
