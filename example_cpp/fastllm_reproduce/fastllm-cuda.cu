@@ -310,6 +310,12 @@ __global__ void FastllmSoftmaxKernelInner1(half *input, half *output, int outer,
 }
 
 template <int THREAD_PER_BLOCK, typename T>
+__global__ void FastllmSoftmaxKernelInner1WithCausalMask(T *input, T *output, int outer, int channels, int base) {
+    int o = blockIdx.x;
+    FastllmSoftmaxKernelInner1Func<THREAD_PER_BLOCK>(input + o * channels, output + o * channels, o + base + 1, nullptr, nullptr);
+}
+
+template <int THREAD_PER_BLOCK, typename T>
 __global__ void FastllmSoftmaxKernelInner1WithCausalMask(T *input, T *output, int outer, int channels, int base, float *maxp, float *sump) {
     int o = blockIdx.x;
     FastllmSoftmaxKernelInner1Func<THREAD_PER_BLOCK>(input + o * channels, output + o * channels, min(channels, o + base + 1), maxp + o, sump + o);
