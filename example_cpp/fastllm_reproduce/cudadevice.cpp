@@ -1,5 +1,6 @@
 #include "cudadevice.h"
 #include "fastllm-cuda.cuh"
+#include "fastllm.h"
 #include "file_utils.hpp"
 
 CudaDevice::CudaDevice() {}
@@ -173,6 +174,17 @@ void CudaAttention::Reshape(const std::string &opType, const DataDict &datas, co
     AssertInFastLLM(q.dataType == DataType::FLOAT32 || q.dataType == DataType::FLOAT16, "Attention's input's type should be float32 or float16.\n");
 
     DoCudaAttentionReshape(q, v, output);
+}
+
+bool CudaEmbedding::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (GetLowMemMode() || !GetCudaEmbedding()) {
+        return false;
+    }
+    Data &input = *(datas.find("input")->second);
+    if (input.dataType != DataType::FLOAT32) {
+        return false;
+    }
+    return true;
 }
 
 void CudaEmbedding::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
