@@ -334,6 +334,43 @@ template <typename T, int THREAD_PER_BLOCK> __global__ void FastllmSoftmaxKernel
         (T *)pointer[o / outer * 2] + (o % outer) * channels, (T *)pointer[o / outer * 2] + (o % outer) * channels, channels, nullptr, nullptr);
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void FastllmRMSNormKernelInner1(float *input, float *weight, float *output, int outer, int channels, float eps) {
+    int o = blockIdx.x;
+    input = input + o * channels;
+    output = output + o * channels;
+
+    __shared__ float sdata2[THREAD_PER_BLOCK];
+    __shared__ float scale;
+
+    unsigned int tid = threadIdx.x;
+    float sum = 0.0f;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        float x = input[i];
+        sum += x * x;
+    }
+    sdata2[tid] = sum;
+    __syncthreads();
+
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata2[tid] = sdata2[tid] + sdata2[tid + s]
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        scale = 1.0 / sqrt(sdata2[0] / channels + eps);
+    }
+
+    __syncthreads();
+
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        float x = input[i];
+        output[i] = x * scale * weight[i]
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
