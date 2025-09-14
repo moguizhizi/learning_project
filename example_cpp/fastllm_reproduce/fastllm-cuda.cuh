@@ -52,4 +52,5 @@ bool FastllmCudaGelu(const Data &input, Data &output);
 bool FastllmCudaGeluNew(const Data &input, Data &output);
 bool FastllmFloatToHalf(void *a, void *b, int len);
 bool FastllmHalfToFloat(void *a, void *b, int len);
+bool FastllmBF16ToFloat(void *a, void *b, int len);
 cublasHandle_t getFastllmCublasHandle();
