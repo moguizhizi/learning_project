@@ -1,4 +1,7 @@
 #include "fastllm-cuda.cuh"
+#include <thrust/device_vector.h>
+#include <thrust/sequence.h>
+#include <thrust/sort.h>
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 530
 #define CUDA_NO_TENSOR_CORE
@@ -14,6 +17,36 @@ std::map<int, std::vector<CudaMemoryBuffer>> bigBuffersMap;
 void showError(cudaError_t result, char const *const message, const char *const file, int const line) {
     if (cudaSuccess != result) {
         printf("%s\n  CUDA error = %d, %s at %s:%d\n  '%s'\n", message, result, cudaGetErrorName(result), file, line, cudaGetErrorString(result));
+    }
+}
+
+TopKFunctor::TopKFunctor(float *cudaInput, float *cudaOutput, int channels, int topk) {
+    this->cudaInput = cudaInput;
+    this->cudaOutput = cudaOutput;
+    this->channels = channels;
+    this->topk = topk;
+}
+
+__device__ __host__ void TopKFunctor::operator()(int i) const {
+    thrust::device_ptr<float> d_input(this->cudaInput);
+    thrust::device_ptr<float> d_output(this->cudaOutput);
+
+    thrust::device_ptr<float> row_start = d_input + i * this->channels;
+    thrust::device_ptr<float> row_end = row_start + this->channels;
+
+    thrust::device_vector<int> indices(this->channels);
+    thrust::sequence(indices.begin(), indices.end());
+
+    auto begin = thrust::make_zip_iterator(thrust::make_tuple(row_start, indices.begin()));
+    auto end = thrust::make_zip_iterator(thrust::make_tuple(row_end, indices.end()));
+
+    // 按值降序排序
+    thrust::sort(begin, end, thrust::greater<thrust::tuple<float, int>>());
+
+    // 复制前topk个结果到输出
+    for (int k = 0; k < topk; ++k) {
+        d_output[i * topk * 2 + k * 2] = indices[k];       // 索引
+        d_output[i * topk * 2 + k * 2 + 1] = row_start[k]; // 值
     }
 }
 
