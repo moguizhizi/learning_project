@@ -174,3 +174,13 @@ void CudaAttention::Reshape(const std::string &opType, const DataDict &datas, co
 
     DoCudaAttentionReshape(q, v, output);
 }
+
+void CudaEmbedding::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+    ;
+    output.Allocate();
+
+    FastllmCudaEmbedding(input, weight, output);
+}
