@@ -59,4 +59,5 @@ bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &outp
 bool FastllmCudaSoftmax(const Data &input, Data &output, int axis);
 bool FastllmCudaAddTo(Data &input0, const Data &input1, float alpha);
 bool FastllmCudaMulTo(Data &input0, const Data &input1, float alpha);
+bool FastllmCudaMul(const Data &input, float v, Data &output);
 cublasHandle_t getFastllmCublasHandle();
