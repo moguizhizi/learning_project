@@ -148,6 +148,13 @@ __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len) {
     }
 }
 
+__global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        ((uint32_t *)b)[idx] = a[idx] << 16;
+    }
+}
+
 template <int THREADS_PER_BLOCK, typename T> __global__ void CausalMask(T *a, T maskValue, int q, int k, int base) {
     a += blockIdx.x * k;
     for (int i = base + blockIdx.x + threadIdx.x + 1; i < k; i += THREADS_PER_BLOCK) {
