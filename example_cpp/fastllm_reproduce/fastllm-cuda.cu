@@ -955,6 +955,37 @@ bool FastllmBF16ToFloat(void *a, void *b, int len) {
     return true;
 }
 
+bool FastllmCudaEmbedding(const Data &input, const Data &weight, Data &output) {
+    int vocabSize = weight.dims[0], embSize = weight.dims[1];
+    uint64_t inputLen = input.Count(0);
+
+    float *inputData = (float *)input.cudaData;
+    float *dstOutputData = (float *)output.cudaData;
+
+    if (weight.dataType == DataType::FLOAT32) {
+        float *outputData = (float *)dstOutputData;
+        float *weightData = (float *)weight.cudaData;
+        FastllmCudaFloatEmbeddingKernel<128><<<inputLen, 128>>>(inputData, weightData, outputData, embSize);
+    } else if (weight.dataType == DataType::FLOAT16) {
+        half *outputData = (half *)dstOutputData;
+        half *weightData = (half *)weight.cudaData;
+        FastllmCudaFloatEmbeddingKernel<128><<<inputLen, 128>>>(inputData, weightData, outputData, embSize);
+    } else if (weight.dataType == DataType::BFLOAT16) {
+        std::vector<float> cpuInputData = std::vector<float>(inputLen, 0.0f);
+        FastllmCudaCopyFromDeviceToHost(cpuInputData.data(), inputData, inputLen * sizeof(float));
+        float *outputData = (float *)dstOutputData;
+        uint16_t *weightData = (uint16_t *)weight.cudaData;
+        for (int i = 0; i < inputLen; i++) {
+            int token = (int)(cpuInputData[i] + 1e-9);
+            FastllmBF16ToFloat(weightData + token * embSize, outputData + i * embSize, embSize);
+        }
+    } else {
+    }
+
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
