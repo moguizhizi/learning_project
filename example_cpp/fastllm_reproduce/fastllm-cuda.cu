@@ -1107,6 +1107,23 @@ bool FastllmCudaSoftmax(const Data &input, Data &output, int axis) {
     return true;
 }
 
+bool FastllmCudaAddTo(Data &input0, const Data &input1, float alpha) {
+    int len = input0.Count(0);
+    float *cudaData = (float *)FastllmCudaPrepareInput(input0);
+    float *input1Data = (float *)FastllmCudaPrepareInput(input1);
+
+    int threadPerBlock = std::min(1024, len);
+    if (input0.dataType == DataType::FLOAT32) {
+        FastllmAddToKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaData, input1Data, alpha, len);
+    } else if (input0.dataType == DataType::FLOAT16) {
+        FastllmAddToKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)cudaData, (half *)input1Data, __float2half_rn(alpha), len);
+    }
+
+    FastllmCudaFinishInput(input1, input1Data);
+    FastllmCudaFinishOutput(input0, cudaData);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

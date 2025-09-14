@@ -57,4 +57,5 @@ bool FastllmCudaEmbedding(const Data &input, const Data &weight, Data &output);
 bool FastllmCudaRMSNorm(const Data &input, Data &weight, Data &output, float eps);
 bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &output, int axis);
 bool FastllmCudaSoftmax(const Data &input, Data &output, int axis);
+bool FastllmCudaAddTo(Data &input0, const Data &input1, float alpha);
 cublasHandle_t getFastllmCublasHandle();
