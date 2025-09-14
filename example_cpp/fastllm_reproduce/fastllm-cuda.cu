@@ -293,6 +293,11 @@ template <int THREAD_PER_BLOCK> __device__ void FastllmSoftmaxKernelInner1Func(h
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmSoftmaxKernelInner1(float *input, float *output, int outer, int channels) {
+    int o = blockIdx.x;
+    FastllmSoftmaxKernelInner1Func<THREAD_PER_BLOCK>(input + o * channels, output + o * channels, channels, nullptr, nullptr);
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
