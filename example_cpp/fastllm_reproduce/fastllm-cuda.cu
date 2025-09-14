@@ -1066,6 +1066,47 @@ bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &outp
     return true;
 }
 
+bool FastllmCudaSoftmax(const Data &input, Data &output, int axis) {
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareInput(output);
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.Count(axis + 1);
+    if (inner == 1) {
+        if (input.dataType == DataType::FLOAT32) {
+            if (channels < 8) {
+                FastllmSoftmaxKernelInner1<1><<<outer, 1>>>(cudaInput, cudaOutput, outer, channels);
+            } else if (channels < 64) {
+                FastllmSoftmaxKernelInner1<8><<<outer, 8>>>(cudaInput, cudaOutput, outer, channels);
+            } else if (channels < 512) {
+                FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(cudaInput, cudaOutput, outer, channels);
+            } else {
+                FastllmSoftmaxKernelInner1<256><<<outer, 256>>>(cudaInput, cudaOutput, outer, channels);
+            }
+        } else {
+            if (channels < 8) {
+                FastllmSoftmaxKernelInner1<1><<<outer, 1>>>((half *)cudaInput, (half *)cudaOutput, outer, channels);
+            } else if (channels < 64) {
+                FastllmSoftmaxKernelInner1<8><<<outer, 8>>>((half *)cudaInput, (half *)cudaOutput, outer, channels);
+            } else if (channels < 512) {
+                FastllmSoftmaxKernelInner1<64><<<outer, 64>>>((half *)cudaInput, (half *)cudaOutput, outer, channels);
+            } else {
+                FastllmSoftmaxKernelInner1<256><<<outer, 256>>>((half *)cudaInput, (half *)cudaOutput, outer, channels);
+            }
+        }
+    } else {
+        printf("softmax error.\n");
+        exit(0);
+    }
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
