@@ -938,6 +938,13 @@ bool FastllmHalfToFloat(void *a, void *b, int len) {
     return true;
 }
 
+bool FastllmBF16ToFloat(void *a, void *b, int len) {
+    int threadPerBlock = std::min(256, len);
+    FastllmCudaBF162FloatKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((uint16_t *)a, (float *)b, len);
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
