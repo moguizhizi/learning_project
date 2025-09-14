@@ -231,6 +231,68 @@ template <int THREAD_PER_BLOCK> __device__ void FastllmSoftmaxKernelInner1Func(f
     }
 }
 
+template <int THREAD_PER_BLOCK> __device__ void FastllmSoftmaxKernelInner1Func(half *input, half *output, int channels, float *maxp, float *sump) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+
+    // 1. 每个线程计算一部分
+    unsigned int tid = threadIdx.x;
+    float maxValue = -1e10;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        maxValue = max(maxValue, (float)input[i]);
+    }
+    sdata[tid] = maxValue;
+    __syncthreads();
+
+    // 2. 求max
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] = max(sdata[tid], sdata[tid + s]);
+        }
+        __syncthreads();
+    }
+
+    // 3. 记录max
+    if (tid == 0) {
+        if (maxp != nullptr) {
+            sdata[0] = max(maxp[0], sdata[0]);
+        }
+    }
+    __syncthreads();
+    float maxV = sdata[0];
+    __syncthreads();
+
+    // 4. 求和
+    float sum = 0;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        sum = sum + exp((float)input[i] - maxV);
+    }
+    sdata[tid] = sum;
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+    if (tid == 0) {
+        if (fabs(sdata[0]) < 1e-6) {
+            sdata[0] = 0.0001;
+        }
+        if (sump != nullptr) {
+            sump[0] = sump[0] * exp(maxp[0] - maxV) + sdata[0];
+            sdata[0] = sump[0];
+            maxp[0] = maxV;
+        }
+    }
+    __syncthreads();
+
+    float scale = 1.0 / sdata[0];
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        output[i] = (half)(exp((float)input[i] - maxV) * scale);
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
