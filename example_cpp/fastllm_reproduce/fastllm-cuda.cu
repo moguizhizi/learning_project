@@ -986,6 +986,56 @@ bool FastllmCudaEmbedding(const Data &input, const Data &weight, Data &output) {
     return true;
 }
 
+bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &output, int axis) {
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareInput(output);
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.strides[axis];
+
+    if (inner == 1) {
+        if (gamma.dataType != DataType::FLOAT32 || beta.dataType != DataType::FLOAT32) {
+            printf("layernorm datatype error.\n");
+            exit(0);
+        } else if (input.dataType == DataType::FLOAT32) {
+            if (channels < 64) {
+                FastllmLayerNormKernelInner1<1>
+                    <<<outer, 1>>>(cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, cudaOutput, outer, channels);
+            } else if (channels < 512) {
+                FastllmLayerNormKernelInner1<64>
+                    <<<outer, 64>>>(cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, cudaOutput, outer, channels);
+            } else {
+                FastllmLayerNormKernelInner1<512>
+                    <<<outer, 512>>>(cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, cudaOutput, outer, channels);
+            }
+        } else if (input.dataType == DataType::FLOAT16) {
+            if (channels < 64) {
+                FastllmLayerNormKernelInner1<1>
+                    <<<outer, 1>>>((half *)cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, (half *)cudaOutput, outer, channels);
+            } else if (channels < 512) {
+                FastllmLayerNormKernelInner1<64>
+                    <<<outer, 64>>>((half *)cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, (half *)cudaOutput, outer, channels);
+            } else {
+                FastllmLayerNormKernelInner1<512>
+                    <<<outer, 512>>>((half *)cudaInput, (float *)gamma.cudaData, (float *)beta.cudaData, (half *)cudaOutput, outer, channels);
+            }
+        } else {
+            printf("layernorm datatype error.\n");
+            exit(0);
+        }
+    } else {
+        printf("layernorm error.\n");
+        exit(0);
+    }
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
