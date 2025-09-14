@@ -9,6 +9,7 @@
 static int threads = 4;
 static AliveThreadPool *fastllmAliveThreadPool = nullptr;
 static bool lowMemMode = false;
+static bool cudaEmbedding = false;
 
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
@@ -515,6 +516,8 @@ void barrier() {
     __asm__ __volatile__("" : : : "memory");
 #endif
 }
+
+bool GetCudaEmbedding() { return cudaEmbedding; }
 
 bool GetLowMemMode() { return lowMemMode; }
 
