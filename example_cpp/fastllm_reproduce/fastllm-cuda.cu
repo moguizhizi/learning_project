@@ -514,6 +514,38 @@ __global__ void FastllmLayerNormKernelInner1(half *input, float *gamma, float *b
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmLayerNormKernelTop1(float *input, float *output, int channels) {
+    __shared__ float idData[THREAD_PER_BLOCK];
+    __shared__ float maxData[THREAD_PER_BLOCK];
+    float *inputData = input + blockIdx.x * channels;
+    float *outputData = output + blockIdx.x * 2;
+    int tid = threadIdx.x;
+    idData[tid] = tid;
+    maxData[tid] = -1e100;
+    for (int j = tid; j < channels; j += THREAD_PER_BLOCK) {
+        if (inputData[j] > maxData[tid]) {
+            maxData[tid] = inputData[j];
+            idData[tid] = j;
+        }
+    }
+    __syncthreads();
+
+    for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            if (maxData[tid] < maxData[tid + s]) {
+                maxData[tid] = maxData[tid + s];
+                idData[tid] = idData[tid + s];
+            }
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        outputData[0] = idData[0];
+        outputData[1] = maxData[0];
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
