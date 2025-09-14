@@ -1237,6 +1237,44 @@ bool FastllmCudaSoftmaxBatch(Data **inputs, Data **outputs, int axis, int batch)
     return true;
 }
 
+bool FastllmCudaTopK(const Data &input, Data &output, int topk) {
+    if (topk > 50) {
+        printf("topk: unsupport topk > 50.");
+        exit(0);
+    }
+
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareInput(output);
+
+    int dimsLen = input.dims.size();
+    int outer = input.Count(0) / input.Count(dimsLen - 1);
+    int channels = input.dims[dimsLen - 1];
+
+#ifdef USE_ROCM
+    if (topk == 1) {
+        FastllmLayerNormKernelTop1<256><<<outer, 256>>>(cudaInput, cudaOutput, channels);
+    } else {
+        FastllmLayerNormKernelTopK<64, 50><<<outer, 64>>>(cudaInput, cudaOutput, topk, channels);
+    }
+#else
+    if (outer > 4 || topk == 1) {
+        if (topk == 1) {
+            FastllmLayerNormKernelTop1<256><<<outer, 256>>>(cudaInput, cudaOutput, channels);
+        } else {
+            FastllmLayerNormKernelTopK<64, 50><<<outer, 64>>>(cudaInput, cudaOutput, topk, channels);
+        }
+    } else {
+        TopKFunctor functor(cudaInput, cudaOutput, channels, topk);
+        for (int i = 0; i < outer; ++i) {
+            functor(i);
+        }
+    }
+#endif
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

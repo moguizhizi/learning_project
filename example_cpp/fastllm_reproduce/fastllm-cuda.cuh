@@ -73,4 +73,5 @@ bool FastllmCudaAddTo(Data &input0, const Data &input1, float alpha);
 bool FastllmCudaMulTo(Data &input0, const Data &input1, float alpha);
 bool FastllmCudaMul(const Data &input, float v, Data &output);
 bool FastllmCudaSoftmaxBatch(Data **inputs, Data **outputs, int axis, int batch);
+bool FastllmCudaTopK(const Data &input, Data &output, int topk);
 cublasHandle_t getFastllmCublasHandle();
