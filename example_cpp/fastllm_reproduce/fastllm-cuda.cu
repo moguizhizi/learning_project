@@ -986,6 +986,36 @@ bool FastllmCudaEmbedding(const Data &input, const Data &weight, Data &output) {
     return true;
 }
 
+bool FastllmCudaRMSNorm(const Data &input, Data &weight, Data &output, float eps) {
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareInput(output);
+
+    int dimsLen = input.dims.size();
+    int axis = dimsLen - 1;
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+
+    if (input.dataType == DataType::FLOAT32) {
+        if (channels < 64) {
+            FastllmRMSNormKernelInner1<1><<<outer, 1>>>(cudaInput, (float *)weight.cudaData, cudaOutput, outer, channels, eps);
+        } else if (channels < 512) {
+            FastllmRMSNormKernelInner1<64><<<outer, 64>>>(cudaInput, (float *)weight.cudaData, cudaOutput, outer, channels, eps);
+        } else {
+            FastllmRMSNormKernelInner1<512><<<outer, 512>>>(cudaInput, (float *)weight.cudaData, cudaOutput, outer, channels, eps);
+        }
+    } else if (input.dataType == DataType::FLOAT16) {
+        if (channels < 512) {
+            FastllmRMSNormKernelInner1<64><<<outer, 64>>>((half *)cudaInput, (float *)weight.cudaData, (half *)cudaOutput, outer, channels, eps);
+        } else {
+            FastllmRMSNormKernelInner1<512><<<outer, 512>>>((half *)cudaInput, (float *)weight.cudaData, (half *)cudaOutput, outer, channels, eps);
+        }
+    }
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 bool FastllmCudaLayerNorm(const Data &input, Data &gamma, Data &beta, Data &output, int axis) {
     float *cudaInput = (float *)FastllmCudaPrepareInput(input);
     float *cudaOutput = (float *)FastllmCudaPrepareInput(output);
