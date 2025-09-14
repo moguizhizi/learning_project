@@ -8,6 +8,7 @@
 
 static int threads = 4;
 static AliveThreadPool *fastllmAliveThreadPool = nullptr;
+static bool lowMemMode = false;
 
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
@@ -515,7 +516,7 @@ void barrier() {
 #endif
 }
 
-bool GetLowMemMode() { return false; }
+bool GetLowMemMode() { return lowMemMode; }
 
 AliveThreadPool *GetAlivePool() { return fastllmAliveThreadPool; }
 
