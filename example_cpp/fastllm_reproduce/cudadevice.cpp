@@ -179,7 +179,7 @@ void CudaEmbedding::Run(const std::string &opType, const DataDict &datas, const 
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
     Data &weight = *(datas.find("weight")->second);
-    ;
+
     output.Allocate();
 
     FastllmCudaEmbedding(input, weight, output);
