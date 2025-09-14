@@ -13,6 +13,18 @@ extern std::map<int, int> cudaBuffersMinId;
 extern std::map<int, size_t> noBusyCnt;
 extern std::map<int, std::vector<CudaMemoryBuffer>> bigBuffersMap;
 
+struct TopKFunctor {
+    float *cudaInput;  // 指向原始输入数据的设备指针
+    float *cudaOutput; // 指向输出数据的设备指针
+    int channels;
+    int topk;
+
+    // 构造函数
+    TopKFunctor(float *cudaInput, float *cudaOutput, int channels, int topk);
+
+    __device__ __host__ void operator()(int i) const;
+};
+
 __global__ void FastllmGeluKernel(half *a, half *b, int len);
 __global__ void FastllmGeluKernel(float *a, float *b, int len);
 __global__ void FastllmGeluNewKernel(float *a, float *b, int len);
