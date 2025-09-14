@@ -155,6 +155,16 @@ __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len) {
     }
 }
 
+template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
+    input += blockIdx.x;
+    output += blockIdx.x * embSize;
+    int token = (int)(input[0] + 1e-5);
+    weight += token * embSize;
+    for (int i = threadIdx.x; i < embSize; i += THREAD_PER_BLOCK) {
+        output[i] = weight[i];
+    }
+}
+
 template <int THREADS_PER_BLOCK, typename T> __global__ void CausalMask(T *a, T maskValue, int q, int k, int base) {
     a += blockIdx.x * k;
     for (int i = base + blockIdx.x + threadIdx.x + 1; i < k; i += THREADS_PER_BLOCK) {
