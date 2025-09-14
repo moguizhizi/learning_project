@@ -343,6 +343,7 @@ __global__ void FastllmRMSNormKernelInner1(float *input, float *weight, float *o
     __shared__ float sdata2[THREAD_PER_BLOCK];
     __shared__ float scale;
 
+    // 1. 每个线程计算一部分
     unsigned int tid = threadIdx.x;
     float sum = 0.0f;
     for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
@@ -352,6 +353,7 @@ __global__ void FastllmRMSNormKernelInner1(float *input, float *weight, float *o
     sdata2[tid] = sum;
     __syncthreads();
 
+    // 2. 求和
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
         if (tid < s) {
             sdata2[tid] = sdata2[tid] + sdata2[tid + s]
@@ -359,6 +361,7 @@ __global__ void FastllmRMSNormKernelInner1(float *input, float *weight, float *o
         __syncthreads();
     }
 
+    // 3. 计算参数
     if (tid == 0) {
         scale = 1.0 / sqrt(sdata2[0] / channels + eps);
     }
@@ -368,6 +371,56 @@ __global__ void FastllmRMSNormKernelInner1(float *input, float *weight, float *o
     for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
         float x = input[i];
         output[i] = x * scale * weight[i]
+    }
+}
+
+template <int THREAD_PER_BLOCK>
+__global__ void FastllmRMSNormKernelInner1(half *input, float *weight, half *output, int outer, int channels, float eps) {
+    int o = blockIdx.x;
+    input = input + o * channels;
+    output = output + o * channels;
+
+    __shared__ float sdata2[THREAD_PER_BLOCK];
+    __shared__ float scale;
+
+    // 1. 每个线程计算一部分
+    unsigned int tid = threadIdx.x;
+    float sum2 = 0.0;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        float x = __half2float(input[i]);
+        sum2 += x * x;
+    }
+    sdata2[tid] = sum2;
+    __syncthreads();
+
+    // 2. 求和
+    for (int s = blockDim.x / 2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata2[tid] = sdata2[tid] + sdata2[tid + s]
+        }
+        __syncthreads();
+    }
+
+    if (tid < 32) {
+        volatile float *now = sdata2;
+        now[tid] += now[tid + 32];
+        now[tid] += now[tid + 16];
+        now[tid] += now[tid + 8];
+        now[tid] += now[tid + 4];
+        now[tid] += now[tid + 2];
+        now[tid] += now[tid + 1];
+    }
+
+    __syncthreads();
+
+    // 3. 计算参数
+    if (tid == 0) {
+        scale = 1.0 / sqrt(sdata2[0] / channels + eps);
+    }
+    __syncthreads();
+
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        output[i] = __float2half(__half2float(input[i]) * scale * weight[i]);
     }
 }
 
