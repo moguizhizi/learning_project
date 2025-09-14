@@ -424,6 +424,51 @@ __global__ void FastllmRMSNormKernelInner1(half *input, float *weight, half *out
     }
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void FastllmLayerNormKernelInner1(float *input, float *gamma, float *beta, float *output, int outer, int channels) {
+    int o = blockIdx.x;
+    input = input + o * channels;
+    output = output + o * channels;
+
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    __shared__ float sdata2[THREAD_PER_BLOCK];
+    __shared__ float mean;
+    __shared__ float var;
+
+    // 1. 每个线程计算一部分
+    unsigned int tid = threadIdx.x;
+    float sum = 0.0, sum2 = 0.0;
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        float x = input[i];
+        sum += x;
+        sum2 += x * x;
+    }
+    sdata[tid] = sum;
+    sdata2[tid] = sum2;
+    __syncthreads();
+
+    // 2. 求和
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+            sdata2[tid] += sdata2[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // 3. 计算参数
+    if (tid == 0) {
+        mean = sdata[0] / channels;
+        var = sdata2[0] + mean * mean * channels - 2 * mean * channels * mean;
+        var = sqrt(var / channels + 1e-10);
+    }
+    __syncthreads();
+
+    for (int i = tid; i < channels; i += THREAD_PER_BLOCK) {
+        output[i] = (input[i] - mean) / var * gamma[i] + beta[i];
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
