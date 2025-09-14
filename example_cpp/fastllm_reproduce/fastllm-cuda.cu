@@ -1140,6 +1140,23 @@ bool FastllmCudaMulTo(Data &input0, const Data &input1, float alpha) {
     return true;
 }
 
+bool FastllmCudaMul(const Data &input, float v, Data &output) {
+    int len = input.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int threadPerBlock = std::min(256, len);
+
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmMulKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, v, len);
+    } else {
+        FastllmMulKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)cudaInput, (half *)cudaOutput, __float2half_rn(v), len);
+    }
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

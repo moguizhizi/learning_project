@@ -220,3 +220,14 @@ void CudaAddToOp::Run(const std::string &opType, const DataDict &datas, const Fl
     AssertInFastLLM(input0.dims == input1.dims, "AddTo error: input's shape should be same.\n");
     FastllmCudaAddTo(input0, input1, alpha);
 }
+
+void CudaMulOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+
+    float v = floatParams.find("v") != floatParams.end() ? floatParams.find("v")->second : 1.0;
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+                    "Mul error: Data's type should be float32 or float16.\n");
+    FastllmCudaMul(input, v, output);
+}
