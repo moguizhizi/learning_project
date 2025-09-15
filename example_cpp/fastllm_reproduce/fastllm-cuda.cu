@@ -666,6 +666,17 @@ template <int THREAD_PER_BLOCK, int MAXK> __global__ void FastllmLayerNormKernel
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmTransposeByRowKernel(uint8_t *dst, uint8_t *ori, int n, int m, int k) {
+    int row = blockIdx.x / m;
+    int col = blockIdx.x % m;
+
+    uint8_t *curInput = ori + (row * m + col) * k;
+    uint8_t *curOutput = dst + (col * n + row) * k;
+    for (int i = threadIdx.x, i < k; i += THREAD_PER_BLOCK) {
+        curOutput[i] = curInput[i];
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
