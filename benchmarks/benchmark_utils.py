@@ -118,7 +118,8 @@ def calculate_accuracy(prediction:str, ground_true:str, dataset_name:str):
         json_block = extract_json_block(prediction)
 
         # 将两个字符串解析为 JSON 对象
-        json_block = json.loads(json_block)
+        
+        json_block = json.loads(json_block.replace("'", '"'))
         json_ground_true = json.loads(ground_true.replace("'", '"'))
 
         # 比较两个 JSON 对象
