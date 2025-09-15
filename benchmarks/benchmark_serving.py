@@ -304,11 +304,14 @@ async def benchmark(
         raise ValueError(f"Unknown backend: {backend}")
 
     print("Starting initial single prompt test run...")
-    test_prompt, test_prompt_len, test_output_len, test_mm_content = (
+    
+    test_prompt, test_prompt_len, test_output_len, test_mm_content, test_ground_truth, test_dataset_name = (
         input_requests[0].prompt,
         input_requests[0].prompt_len,
         input_requests[0].expected_output_len,
         input_requests[0].multi_modal_data,
+        input_requests[0].ground_truth,
+        input_requests[0].dataset_name,
     )
 
     assert test_mm_content is None or isinstance(test_mm_content, dict)
@@ -323,6 +326,8 @@ async def benchmark(
         multi_modal_content=test_mm_content,
         ignore_eos=ignore_eos,
         extra_body=extra_body,
+        ground_truth=test_ground_truth,
+        dataset_name=test_dataset_name,
     )
 
     test_output = await request_func(request_func_input=test_input)
