@@ -677,6 +677,28 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmTransposeByRowKernel(uint
     }
 }
 
+template <typename T>
+__global__ void FastllmPermuteKernel(T *dst,
+                                     const T *src,
+                                     const int *axis,       // 新 -> 旧 维度映射
+                                     const int *stride_old, // 原始 stride
+                                     const int *stride_new, // 新 stride
+                                     int axisLen,
+                                     int totalLen) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx >= totalLen)
+        return;
+    int old = 0;
+    for (int i = 0; i < axisLen; i++) {
+        int coord = idx / stride_new[i];
+        idx = idx % stride_new[i];
+        int old_dim = axis[i];
+        old += coord * stride_old[old_dim];
+    }
+
+    dst[idx] = src[old];
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
