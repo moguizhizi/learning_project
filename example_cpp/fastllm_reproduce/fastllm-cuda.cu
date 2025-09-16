@@ -680,9 +680,9 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmTransposeByRowKernel(uint
 template <typename T>
 __global__ void FastllmPermuteKernel(T *dst,
                                      const T *src,
-                                     const int *axis,       // 新 -> 旧 维度映射
-                                     const int *stride_old, // 原始 stride
-                                     const int *stride_new, // 新 stride
+                                     const int *axis,            // 新 -> 旧 维度映射
+                                     const uint64_t *stride_old, // 原始 stride
+                                     const uint64_t *stride_new, // 新 stride
                                      int axisLen,
                                      int totalLen) {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1305,6 +1305,79 @@ bool FastllmCudaTopK(const Data &input, Data &output, int topk) {
 #endif
     FastllmCudaFinishInput(input, cudaInput);
     FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
+bool FastllmCudaPermute(Data &input, const std::vector<int> &axis) {
+    if (input.dataDevice != DataDevice::CUDA) {
+        printf("permute: data should in cuda.\n");
+        exit(0);
+    }
+
+    int len = input.Count(0);
+    uint8_t *tempData = (uint8_t *)FastllmCudaMalloc(len * input.unitSize);
+    cudaMemcpy(tempData, input.cudaData, len * input.unitSize, cudaMemcpyKind::cudaMemcpyDeviceToDevice);
+
+    std::vector<int> new_dims;
+    for (int i = 0; i < axis.size(); i++) {
+        new_dims.push_back(input.dims[axis[i]]);
+    }
+
+    if (axis == std::vector<int>{1, 0, 2}) {
+        int n = input.dims[0];
+        int m = input.dims[1];
+        int k = input.dims[2];
+        FastllmTransposeByRowKernel<256><<<n * m, 256>>>((uint8_t *)input.cudaData, tempData, n, m, k * input.unitSize);
+        input.Resize(new_dims);
+    } else if (axis == std::vector<int>{2, 0, 1, 3}) {
+        int n = input.dims[0] * input.dims[1];
+        int m = input.dims[2];
+        int k = input.dims[3];
+        FastllmTransposeByRowKernel<256><<<n * m, 256>>>((uint8_t *)input.cudaData, tempData, n, m, k * input.unitSize);
+        input.Resize(new_dims);
+    } else if (axis == std::vector<int>{1, 2, 0, 3}) {
+        int n = input.dims[0];
+        int m = input.dims[1] * input.dims[2];
+        int k = input.dims[3];
+        FastllmTransposeByRowKernel<256><<<n * m, 256>>>((uint8_t *)input.cudaData, tempData, n, m, k * input.unitSize);
+        input.Resize(new_dims);
+    } else if (axis == std::vector<int>{0, 2, 1, 3} && input.dims[0] == 1) {
+        int n = input.dims[1];
+        int m = input.dims[2];
+        int k = input.dims[3];
+        FastllmTransposeByRowKernel<256><<<n * m, 256>>>((uint8_t *)input.cudaData, tempData, n, m, k * input.unitSize);
+        input.Resize(new_dims);
+    } else {
+        int threadPerBlock = std::min(256, len);
+        uint8_t *stride_old = (uint8_t *)FastllmCudaMalloc(input.strides.size() * sizeof(uint64_t));
+        cudaMemcpy(stride_old, input.strides.data(), input.strides.size() * sizeof(uint64_t), cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+        input.Resize(new_dims);
+        uint8_t *stride_new = (uint8_t *)FastllmCudaMalloc(input.strides.size() * sizeof(uint64_t));
+        cudaMemcpy(stride_new, input.strides.data(), input.strides.size() * sizeof(uint64_t), cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+        int axisLen = axis.size();
+        int *cudaaxis = (int *)FastllmCudaMalloc(axis.size() * sizeof(int));
+        cudaMemcpy(cudaaxis, axis.data(), axis.size() * sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+        if (input.unitSize == 4) {
+            FastllmPermuteKernel<float><<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(
+                (float *)input.cudaData, (float *)tempData, cudaaxis, (uint64_t *)stride_old, (uint64_t *)stride_new, axisLen, len);
+        } else if (input.unitSize == 2) {
+            FastllmPermuteKernel<uint16_t><<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(
+                (uint16_t *)input.cudaData, (uint16_t *)tempData, cudaaxis, (uint64_t *)stride_old, (uint64_t *)stride_new, axisLen, len);
+        } else if (input.unitSize == 1) {
+            FastllmPermuteKernel<uint8_t><<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(
+                (uint8_t *)input.cudaData, (uint8_t *)tempData, cudaaxis, (uint64_t *)stride_old, (uint64_t *)stride_new, axisLen, len);
+        }
+
+        FastllmCudaFree(stride_old);
+        FastllmCudaFree(stride_new);
+        FastllmCudaFree(cudaaxis);
+    }
+
+    FastllmCudaFree(tempData);
+    DeviceSync();
     return true;
 }
 
