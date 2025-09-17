@@ -885,6 +885,9 @@ def main(args: argparse.Namespace):
         result_json["model_id"] = model_id
         result_json["tokenizer_id"] = tokenizer_id
         result_json["num_prompts"] = args.num_prompts
+        result_json["kind"] = args.kind
+        result_json["env"] = args.env
+        result_json["quant-type"] = args.quanttype
 
         # Metadata
         if args.metadata:
@@ -1172,6 +1175,27 @@ def create_argument_parser():
         '"ttft", "tpot", "e2el". For more context on the definition of '
         "goodput, refer to DistServe paper: https://arxiv.org/pdf/2401.09670 "
         "and the blog: https://hao-ai-lab.github.io/blogs/distserve",
+    )
+
+    parser.add_argument(
+        "--kind",
+        type=str,
+        default="vllm",
+        help='Type of inference engine',
+    )
+
+    parser.add_argument(
+        "--env",
+        type=str,
+        default="",
+        help='Type of inference engine',
+    )
+
+    parser.add_argument(
+        "--quanttype",
+        type=str,
+        default="no",
+        help='Type of inference engine',
     )
 
     # group for dataset specific arguments
