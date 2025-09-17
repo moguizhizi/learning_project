@@ -1381,6 +1381,12 @@ bool FastllmCudaPermute(Data &input, const std::vector<int> &axis) {
     return true;
 }
 
+int FastllmCudaGetDeviceCount() {
+    int deviceCount = 0;
+    cudaError_t error = cudaGetDeviceCount(&deviceCount);
+    return deviceCount;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
