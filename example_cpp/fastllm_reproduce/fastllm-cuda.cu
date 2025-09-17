@@ -1381,6 +1381,29 @@ bool FastllmCudaPermute(Data &input, const std::vector<int> &axis) {
     return true;
 }
 
+int GetPointerDeviceId(void *ptr) {
+    cudaPointerAttributes attributes;
+    cudaError_t err = cudaPointerGetAttributes(&attributes, ptr);
+
+    if (err == cudaSuccess) {
+#if (CUDART_VERSION < 10000) && !(defined(USE_ROCM))
+        if (attributes.memoryType == cudaMemoryTypeDevice) {
+#else
+        if (attributes.type == cudaMemoryTypeDevice) {
+#endif
+            int device = attributes.device;
+            printf("Pointer belongs to device %d\n", device);
+            return device;
+        } else {
+            printf("Pointer is not device memory\n");
+            return -1;
+        }
+    } else {
+        printf("Error: %s\n", cudaGetErrorString(err));
+        return -1;
+    }
+}
+
 int FastllmCudaGetDeviceCount() {
     int deviceCount = 0;
     cudaError_t error = cudaGetDeviceCount(&deviceCount);
