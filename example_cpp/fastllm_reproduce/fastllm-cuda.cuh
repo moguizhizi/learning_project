@@ -75,4 +75,5 @@ bool FastllmCudaMul(const Data &input, float v, Data &output);
 bool FastllmCudaSoftmaxBatch(Data **inputs, Data **outputs, int axis, int batch);
 bool FastllmCudaTopK(const Data &input, Data &output, int topk);
 bool FastllmCudaPermute(Data &input, const std::vector<int> &axis);
+int FastllmCudaGetDeviceCount();
 cublasHandle_t getFastllmCublasHandle();
