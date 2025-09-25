@@ -77,4 +77,5 @@ bool FastllmCudaTopK(const Data &input, Data &output, int topk);
 bool FastllmCudaPermute(Data &input, const std::vector<int> &axis);
 int GetPointerDeviceId(void *ptr);
 int FastllmCudaGetDeviceCount();
+bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale);
 cublasHandle_t getFastllmCublasHandle();
