@@ -712,6 +712,18 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmAttentionMaskKernel(float
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmAttentionMaskKernel(half *a, half *b, half maskValue, int n, int m, int spatial) {
+    int on = blockIdx.x / m;
+    int om = blockIdx.x % m;
+    int o = on * m + om;
+    int idx = threadIdx.x;
+    for (int i = idx; i < spatial; i += THREAD_PER_BLOCK) {
+        if (__half2float(b[on * spatial + i]) > 0.99) {
+            a[o * spatial + i] = maskValue;
+        }
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
