@@ -14,6 +14,29 @@ std::map<int, std::vector<CudaMemoryBuffer>> bigBuffersMap;
 
 #define checkCudaErrors(message, val) showError(val, message, __FILE__, __LINE__)
 
+struct CudaInfos {
+    int cudaArch;
+    bool hasTensorCore;
+
+    CudaInfos() {
+        int infoLen = 10;
+        int *infos;
+        cudaMalloc(&infos, infoLen * sizeof(int));
+        GetCudaInfoKernel<<<1, 1>>>(infos);
+        int *infosInCpu = new int[infoLen];
+        cudaMemcpy(infosInCpu, infos, infoLen * sizeof(int), cudaMemcpyDeviceToHost);
+
+        cudaArch = infosInCpu[0];
+        hasTensorCore = cudaArch >= 700;
+
+        cudaFree(infos);
+        delete[] infosInCpu;
+
+        printf("CUDA_ARCH: %d\n", cudaArch);
+        printf("USE_TENSOR_CORE: %d\n", hasTensorCore);
+    }
+};
+
 void showError(cudaError_t result, char const *const message, const char *const file, int const line) {
     if (cudaSuccess != result) {
         printf("%s\n  CUDA error = %d, %s at %s:%d\n  '%s'\n", message, result, cudaGetErrorName(result), file, line, cudaGetErrorString(result));
