@@ -78,4 +78,5 @@ bool FastllmCudaPermute(Data &input, const std::vector<int> &axis);
 int GetPointerDeviceId(void *ptr);
 int FastllmCudaGetDeviceCount();
 bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale);
+bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
 cublasHandle_t getFastllmCublasHandle();
