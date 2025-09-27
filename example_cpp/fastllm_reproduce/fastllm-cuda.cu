@@ -699,6 +699,19 @@ __global__ void FastllmPermuteKernel(T *dst,
     dst[idx] = src[old];
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmAttentionMaskKernel(float *a, float *b, float maskValue, int n, int m, int spatial) {
+    int on = blockIdx.x / m;
+    int om = blockIdx.x % m;
+    int o = on * m + om;
+
+    int id = threadIdx.x;
+    for (i = id; i < spatial; i += THREAD_PER_BLOCK) {
+        if (b[on * spatial + i] > 0.99) {
+            a[o * spatial + i] = maskValue;
+        }
+    }
+}
+
 void *FastllmCudaMalloc(size_t size) {
     int id = -1;
     cudaError state = cudaGetDevice(&id);
