@@ -41,6 +41,7 @@ __global__ void FastllmMulToKernel(half *a, half *b, float alpha, int len);
 __global__ void FastllmCudaFloat2HalfKernel(float *a, half *b, int len);
 __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len);
 __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len);
+__global__ void GetCudaInfoKernel(int *infos);
 
 void *FastllmCudaMalloc(size_t);
 void showError(cudaError_t result, char const *const message, const char *const file, int const line);

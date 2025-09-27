@@ -188,6 +188,14 @@ __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len) {
     }
 }
 
+__global__ void GetCudaInfoKernel(int *infos) {
+#if defined(__CUDA_ARCH__)
+    infos[0] = __CUDA_ARCH__;
+#else
+    infos[0] = 0; // cuda arch
+#endif
+}
+
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
     input += blockIdx.x;
     output += blockIdx.x * embSize;
