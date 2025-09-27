@@ -25,6 +25,13 @@ struct TopKFunctor {
     __device__ __host__ void operator()(int i) const;
 };
 
+struct CudaInfos {
+    int cudaArch;
+    bool hasTensorCore;
+
+    CudaInfos();
+};
+
 __global__ void FastllmGeluKernel(half *a, half *b, int len);
 __global__ void FastllmGeluKernel(float *a, float *b, int len);
 __global__ void FastllmGeluNewKernel(float *a, float *b, int len);
@@ -43,6 +50,7 @@ __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len);
 __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len);
 __global__ void GetCudaInfoKernel(int *infos);
 
+CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
 void showError(cudaError_t result, char const *const message, const char *const file, int const line);
 void FastllmCudaCopyFromHostToDevice(void *dst, void *src, size_t size);
