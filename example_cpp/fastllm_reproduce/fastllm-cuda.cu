@@ -1435,6 +1435,180 @@ int FastllmCudaGetDeviceCount() {
     return deviceCount;
 }
 
+bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType) {
+    int q0 = q.dims[0], q1 = q.dims[1], q2 = q.dims[2], k0 = k.dims[0], k1 = k.dims[1], k2 = k.dims[2], v0 = v.dims[0], v1 = v.dims[1],
+        v2 = v.dims[2];
+
+    float *qd = (float *)q.cudaData;
+    float *kd = (float *)k.cudaData;
+    float *vd = (float *)v.cudaData;
+    float *od = (float *)output.cudaData;
+
+    float *maskd = mask.dims.size() > 0 ? (float *)mask.cudaData : nullptr;
+    int batch = mask.dims.size() == 3 ? mask.dims[0] : 1;
+    int maskStride = (mask.dims.size() == 3 ? mask.strides[0] : mask.Count(0));
+
+    auto fastllmCublasHandle = getFastllmCublasHandle();
+    cublasStatus_t status;
+
+    float alpha = 1.0f, beta0 = 0.0f;
+    if (q1 >= 1024 || (q1 > 1 && q1 != k1 && k1 >= 1024)) {
+        float *qk = (float *)FastllmCudaMalloc(q1 * k1 * sizeof(float));
+        for (int i = 0; i < q0; i++) {
+            status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                               CUBLAS_OP_T,
+                                               CUBLAS_OP_N,
+                                               k1,
+                                               q1,
+                                               q2,
+                                               &scale,
+                                               kd + (i / group) * (k1 * q2),
+                                               q2,
+                                               k1 * q2,
+                                               qd + i * (q1 * q2),
+                                               q2,
+                                               q1 * q2,
+                                               &beta0,
+                                               qk,
+                                               k1,
+                                               k1 * q1,
+                                               1);
+
+            if (status != CUBLAS_STATUS_SUCCESS) {
+                printf("status = %d\n", (int)status);
+                printf("Error: cublas error during MatMulTransB in Attention operator.\n");
+                throw("cublas error");
+                exit(0);
+            }
+
+            if (batch == 1 && maskd == nullptr && maskType == 0) {
+                CausalMask<256, float><<<q1, 256>>>(qk, 0, q1, k1, k1 - q1);
+                FastllmSoftmaxKernelInner1WithCausalMask<128, float><<<q1, 128>>>(qk, qk, q1, k1, k1 - q1);
+            } else {
+                if (maskd) {
+                    SimpleMask<256><<<q1 * k1 / 256 + 1, 256>>>(qk, maskd + i / (q0 / batch) * maskStride, -10000.0, q1 * k1);
+                }
+
+                int outer = q1;
+                if (k1 < 8) {
+                    FastllmSoftmaxKernelInner1<1><<<outer, 1>>>(qk, qk, outer, k1);
+                } else if (k1 < 64) {
+                    FastllmSoftmaxKernelInner1<8><<<outer, 8>>>(qk, qk, outer, k1);
+                } else if (k1 < 512) {
+                    FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(qk, qk, outer, k1);
+                } else {
+                    FastllmSoftmaxKernelInner1<256><<<outer, 256>>>(qk, qk, outer, k1);
+                }
+            }
+
+            status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                               CUBLAS_OP_N,
+                                               CUBLAS_OP_N,
+                                               v2,
+                                               q1,
+                                               k1,
+                                               &alpha,
+                                               vd + (i / group) * (k1 * v2),
+                                               v2,
+                                               k1 * v2,
+                                               qk,
+                                               k1,
+                                               q1 * k1,
+                                               &beta0,
+                                               od + i * (v2 * q1),
+                                               v2,
+                                               v2 * q1,
+                                               1);
+
+            if (status != CUBLAS_STATUS_SUCCESS) {
+                printf("status = %d\n", (int)status);
+                printf("Error: cublas error during MatMul in Attention operator.\n");
+                throw("cublas error");
+                exit(0);
+            }
+        }
+
+        FastllmCudaFree(qk);
+
+    } else {
+        float *qk = (float *)FastllmCudaMalloc(q0 * q1 * k1 * sizeof(float));
+        float *temp = (float *)FastllmCudaMalloc(q0 * q1 * k1 * sizeof(float));
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           k1,
+                                           q1 * group,
+                                           q2,
+                                           &scale,
+                                           kd,
+                                           q2,
+                                           k1 * q2,
+                                           qd,
+                                           q2,
+                                           q1 * q2 * group,
+                                           &beta0,
+                                           qk,
+                                           k1,
+                                           k1 * q1 * group,
+                                           q0 / group);
+
+        if (status != CUBLAS_STATUS_SUCCESS) {
+            printf("status = %d\n", (int)status);
+            printf("Error: cublas error during MatMulTransB in Attention operator.\n");
+            throw("cublas error");
+            exit(0);
+        }
+
+        if (maskd) {
+            int spatial = q1 * k1, n = batch, m = q0 / batch;
+            FastllmAttentionMaskKernel<256><<<n * m, 256>>>(qk, maskd, -10000, n, m, spatial);
+        }
+
+        int outer = q0 * q1;
+        if (k1 < 8) {
+            FastllmSoftmaxKernelInner1<1><<<outer, 1>>>(qk, temp, outer, k1);
+        } else if (k1 < 64) {
+            FastllmSoftmaxKernelInner1<8><<<outer, 8>>>(qk, temp, outer, k1);
+        } else if (k1 < 512) {
+            FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(qk, temp, outer, k1);
+        } else {
+            FastllmSoftmaxKernelInner1<256><<<outer, 256>>>(qk, temp, outer, k1);
+        }
+
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_N,
+                                           CUBLAS_OP_N,
+                                           v2,
+                                           q1 * group,
+                                           k1,
+                                           &alpha,
+                                           vd,
+                                           v2,
+                                           k1 * v2,
+                                           temp,
+                                           k1,
+                                           q1 * k1 * group,
+                                           &beta0,
+                                           od,
+                                           v2,
+                                           v2 * q1 * group,
+                                           q0 / group);
+
+        if (status != CUBLAS_STATUS_SUCCESS) {
+            printf("status = %d\n", (int)status);
+            printf("Error: cublas error during MatMul in Attention operator.\n");
+            throw("cublas error");
+            exit(0);
+        }
+
+        FastllmCudaFree(qk);
+        FastllmCudaFree(temp);
+    }
+
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
