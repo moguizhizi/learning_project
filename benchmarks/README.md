@@ -10,7 +10,7 @@ vllm serve /home/temp/llm_model/nm-testing/Qwen2.5-VL-72B-Instruct-quantized.w8a
 ```
 
 ```bash
-python3 learning_project/benchmarks/benchmark_serving.py --backend openai-chat --model /home/temp/llm_model/nm-testing/Qwen2___5-VL-72B-Instruct-quantized___w8a8 --served-model-name qwen2_5_vl_72B_quant --endpoint /v1/chat/completions --dataset-name phonetest --dataset-path /home/project/dataset/phonetest/web_nj_action_0426_grpo.json --num-prompts 10 --result_dir /home/project/learning_project/benchmarks/output/qwen2_5_vl_72B --save-result
+python3 learning_project/benchmarks/benchmark_serving.py --backend openai-chat --model /home/llm_model/Qwen/Qwen2.5-VL-72B-Instruct --served-model-name qwen2_5_vl --endpoint /v1/chat/completions --dataset-name phonetest --dataset-path /home/project/dataset/phonetest/web_nj_action_0426_grpo.json --num-prompts 1 --result_dir /home/project/learning_project/benchmarks/output/qwen2_5_vl_72B --save-result --gpuname A6000  --kind vllm --env TP4PP1 --quanttype no --host 10.20.42.106 --port 32770
 ```
 
 If successful, you will see the following output
