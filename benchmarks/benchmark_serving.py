@@ -888,6 +888,7 @@ def main(args: argparse.Namespace):
         result_json["kind"] = args.kind
         result_json["env"] = args.env
         result_json["quant-type"] = args.quanttype
+        result_json["enable-prefix-caching"] = args.enable_prefix_caching
 
         # Metadata
         if args.metadata:
@@ -1196,6 +1197,12 @@ def create_argument_parser():
         type=str,
         default="no",
         help='Type of inference engine',
+    )
+
+    parser.add_argument(
+        "--enable-prefix-caching",
+        action="store_true",
+        help="enable prefix caching",
     )
 
     # group for dataset specific arguments
