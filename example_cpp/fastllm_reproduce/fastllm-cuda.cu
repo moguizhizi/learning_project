@@ -1733,6 +1733,78 @@ void GpuQK(half *q, half *k, half *qk, int qlen, int klen, int dim, float scale,
     HalfFC<BQ, DIM, BK><<<gridDim, blockDim>>>(q, k, qk, qlen, dim, klen, (half)scale, base);
 }
 
+bool FastllmCudaHalfAttention(
+    const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType) {
+    int q0 = q.dims[0], q1 = q.dims[1], q2 = q.dims[2], k0 = k.dims[0], k1 = k.dims[1], k2 = k.dims[2], v0 = v.dims[0], v1 = v.dims[1],
+        v2 = v.dims[2];
+
+    half *qd = (half *)q.cudaData;
+    half *kd = (half *)k.cudaData;
+    half *vd = (half *)v.cudaData;
+    half *od = (half *)output.cudaData;
+
+    half *maskd = mask.dims.size() > 0 ? (half *)mask.cudaData : nullptr;
+    int batch = mask.dims.size() == 3 ? mask.dims[0] : 1;
+    int maskStride = (mask.dims.size() == 3 ? mask.strides[0] : mask.Count(0));
+
+    auto fastllmCublasHandle = getFastllmCublasHandle();
+    cublasStatus_t status;
+
+    half alpha = __float2half(1.0f), beta0 = __float2half(0.0f);
+
+    if (q1 >= 1024 || (q1 > 1 && q1 != k1 && k1 >= 1024)) {
+        bool useFastAtten = getCudaInfos()->hasTensorCore && (q2 == 128 && v2 == 128) && (batch == 1) && maskType == 0;
+        useFastAtten = useFastAtten && (q1 % 1024 == 0) && (k1 % 1024 == 0);
+
+        int alignQ1 = q1;
+        int alignK1 = k1;
+        if (useFastAtten == true) {
+            alignQ1 = ((alignQ1 - 1) / 128 + 1) * 128;
+            alignK1 = ((alignK1 - 1) / 128 + 1) * 128;
+        }
+
+        half *qk = (half *)FastllmCudaMalloc(alignQ1 * alignK1 * sizeof(half));
+        cudaMemset(qk, 0.0f, alignQ1 * alignK1 * sizeof(half));
+        for (int i = 0; i < q0; i++) {
+            if (useFastAtten) {
+                if (alignK1 > 8192) {
+
+                } else {
+                    GpuQK(qd + i * q.Count(1), kd + (i / group) * k.Count(1), qk, alignQ1, alignK1, q2, scale, k1 - q1);
+                    FastllmSoftmaxKernelInner1WithCausalMask<128, half><<<q1, 128>>>(qk, qk, q1, alignK1, k1 - q1);
+                    status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_N,
+                                                       v2,
+                                                       q1,
+                                                       k1,
+                                                       &alpha,
+                                                       vd + (i / group) * (k1 * v2),
+                                                       v2,
+                                                       k1 * v2,
+                                                       qk,
+                                                       k1,
+                                                       q1 * k1,
+                                                       &beta0,
+                                                       od + i * (v2 * q1),
+                                                       v2,
+                                                       v2 * q1,
+                                                       1);
+
+                    if (status != CUBLAS_STATUS_SUCCESS) {
+                        printf("status = %d\n", (int)status);
+                        printf("Error: cublas error during MatMul in Attention operator.\n");
+                        throw("cublas error");
+                        exit(0);
+                    }
+                }
+            } else {
+            }
+        }
+        FastllmCudaFree(qk);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
