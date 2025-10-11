@@ -1724,6 +1724,15 @@ bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Dat
     return true;
 }
 
+void GpuQK(half *q, half *k, half *qk, int qlen, int klen, int dim, float scale, int base) {
+    const int BQ = 128, BK = 128, DIM = 128;
+    dim3 blockDim(128);
+    int BX = (qlen + BQ - 1) / BQ;
+    int BY = (klen + BK - 1) / BK;
+    dim3 gridDim(BX, BY);
+    HalfFC<BQ, DIM, BK><<<gridDim, blockDim>>>(q, k, qk, qlen, dim, klen, (half)scale, base);
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

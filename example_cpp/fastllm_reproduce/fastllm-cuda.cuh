@@ -88,4 +88,5 @@ int GetPointerDeviceId(void *ptr);
 int FastllmCudaGetDeviceCount();
 bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale);
 bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
+void GpuQK(half *q, half *k, half *qk, int qlen, int klen, int dim, float scale, int base);
 cublasHandle_t getFastllmCublasHandle();
