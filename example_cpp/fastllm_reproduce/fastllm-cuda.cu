@@ -1,7 +1,10 @@
 #include "fastllm-cuda.cuh"
+#include <mma.h>
 #include <thrust/device_vector.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
+
+using namespace nvcuda;
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 530
 #define CUDA_NO_TENSOR_CORE
@@ -747,6 +750,83 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmAttentionMaskKernel(half 
         if (__half2float(b[on * spatial + i]) > 0.99) {
             a[o * spatial + i] = maskValue;
         }
+    }
+}
+
+template <int BN, int BM, int BK>
+__global__ void
+HalfFC(half *__restrict__ a, half *__restrict__ b, half *__restrict__ c, const int N, const int M, const int K, half scale, const int base) {
+    int tid = threadIdx.x;
+    int wid = tid >> 5;
+    int wrap0 = wid >> 1;
+    int wrap1 = wid & 1;
+
+    int bx = blockIdx.x;
+    int by = blockIdx.y;
+
+    int stN = bx * BN;
+    int stK = by * BK;
+
+    if (base + stN + BN < stK) {
+        return;
+    }
+
+    __shared__ half cur[BN][BK];
+
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> frag_a[4][8];
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::col_major> frag_b[4][8];
+    wmma::fragment<wmma::accumulator, 16, 16, 16, half> frag_c[4][4];
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            wmma::fill_fragment(frag_c[i][j], (half)0.0);
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 8; j++) {
+            wmma::load_matrix_sync(frag_a[i][j], &a[(stN + wrap0 * 64 + i * 16) * M + j * 16], M);
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 8; j++) {
+            wmma::load_matrix_sync(frag_b[i][j], &b[(stK + wrap1 * 64 + i * 16) * M + j * 16], M);
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            for (int k = 0; k < 8; k++) {
+                wmma::mma_sync(frag_c[i][j], frag_a[i][k], frag_b[j][k], frag_c[i][j]);
+            }
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            wmma::store_matrix_sync(cur[wrap0 * 64 + i * 16][wrap1 * 64 + j * 16], frag_c[i][j], BK, wmma::mem_row_major);
+        }
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < BN; i++) {
+        if (base + stN + i < stK + tid) {
+            cur[i][tid] = (half)0.0;
+        }
+    }
+
+    for (int i = 0; i < BN; i++) {
+        c[(stN + i) * K + stK + tid] = __hmul(cur[i][tid], scale);
     }
 }
 
