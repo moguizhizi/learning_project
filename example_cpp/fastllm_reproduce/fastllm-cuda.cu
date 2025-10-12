@@ -838,6 +838,27 @@ HalfFC(half *__restrict__ a, half *__restrict__ b, half *__restrict__ c, const i
     }
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void AttnBlockUpdate(half *data, int n, int m, float *lastMax, float *lastSum, float *curMax, float *curSum) {
+    __shared__ float scale;
+
+    unsigned int tid = threadIdx.x;
+    unsigned int bid = blockIdx.x;
+
+    if (tid == 0) {
+        float oldSum = lastSum[bid] * exp(lastMax[bid] - curMaxp[bid]);
+        scale = oldSum / curSum[bid];
+        lastMax[bid] = curMax[bid];
+        lastSum[bid] = curSum[bid];
+    }
+
+    __syncthreads();
+
+    for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+        data[bid * m + tid] = (half)((float)data[bid * m + tid] * scale);
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
