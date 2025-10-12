@@ -49,6 +49,7 @@ __global__ void FastllmCudaFloat2HalfKernel(float *a, half *b, int len);
 __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len);
 __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len);
 __global__ void GetCudaInfoKernel(int *infos);
+__global__ void InitBlockAtten(float *sum0, float *max0, float *sum1, float *max1, int len);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);

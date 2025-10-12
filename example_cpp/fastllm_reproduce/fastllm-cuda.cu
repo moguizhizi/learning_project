@@ -217,6 +217,14 @@ __global__ void GetCudaInfoKernel(int *infos) {
 #endif
 }
 
+__global__ void InitBlockAtten(float *sum0, float *max0, float *sum1, float *max1, int len) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < len) {
+        sum0[i] = sum1[i] = 0.0f;
+        max0[i] = max1[i] = -10000.0f;
+    }
+}
+
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
     input += blockIdx.x;
     output += blockIdx.x * embSize;
