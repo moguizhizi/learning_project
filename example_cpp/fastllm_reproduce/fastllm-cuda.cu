@@ -1779,7 +1779,7 @@ bool FastllmCudaHalfAttention(
     auto fastllmCublasHandle = getFastllmCublasHandle();
     cublasStatus_t status;
 
-    half alpha = __float2half(1.0f), beta0 = __float2half(0.0f);
+    half beta = __float2half_rn(0.0f), one = __float2half_rn(1.0f), hscale = __float2half_rn(scale);
 
     if (q1 >= 1024 || (q1 > 1 && q1 != k1 && k1 >= 1024)) {
         bool useFastAtten = getCudaInfos()->hasTensorCore && (q2 == 128 && v2 == 128) && (batch == 1) && maskType == 0;
@@ -1787,16 +1787,88 @@ bool FastllmCudaHalfAttention(
 
         int alignQ1 = q1;
         int alignK1 = k1;
+        int part = alignK1;
         if (useFastAtten == true) {
             alignQ1 = ((alignQ1 - 1) / 128 + 1) * 128;
             alignK1 = ((alignK1 - 1) / 128 + 1) * 128;
+            part = alignK1 > 8192 ? 8192 : alignK1;
         }
 
-        half *qk = (half *)FastllmCudaMalloc(alignQ1 * alignK1 * sizeof(half));
+        half *qk = (half *)FastllmCudaMalloc(alignQ1 * part * sizeof(half));
         cudaMemset(qk, 0.0f, alignQ1 * alignK1 * sizeof(half));
+
         for (int i = 0; i < q0; i++) {
             if (useFastAtten) {
                 if (alignK1 > 8192) {
+                    float *lastMax = (float *)FastllmCudaMalloc(alignQ1 * sizeof(float));
+                    float *lastSum = (float *)FastllmCudaMalloc(alignQ1 * sizeof(float));
+                    float *currentMax = (float *)FastllmCudaMalloc(alignQ1 * sizeof(float));
+                    float *currentSum = (float *)FastllmCudaMalloc(alignQ1 * sizeof(float));
+
+                    int threadPerBlock = min(256, alignQ1);
+                    InitBlockAtten<<<(alignQ1 - 1) / threadPerBlock + 1, threadPerBlock>>>(lastSum, lastMax, currentSum, currentMax, alignQ1);
+
+                    part = 8192;
+                    for (int st = 0; i < alignK1; st += part) {
+                        int len = min(part, alignK1 - st);
+                        status = cublasHgemm(fastllmCublasHandle,
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_N,
+                                             len,
+                                             alignQ1,
+                                             q2,
+                                             &hscale,
+                                             kd + (i / group) * k.Count(1) + st * k.strides[1],
+                                             k.strides[1],
+                                             qd + i * q.Count(1),
+                                             q.strides[1],
+                                             &beta,
+                                             qk,
+                                             len);
+                        if (status != CUBLAS_STATUS_SUCCESS) {
+                            printf("status = %d\n", (int)status);
+                            printf("Error: cublas error during MatMul in Attention operator.\n");
+                            throw("cublas error");
+                            exit(0);
+                        }
+
+                        CausalMask<256, half><<<q1, 256>>>(qk, __float2half_rn(0.0f), alignQ1, len, k1 - q1 - st);
+                        FastllmSoftmaxKernelInner1WithCausalMask<256, half><<<q1, 256>>>(qk, qk, alignQ1, len, k1 - q1 - st, currentMax, currentSum);
+
+                        if (st > 0) {
+                            AttnBlockUpdate<128><<<alignQ1, 128>>>(od + i * q1 * v2, alignQ1, v2, lastMax, lastSum, currentMax, currentSum);
+                        } else {
+                            cudaMemcpy(lastMax, currentMax, alignQ1 * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToDevice);
+                            cudaMemcpy(lastSum, currentSum, alignQ1 * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToDevice);
+                        }
+
+                        half currentScale = __float2half(st > 0 ? 1.0f : 0.0f);
+                        status = cublasHgemm(fastllmCublasHandle,
+                                             CUBLAS_OP_N,
+                                             CUBLAS_OP_N,
+                                             v2,
+                                             alignQ1,
+                                             len,
+                                             &one,
+                                             vd + (i / group) * v.Count(1) + st * v.strides[1],
+                                             v.strides[1],
+                                             qk,
+                                             len,
+                                             &currentScale,
+                                             od + i * q1 * v2,
+                                             v2);
+                        if (status != CUBLAS_STATUS_SUCCESS) {
+                            printf("status = %d\n", (int)status);
+                            printf("Error: cublas error during MatMul in Attention operator.\n");
+                            throw("cublas error");
+                            exit(0);
+                        }
+                    }
+
+                    FastllmCudaFree(lastMax);
+                    FastllmCudaFree(lastSum);
+                    FastllmCudaFree(currentMax);
+                    FastllmCudaFree(currentSum);
 
                 } else {
                     GpuQK(qd + i * q.Count(1), kd + (i / group) * k.Count(1), qk, alignQ1, alignK1, q2, scale, k1 - q1);
@@ -1807,14 +1879,14 @@ bool FastllmCudaHalfAttention(
                                                        v2,
                                                        q1,
                                                        k1,
-                                                       &alpha,
+                                                       &one,
                                                        vd + (i / group) * (k1 * v2),
                                                        v2,
                                                        k1 * v2,
                                                        qk,
                                                        k1,
                                                        q1 * k1,
-                                                       &beta0,
+                                                       &beta,
                                                        od + i * (v2 * q1),
                                                        v2,
                                                        v2 * q1,
