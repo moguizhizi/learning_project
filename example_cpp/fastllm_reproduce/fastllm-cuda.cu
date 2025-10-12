@@ -1900,6 +1900,77 @@ bool FastllmCudaHalfAttention(
                     }
                 }
             } else {
+                status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                                   CUBLAS_OP_T,
+                                                   CUBLAS_OP_N,
+                                                   k1,
+                                                   q1,
+                                                   q2,
+                                                   &hscale,
+                                                   kd + (i / group) * (k1 * q2),
+                                                   q2,
+                                                   k1 * q2,
+                                                   qd + i * (q1 * q2),
+                                                   q2,
+                                                   q1 * q2,
+                                                   &beta,
+                                                   qk,
+                                                   k1,
+                                                   k1 * q1,
+                                                   1);
+
+                if (status != CUBLAS_STATUS_SUCCESS) {
+                    printf("status = %d\n", (int)status);
+                    printf("Error: cublas error during MatMulTransB in Attention operator.\n");
+                    throw("cublas error");
+                    exit(0);
+                }
+
+                if (batch == 1 && maskd == nullptr && maskType == 0) {
+                    CausalMask<256, half><<<q1, 256>>>(qk, __float2half(0), q1, k1, k1 - q1);
+                    FastllmSoftmaxKernelInner1WithCausalMask<128, half><<<q1, 128>>>(qk, qk, q1, k1, k1 - q1);
+                } else {
+                    if (maskd) {
+                        SimpleMask<256><<<q1 * k1 / 256 + 1, 256>>>(qk, maskd + i / (q0 / batch) * maskStride, __float2half(-10000), q1 * k1);
+                    }
+
+                    int outer = q1;
+                    if (k1 < 8) {
+                        FastllmSoftmaxKernelInner1<1><<<outer, 1>>>(qk, qk, outer, k1);
+                    } else if (k1 < 64) {
+                        FastllmSoftmaxKernelInner1<8><<<outer, 8>>>(qk, qk, outer, k1);
+                    } else if (k1 < 512) {
+                        FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(qk, qk, outer, k1);
+                    } else {
+                        FastllmSoftmaxKernelInner1<256><<<outer, 256>>>(qk, qk, outer, k1);
+                    }
+                }
+
+                status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                                   CUBLAS_OP_N,
+                                                   CUBLAS_OP_N,
+                                                   v2,
+                                                   q1,
+                                                   k1,
+                                                   &one,
+                                                   vd + (i / group) * (k1 * v2),
+                                                   v2,
+                                                   k1 * v2,
+                                                   qk,
+                                                   k1,
+                                                   q1 * k1,
+                                                   &beta,
+                                                   od + i * (v2 * q1),
+                                                   v2,
+                                                   v2 * q1,
+                                                   1);
+
+                if (status != CUBLAS_STATUS_SUCCESS) {
+                    printf("status = %d\n", (int)status);
+                    printf("Error: cublas error during MatMul in Attention operator.\n");
+                    throw("cublas error");
+                    exit(0);
+                }
             }
         }
         FastllmCudaFree(qk);
