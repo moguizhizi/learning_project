@@ -2054,6 +2054,114 @@ bool FastllmCudaHalfAttention(
     return true;
 }
 
+bool FastllmCudaBatchMatMul(const Data &input0,
+                            const Data &input1,
+                            Data &output,
+                            int input0Spatial,
+                            int input1Spatial,
+                            int outputSpatial,
+                            int input0Stride,
+                            int input1Stride,
+                            int batch,
+                            int n,
+                            int m,
+                            int k,
+                            float alpha) {
+
+    float *cudaInput0 = (float *)FastllmCudaPrepareInput(input0);
+    float *cudaInput1 = (float *)FastllmCudaPrepareInput(input1);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    float beta = 0;
+
+    auto fastllmCublasHandle = getFastllmCublasHandle();
+    cublasStatus_t status;
+
+    if (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) {
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           k,
+                                           n,
+                                           m,
+                                           &alpha,
+                                           cudaInput1,
+                                           input1Stride,
+                                           input1Spatial,
+                                           cudaInput0,
+                                           input0Stride,
+                                           input0Spatial,
+                                           &beta,
+                                           cudaOutput,
+                                           k,
+                                           k * n,
+                                           batch);
+
+    } else if (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16) {
+        half h_alpha = __float2half(alpha), h_beta = __float2half(beta);
+        status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           k,
+                                           n,
+                                           m,
+                                           &h_alpha,
+                                           (half *)cudaInput1,
+                                           input1Stride,
+                                           input1Spatial,
+                                           (half *)cudaInput0,
+                                           input0Stride,
+                                           input0Spatial,
+                                           &h_beta,
+                                           (half *)cudaOutput,
+                                           k,
+                                           k * n,
+                                           batch);
+
+    } else if (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT16) {
+        half h_alpha = __float2half(alpha), h_beta = __float2half(beta);
+        half *tempInput0 = (half *)FastllmCudaMalloc(input0.Count(0) * sizeof(half));
+        half *tempOutput = (half *)FastllmCudaMalloc(output.Count(0) * sizeof(half));
+        FastllmFloatToHalf(cudaInput0, tempInput0, input0.Count(0));
+
+        status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           cublasOperation_t::CUBLAS_OP_N,
+                                           k,
+                                           n,
+                                           m,
+                                           &h_alpha,
+                                           (half *)cudaInput1,
+                                           input1Stride,
+                                           input1Spatial,
+                                           tempInput0,
+                                           input0Stride,
+                                           input0Spatial,
+                                           &h_beta,
+                                           tempOutput,
+                                           k,
+                                           k * n,
+                                           batch);
+
+        FastllmHalfToFloat(tempOutput, cudaOutput, output.Count(0));
+        FastllmCudaFree(tempInput0);
+        FastllmCudaFree(tempOutput);
+    }
+
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        printf("status = %d\n", (int)status);
+        printf("%d %d %d\n", k, n, m);
+        printf("Error: cublas error in batch MatMul.\n");
+        throw("cublas error");
+        exit(0);
+    }
+
+    FastllmCudaFinishInput(input0, cudaInput0);
+    FastllmCudaFinishInput(input1, cudaInput1);
+    FastllmCudaFinishOutput(output, cudaOutput);
+
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

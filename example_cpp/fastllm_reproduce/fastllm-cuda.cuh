@@ -92,4 +92,17 @@ bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Dat
 void GpuQK(half *q, half *k, half *qk, int qlen, int klen, int dim, float scale, int base);
 bool FastllmCudaHalfAttention(
     const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
+bool FastllmCudaBatchMatMul(const Data &input0,
+                            const Data &input1,
+                            Data &output,
+                            int input0Spatial,
+                            int input1Spatial,
+                            int outputSpatial,
+                            int input0Stride,
+                            int input1Stride,
+                            int batch,
+                            int n,
+                            int m,
+                            int k,
+                            float alpha);
 cublasHandle_t getFastllmCublasHandle();
