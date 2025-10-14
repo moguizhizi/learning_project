@@ -254,7 +254,7 @@ __global__ void FastllmRotatePosition2DKernel(float *data,
     float va = data[id], vb = data[id + m / 4];
 
     data[id] = va * curCos - vb * curSin;
-    data[id + m / 4] = vb * curCos + va * curSin ;
+    data[id + m / 4] = vb * curCos + va * curSin;
 }
 
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
@@ -2293,6 +2293,27 @@ bool FastllmCudaBatchMatMulTransB(const Data &input0,
     FastllmCudaFinishInput(input0, cudaInput0);
     FastllmCudaFinishInput(input1, cudaInput1);
     FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
+bool FastllmCudaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim) {
+    float *cudaData = (float *)FastllmCudaPrepareInput(data);
+    float *cudaPositionIds = (float *)FastllmCudaPrepareInput(positionIds);
+    float *cudaSin = (float *)FastllmCudaPrepareInput(sinData);
+    float *cudaCos = (float *)FastllmCudaPrepareInput(cosData);
+
+    int outer = data.dims[0] * data.dims[1];
+    int spatial = data.Count(2);
+    int len = data.dims[0], bs = data.dims[1];
+    int n = data.dims[2], m = data.dims[3];
+    FastllmRotatePosition2DKernel<<<outer * 2 * n, std::min(rotaryDim, m / 4)>>>(
+        cudaData, cudaPositionIds, cudaSin, cudaCos, len, bs, spatial, n, m, (int)positionIds.dims.back(), (int)sinData.dims[1], rotaryDim);
+
+    FastllmCudaFinishInput(positionIds, cudaPositionIds);
+    FastllmCudaFinishInput(sinData, cudaSin);
+    FastllmCudaFinishInput(cosData, cudaCos);
+    FastllmCudaFinishOutput(data, cudaData);
+
     return true;
 }
 
