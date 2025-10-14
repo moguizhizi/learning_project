@@ -50,6 +50,18 @@ __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len);
 __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len);
 __global__ void GetCudaInfoKernel(int *infos);
 __global__ void InitBlockAtten(float *sum0, float *max0, float *sum1, float *max1, int len);
+__global__ void FastllmRotatePosition2DKernel(float *data,
+                                              float *positionIds,
+                                              float *sin,
+                                              float *cos,
+                                              int len,
+                                              int bs,
+                                              int spatial,
+                                              int n,
+                                              int m,
+                                              int partStride,
+                                              int sinCosStride,
+                                              int rotateDim);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
