@@ -155,4 +155,5 @@ bool FastllmCudaBatchMatMulTransB(const Data &input0,
                                   int k,
                                   float alpha);
 bool FastllmCudaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
+bool FastllmCudaNearlyRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 cublasHandle_t getFastllmCublasHandle();
