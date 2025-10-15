@@ -1014,6 +1014,22 @@ __global__ void AttnBlockUpdate(half *data, int n, int m, float *lastMax, float 
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmApplyLognAttnKernel(float *input, float *logn, float *pos, int b, int s, int spatial) {
+    int bs = blockIdx.x / s;
+    int seq = blockIdx.x % s;
+
+    int offset = (bs * s + seq) * spatial;
+    float currentInput = intput + offset;
+
+    int tid = threadIdx.x;
+
+    float v = logn[(int)pos[0] + seq];
+
+    for (int i = tid; i < spatial; i += THREAD_PER_BLOCK) {
+        currentInput[i] = currentInput[i] * v;
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
