@@ -182,4 +182,5 @@ bool FastllmCudaRotatePosition2D(Data &data, const Data &positionIds, const Data
 bool FastllmCudaNearlyRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaLlamaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaApplyLognAttn(Data &input, Data &lognAttn, Data &positionIds);
+bool FastllmCudaRepeatPenalty(Data &input, Data &penalty, Data &penaltyScale);
 cublasHandle_t getFastllmCublasHandle();
