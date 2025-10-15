@@ -2476,6 +2476,42 @@ bool FastllmCudaNearlyRotatePosition2D(Data &data, const Data &positionIds, cons
     return true;
 }
 
+bool FastllmCudaLlamaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim) {
+    float *cudaData = (float *)FastllmCudaPrepareInput(data);
+    float *cudaPositionIds = (float *)FastllmCudaPrepareInput(positionIds);
+    float *cudaSin = (float *)FastllmCudaPrepareInput(sinData);
+    float *cudaCos = (float *)FastllmCudaPrepareInput(cosData);
+
+    int outer = data.dims[0] * data.dims[1];
+    int spatial = data.Count(2);
+    int bs = data.dims[0], len = data.dims[1];
+    int n = data.dims[2], m = data.dims[3];
+
+    if (data.dataType == DataType::FLOAT32) {
+        FastllmLlamaRotatePosition2DKernel<<<outer * n, std::min(rotaryDim, m / 2)>>>(
+            cudaData, cudaPositionIds, cudaSin, cudaCos, len, bs, spatial, n, m, (int)positionIds.dims.back(), (int)sinData.dims[1], rotaryDim);
+    } else if (data.dataType == DataType::FLOAT16) {
+        FastllmLlamaRotatePosition2DKernel<<<outer * n, std::min(rotaryDim, m / 2)>>>((half *)cudaData,
+                                                                                      cudaPositionIds,
+                                                                                      cudaSin,
+                                                                                      cudaCos,
+                                                                                      len,
+                                                                                      bs,
+                                                                                      spatial,
+                                                                                      n,
+                                                                                      m,
+                                                                                      (int)positionIds.dims.back(),
+                                                                                      (int)sinData.dims[1],
+                                                                                      rotaryDim);
+    }
+
+    FastllmCudaFinishInput(positionIds, cudaPositionIds);
+    FastllmCudaFinishInput(sinData, cudaSin);
+    FastllmCudaFinishInput(cosData, cudaCos);
+    FastllmCudaFinishOutput(data, cudaData);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
