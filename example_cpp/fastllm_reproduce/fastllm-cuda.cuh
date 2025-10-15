@@ -181,4 +181,5 @@ bool FastllmCudaBatchMatMulTransB(const Data &input0,
 bool FastllmCudaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaNearlyRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaLlamaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
+bool FastllmCudaApplyLognAttn(Data &input, Data &lognAttn, Data &positionIds);
 cublasHandle_t getFastllmCublasHandle();

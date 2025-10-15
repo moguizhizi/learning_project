@@ -2528,6 +2528,18 @@ bool FastllmCudaLlamaRotatePosition2D(Data &data, const Data &positionIds, const
     return true;
 }
 
+bool FastllmCudaApplyLognAttn(Data &input, Data &lognAttn, Data &positionIds) {
+    float *inputData = (float *)input.cudaData;
+    float *lognData = (float *)lognAttn.cudaData;
+    float *posData = (float *)positionIds.cudaData;
+    int batch = input.dims[0];
+    int seqLen = input.dims[1];
+    int spatial = input.Count(2);
+
+    FastllmApplyLognAttnKernel<256><<<batch * seqLen, 256>>>(inputData, lognData, posData, batch, seqLen, spatial);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
