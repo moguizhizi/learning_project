@@ -66,3 +66,7 @@ class CudaMulOp : BaseOperator {
 class CudaApplyLognAttnOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaLlamaRotatePosition2DOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
