@@ -74,3 +74,7 @@ class CudaLlamaRotatePosition2DOp : BaseOperator {
 class CudaNearlyRotatePosition2DOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaRotatePosition2DOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
