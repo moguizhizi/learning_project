@@ -2559,6 +2559,17 @@ bool FastllmCudaApplyLognAttn(Data &input, Data &lognAttn, Data &positionIds) {
     return true;
 }
 
+bool FastllmCudaRepeatPenalty(Data &input, Data &penalty, Data &penaltyScale) {
+    float *inputData = (float *)input.cudaData;
+    float *penaltyData = (float *)penalty.cudaData;
+    float *penaltyScaleData = (float *)penaltyScale.cudaData;
+    int batch = penalty.dims[0], tokens = penalty.dims[1];
+    int vocabs = input.dims.back();
+
+    FastllmRepeatPenaltyKernel<64><<<batch, 64>>>(inputData, penaltyData, penaltyScaleData, tokens, vocabs);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
