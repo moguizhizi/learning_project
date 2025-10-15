@@ -70,3 +70,7 @@ class CudaApplyLognAttnOp : BaseOperator {
 class CudaLlamaRotatePosition2DOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaNearlyRotatePosition2DOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};

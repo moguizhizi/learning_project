@@ -249,3 +249,16 @@ void CudaLlamaRotatePosition2DOp::Run(const std::string &opType, const DataDict 
 
     FastllmCudaLlamaRotatePosition2D(data, positionIds, sinData, cosData, rotaryDim);
 }
+
+void CudaNearlyRotatePosition2DOp::Run(const std::string &opType,
+                                       const DataDict &datas,
+                                       const FloatDict &floatParams,
+                                       const IntDict &intParams) {
+    Data &data = *(datas.find("input")->second);
+    Data &positionIds = *(datas.find("positionIds")->second);
+    Data &sinData = *(datas.find("sin")->second);
+    Data &cosData = *(datas.find("cos")->second);
+    int rotaryDim = intParams.find("rotaryDim") != intParams.end() ? intParams.find("rotaryDim")->second : 64;
+
+    FastllmCudaNearlyRotatePosition2D(data, positionIds, sinData, cosData, rotaryDim);
+}
