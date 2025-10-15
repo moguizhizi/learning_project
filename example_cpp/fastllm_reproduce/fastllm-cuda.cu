@@ -1030,6 +1030,25 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmApplyLognAttnKernel(float
     }
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void FastllmRepeatPenaltyKernel(float *input, float *penalty, float *penaltyScaleData, int tokens, int vocabs) {
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+    int input_offset = bid * vocabs;
+    int penalty_offset = bid * tokens;
+    float scale = penaltyScaleData[bid];
+
+    input = input + input_offset;
+    penalty = penalty + penalty_offset;
+
+    for (int i = tid; i < tokens; i += THREAD_PER_BLOCK) {
+        int token = (int)(penalty[i] + 1e-6);
+        if (token >= 0) {
+            input[token] = input[token] < 0 ? input[token] * scale : input[token] / scale;
+        }
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
