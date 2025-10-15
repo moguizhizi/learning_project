@@ -257,6 +257,38 @@ __global__ void FastllmRotatePosition2DKernel(float *data,
     data[id + m / 4] = vb * curCos + va * curSin;
 }
 
+__global__ void FastllmNearlyRotatePosition2DKernel(float *data,
+                                                    float *positionIds,
+                                                    float *sin,
+                                                    float *cos,
+                                                    int len,
+                                                    int bs,
+                                                    int spatial,
+                                                    int n,
+                                                    int m,
+                                                    int partStride,
+                                                    int sinCosStride,
+                                                    int rotateDim) {
+    int o = blockIdx.x / n;
+    int l = o / bs;
+    int b = o % bs;
+    int part = 0;
+    int index = (int)positionIds[(b * 2 + 0) * partStride + l];
+    int j = threadIdx.x;
+
+    float curSin = sin[index * sinCosStride + j];
+    float curCos = cos[index * sinCosStride + j];
+
+    int i = blockIdx.x % n;
+
+    int id = o * spatial + i * m + j * 2;
+
+    float va = data[id], vb = data[id + 1];
+
+    data[id] = va * curCos - vb * curSin;
+    data[id + 1] = vb * curCos + va * curSin;
+}
+
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
     input += blockIdx.x;
     output += blockIdx.x * embSize;
