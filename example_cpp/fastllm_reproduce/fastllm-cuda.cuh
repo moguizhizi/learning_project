@@ -74,6 +74,18 @@ __global__ void FastllmNearlyRotatePosition2DKernel(float *data,
                                                     int partStride,
                                                     int sinCosStride,
                                                     int rotateDim);
+__global__ void FastllmNearlyRotatePosition2DKernel(half *data,
+                                                    float *positionIds,
+                                                    float *sin,
+                                                    float *cos,
+                                                    int len,
+                                                    int bs,
+                                                    int spatial,
+                                                    int n,
+                                                    int m,
+                                                    int partStride,
+                                                    int sinCosStride,
+                                                    int rotateDim);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
