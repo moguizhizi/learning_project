@@ -231,3 +231,11 @@ void CudaMulOp::Run(const std::string &opType, const DataDict &datas, const Floa
                     "Mul error: Data's type should be float32 or float16.\n");
     FastllmCudaMul(input, v, output);
 }
+
+void CudaApplyLognAttnOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &lognAttn = *(datas.find("lognAttn")->second);
+    Data &positionIds = *(datas.find("positionIds")->second);
+
+    FastllmCudaApplyLognAttn(input, lognAttn, positionIds);
+}
