@@ -239,3 +239,13 @@ void CudaApplyLognAttnOp::Run(const std::string &opType, const DataDict &datas, 
 
     FastllmCudaApplyLognAttn(input, lognAttn, positionIds);
 }
+
+void CudaLlamaRotatePosition2DOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &data = *(datas.find("input")->second);
+    Data &positionIds = *(datas.find("positionIds")->second);
+    Data &sinData = *(datas.find("sin")->second);
+    Data &cosData = *(datas.find("cos")->second);
+    int rotaryDim = intParams.find("rotaryDim") != intParams.end() ? intParams.find("rotaryDim")->second : 128;
+
+    FastllmCudaLlamaRotatePosition2D(data, positionIds, sinData, cosData, rotaryDim);
+}
