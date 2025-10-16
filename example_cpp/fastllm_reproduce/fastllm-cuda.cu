@@ -23,6 +23,9 @@ void showError(cudaError_t result, char const *const message, const char *const 
     }
 }
 
+#define FETCH_FLOAT4(pointer) (reinterpret_cast<float4 *>(&(pointer))[0])
+#define FETCH_FLOAT2(pointer) (reinterpret_cast<float2 *>(&(pointer))[0])
+
 TopKFunctor::TopKFunctor(float *cudaInput, float *cudaOutput, int channels, int topk) {
     this->cudaInput = cudaInput;
     this->cudaOutput = cudaOutput;
@@ -1118,6 +1121,69 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmMatMulTransBBatchKernel(u
             for (int i = 0; taska * pera + i < n && i < pera; i++) {
                 for (int j = 0; taskb * perb + j < k && j < perb; j++) {
                     output[(taska * pera + i) * k + taskb * perb + j] = curc[i][j] * alpha;
+                }
+            }
+        }
+    }
+}
+
+template <int THREAD_PER_BLOCK> __global__ void FastllmHalfMatMulTransBBatchKernel(uint8_t **pointer, float alpha) {
+    int id = blockIdx.x;
+    half *input0 = (half *)pointer[id * 8 + 0];
+    half *input1 = (half *)pointer[id * 8 + 1];
+    half *output = (half *)pointer[id * 8 + 2];
+    int n = (int)((size_t)pointer[id * 8 + 3]);
+    int m = (int)((size_t)pointer[id * 8 + 4]);
+    int k = (int)((size_t)pointer[id * 8 + 5]);
+    int input0Stride = (int)((size_t)pointer[id * 8 + 6]);
+    int input1Stride = (int)((size_t)pointer[id * 8 + 7]);
+
+    int tid = threadIdx.x;
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+
+#endif
+    int pera = 4, perb = 4;
+    half cura[4][4], curb[4][4];
+    float curc[4][4];
+    int cnta = (n - 1) / pera + 1, cntb = (k - 1) / perb + 1;
+    for (int taskId = tid; taskId < cnta * cntb; taskId += THREAD_PER_BLOCK) {
+        int taska = taskId / cntb, taskb = taskId % cntb;
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                curc[i][j] = 0.0f;
+            }
+        }
+        for (int l = 0; l < m; l += 4) {
+            for (int a = taska * pera; a < (taska + 1) * pera && a < n; a++) {
+                FETCH_FLOAT2(cura[a - taska * pera]) = FETCH_FLOAT2(input0[a * input0Stride + l]);
+            }
+            for (int b = taskb * perb; b < (taskb + 1) * perb && b < k; b++) {
+                FETCH_FLOAT2(curb[b - taskb * perb]) = FETCH_FLOAT2(input1[b * input1Stride + l]);
+            }
+
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+#pragma unroll
+                    for (int k = 0; k < 4; k++) {
+                        curc[i][j] += (float)cura[i][k] * (float)curb[j][k];
+                    }
+                }
+            }
+        }
+
+        if ((taska + 1) * pera <= n && (taskb + 1) * perb <= k) {
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+#pragma unroll
+                for (int j = 0; j < 4; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = (half)(curc[i][j] * alpha);
+                }
+            }
+        } else {
+            for (int i = 0; i < pera && taska * pera + i < n; i++) {
+                for (int j = 0; j < perb && taskb * perb + j < k; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = (half)(curc[i][j] * alpha);
                 }
             }
         }
