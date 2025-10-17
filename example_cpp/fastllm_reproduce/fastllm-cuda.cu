@@ -1528,6 +1528,35 @@ template <typename T> bool DoFastllmCudaAttentionBatch(Data **q, Data **k, Data 
     } else {
         FastllmSoftmaxKernelBatchInner1<T, 128><<<batch * outer, 128>>>(pointers, outer);
     }
+
+    for (int b = 0; b < batch; b++) {
+        for (int i = 0; i < k0; i++) {
+            cpuPointers[(b * k0 + i) * 8 + 0] = (uint8_t *)qk[b] + i * group * q[b]->dims[1] * k[b]->dims[1] * sizeof(T);
+            cpuPointers[(b * k0 + i) * 8 + 1] = (uint8_t *)v[b]->cudaData + i * v[b]->strides[0] * sizeof(T);
+            cpuPointers[(b * k0 + i) * 8 + 2] = (uint8_t *)output[b]->cudaData + i * group * q[b]->dims[1] * v[b]->dims[2] * sizeof(T);
+            cpuPointers[(b * k0 + i) * 8 + 3] = (uint8_t *)(size_t)(group * q[b]->dims[1]);
+            cpuPointers[(b * k0 + i) * 8 + 4] = (uint8_t *)(size_t)k[b]->dims[1];
+            cpuPointers[(b * k0 + i) * 8 + 5] = (uint8_t *)(size_t)v[b]->dims[2];
+            cpuPointers[(b * k0 + i) * 8 + 6] = (uint8_t *)(size_t)k[b]->dims[1];
+            cpuPointers[(b * k0 + i) * 8 + 7] = (uint8_t *)(size_t)v[b]->strides[1];
+        }
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * batch * k0 * 8, cudaMemcpyHostToDevice);
+
+    if (typeid(T) == typeid(half)) {
+        FastllmHalfMatMulKernel<128><<<batch * k0, 128>>>(pointers, 1.0f);
+    } else {
+        FastllmMatMulKernel<128><<<batch * k0, 128>>>(pointers, 1.0f);
+    }
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+
+    FastllmCudaFree(mem);
+    delete[] qk;
+
+    DeviceSync();
+    return true;
 }
 
 CudaInfos *cudaInfos = nullptr;
