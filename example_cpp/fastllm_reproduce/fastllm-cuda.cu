@@ -1509,6 +1509,25 @@ template <typename T> bool DoFastllmCudaAttentionBatch(Data **q, Data **k, Data 
     } else {
         FastllmMatMulTransBBatchKernel<128><<<batch * k0, 128>>>(pointers, scale);
     }
+
+    int channels = 0;
+    int maxChannels = -1;
+    int outer = q[0]->dims[0] * q[0]->dims[1];
+    for (int b = 0; b < batch; b++) {
+        channels = k[b]->dims[1];
+        cpuPointers[b * 2 + 0] = (uint8_t *)qk[b];
+        cpuPointers[b * 2 + 1] = (uint8_t *)((size_t)channels);
+        maxChannels = std::max(maxChannels, channels)
+    }
+
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * batch * 2, cudaMemcpyKind::cudaMemcpyHostToDevice);
+    if (maxChannels < 128) {
+        FastllmSoftmaxKernelBatchInner1<T, 32><<<batch * outer, 32>>>(pointers, outer);
+    } else if (maxChannels < 512) {
+        FastllmSoftmaxKernelBatchInner1<T, 64><<<batch * outer, 64>>>(pointers, outer);
+    } else {
+        FastllmSoftmaxKernelBatchInner1<T, 128><<<batch * outer, 128>>>(pointers, outer);
+    }
 }
 
 CudaInfos *cudaInfos = nullptr;
