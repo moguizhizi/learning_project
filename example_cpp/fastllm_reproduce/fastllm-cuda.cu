@@ -1473,6 +1473,44 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmHalfMatMulKernel(uint8_t 
     */
 }
 
+template <typename T> bool DoFastllmCudaAttentionBatch(Data **q, Data **k, Data **v, Data **mask, Data **output, int group, float scale, int batch) {
+    int k0 = k[0]->dims[0];
+
+    size_t memSum = 0;
+    for (int b = 0; b < batch; b++) {
+        memSum += q[b]->dims[0] * q[b]->dims[1] * k[b]->dims[1];
+    }
+
+    T *mem = (T *)FastllmCudaMalloc(memSum * sizeof(T));
+    memSum = 0;
+    T **qk = new T *[batch];
+    for (int b = 0; b < batch; b++) {
+        qk[b] = mem + memSum;
+        memSum += q[b]->dims[0] * q[b]->dims[1] * k[b]->dims[1];
+    }
+
+    uint8_t **cpuPointers = new uint8_t *[batch * k0 * 8];
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(batch * k0 * 8 * sizeof(uint8_t *));
+    for (int b = 0; b < batch; b++) {
+        for (int i = 0; i < k0; i++) {
+            cpuPointers[b * k0 + i + 0] = (uint8_t *)(q[b]->cudaData + i * group * q[b]->dims[1] * q[b]->dims[2] * sizeof(T));
+            cpuPointers[b * k0 + i + 1] = (uint8_t *)(k[b]->cudaData + i * k[b]->dims[1] * k[b]->dims[2] * sizeof(T));
+            cpuPointers[b * k0 + i + 2] = (uint8_t *)(qk[b] + i * group * q[b]->dims[1] * k[b]->dims[1] * sizeof(T));
+            cpuPointers[b * k0 + i + 3] = (uint8_t *)((size_t)group * q[b]->dims[1]);
+            cpuPointers[b * k0 + i + 4] = (uint8_t *)((size_t)q[b]->dims[2]);
+            cpuPointers[b * k0 + i + 5] = (uint8_t *)((size_t)k[b]->dims[1]);
+            cpuPointers[b * k0 + i + 6] = (uint8_t *)((size_t)q[b]->strides[1]);
+            cpuPointers[b * k0 + i + 7] = (uint8_t *)((size_t)k[b]->strides[1]);
+        }
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * batch * k0 * 8, cudaMemcpyKind::cudaMemcpyHostToDevice);
+    if (typeid(T) == typeid(half)) {
+        FastllmHalfMatMulTransBBatchKernel<128><<<batch * k0, 128>>>(pointers, scale);
+    } else {
+        FastllmMatMulTransBBatchKernel<128><<<batch * k0, 128>>>(pointers, scale);
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
