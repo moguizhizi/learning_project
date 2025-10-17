@@ -1330,6 +1330,149 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmMatMulKernel(uint8_t **po
     */
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmHalfMatMulKernel(uint8_t **pointer, float alpha) {
+    int id = blockIdx.x;
+    half *input0 = (half *)pointer[id * 8 + 0];
+    half *input1 = (half *)pointer[id * 8 + 1];
+    half *output = (half *)pointer[id * 8 + 2];
+    int n = (int)((size_t)pointer[id * 8 + 3]);
+    int m = (int)((size_t)pointer[id * 8 + 4]);
+    int k = (int)((size_t)pointer[id * 8 + 5]);
+    int input0Stride = (int)((size_t)pointer[id * 8 + 6]);
+    int input1Stride = (int)((size_t)pointer[id * 8 + 7]);
+    int tid = threadIdx.x;
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+    if (k == 128) {
+        int wid = tid >> 5;
+        int perN = 8, perM = 128;
+        for (int i = 0; i < n; i++) {
+            output[i * k + tid] = (half)0;
+        }
+
+        __shared__ half curA[8][128];
+        __shared__ float curC[8][128];
+
+        for (int stN = 0; stN < n; stN += perN) {
+            int endN = min(stN + perN, n);
+            wmma::fragment<wmma::accumulator, 8, 32, 16, float> frag_c;
+            wmma::fill_fragment(frag_c, 0.0);
+
+            for (int stM = 0; stM < m; stM += perM) {
+                int endM = min(stM + perM, m);
+                if (stM + tid < m) {
+                    for (int i = 0; stN + i < endN; i++) {
+                        curA[i][tid] = input0[(stN + i) * input0Stride + stM + tid];
+                    }
+                } else {
+                    for (int i = 0; stN + i < endN; i++) {
+                        curA[i][tid] = (half)0.0;
+                    }
+                }
+
+                wmma::fragment<wmma::matrix_a, 8, 32, 16, half, wmma::row_major> frag_a[8];
+                wmma::fragment<wmma::matrix_b, 8, 32, 16, half, wmma::row_major> frag_b[8];
+                __syncthreads();
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::load_matrix_sync(frag_a[j], &curA[0][16 * j], 128);
+                }
+                __syncthreads();
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::load_matrix_sync(frag_b[j], &input1[(stM + 16 * j) * input1Stride + wid * 32], input1Stride);
+                }
+                __syncthreads();
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::mma_sync(frag_c, frag_a[j], frag_b[j], frag_c);
+                }
+                __syncthreads();
+            }
+            wmma::store_matrix_sync(&curC[0][wid * 32], frag_c, 128, wmma::mem_row_major);
+            __syncthreads();
+
+            for (int i = 0; stN + i < endN; i++) {
+                output[(stN + i) * k + tid] = (half)((float)output[(stN + i) * k + tid] + (float)curC[i][tid] * alpha);
+            }
+            __syncthreads();
+        }
+        return;
+    }
+#endif
+    int pera = 4, perb = 4;
+    float cura[4][4], curb[4][4], curc[4][4];
+    int cnta = (n - 1) / pera + 1, cntb = (k - 1) / perb + 1;
+    for (int taskId = tid; taskId < cnta * cntb; taskId += THREAD_PER_BLOCK) {
+        int taska = taskId / cntb, taskb = taskId % cntb;
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                cura[i][j] = 0;
+                curb[i][j] = 0;
+                curc[i][j] = 0;
+            }
+        }
+
+        for (int l = 0; l < m; l += 4) {
+            for (int a = taska * pera; a < (taska + 1) * pera && a < n; a++) {
+#pragma unroll
+                for (int x = 0; x < 4; x++) {
+                    cura[a - taska * pera][x] = (l + x < m ? (float)input0[a * input0Stride + l + x] : 0.f);
+                }
+            }
+            for (int b = taskb * perb; b < (taskb + 1) * perb && b < k; b++) {
+#pragma unroll
+                for (int x = 0; x < 4; x++) {
+                    curb[b - taskb * perb][x] = (l + x < m ? (float)input1[(l + x) * input1Stride + b] : 0.f);
+                }
+            }
+
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+#pragma unroll
+                for (int j = 0; j < 4; j++) {
+#pragma unroll
+                    for (int k = 0; k < 4; k++) {
+                        curc[i][j] += cura[i][k] * curb[j][k];
+                    }
+                }
+            }
+        }
+
+        if ((taska + 1) * pera <= n && (taskb + 1) * perb <= k) {
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+#pragma unroll
+                for (int j = 0; j < 4; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = (half)(curc[i][j] * alpha);
+                }
+            }
+        } else {
+            for (int i = 0; i < pera && taska * pera + i < n; i++) {
+                for (int j = 0; j < perb && taskb * perb + j < k; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = (half)(curc[i][j] * alpha);
+                }
+            }
+        }
+    }
+    /*
+        for (int i = 0; i < n; i++) {
+            half *curInput0 = input0 + i * input0Stride;
+            for (int j = tid; j < k; j += THREAD_PER_BLOCK) {
+                half *curInput1 = input1 + j;
+                float sum = 0.0;
+                for (int l = 0; l < m; l++) {
+                    sum += (float)curInput0[l] * (float)curInput1[l * input1Stride];
+                }
+                output[i * k + j] = (half)(sum * alpha);
+            }
+        }
+    */
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
