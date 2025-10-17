@@ -1141,6 +1141,62 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmHalfMatMulTransBBatchKern
     int tid = threadIdx.x;
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+    if (m == 128) {
+        int wid = threadIdx.x >> 5;
+        int perN = 8, perK = 128;
+
+        int BN = 8, BK = 128;
+
+        half h_alpha = __float2half(alpha);
+
+        __shared__ float cur[BN][BK];
+
+        for (int stN = 0; stN < n; stN += perN) {
+            int endN = std::min(n, stN + perN);
+            for (int stK = 0; stK < k; stK += perK) {
+                int endK = std::min(n, stK + perK);
+                wmma::fragment<wmma::matrix_a, 8, 32, 16, half, wmma::row_major> frag_a[8];
+                wmma::fragment<wmma::matrix_b, 8, 32, 16, half, wmma::col_major> frag_b[8];
+                wmma::fragment<wmma::accumulator, 8, 32, 16, float> frag_c;
+
+                wmma::fill_fragment(frag_c, 0.0);
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::load_matrix_sync(frag_a[j], &input0[(stN)*input0Stride + j * 16], input0Stride);
+                }
+
+                __syncthreads();
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::load_matrix_sync(frag_b[j], &input1[(stK + wid * 32) * input1Stride + j * 16], input1Stride);
+                }
+
+                __syncthreads();
+
+#pragma unroll
+                for (int j = 0; j < 8; j++) {
+                    wmma::mma_sync(frag_c, frag_a[j], frag_b[j], frag_c);
+                }
+
+                __syncthreads();
+
+                wmma::store_matrix_sync(&cur[0][wid * 32], frag_c, BK, wmma::mem_row_major);
+
+                __syncthreads();
+
+                if (stk + tid < endK) {
+                    for (int i = 0; stN + i < endN; i++) {
+                        output[(stN + i) * k + stK + tid] = (half)cur[i][tid] * h_alpha;
+                    }
+                }
+
+                __syncthreads();
+            }
+        }
+        return;
+    }
 
 #endif
     int pera = 4, perb = 4;
