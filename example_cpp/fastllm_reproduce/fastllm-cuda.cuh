@@ -185,4 +185,5 @@ bool FastllmCudaApplyLognAttn(Data &input, Data &lognAttn, Data &positionIds);
 bool FastllmCudaRepeatPenalty(Data &input, Data &penalty, Data &penaltyScale);
 bool FastllmCudaBatchMatMulBatch(
     void **i0s, void **i1s, void **os, int *ns, int *ms, int *ks, int *i0Strides, int *i1Strides, float alpha, int batch);
+bool FastllmCudaAttentionBatch(Data **q, Data **k, Data **v, Data **mask, Data **output, int group, float scale, int batch);
 cublasHandle_t getFastllmCublasHandle();

@@ -3102,6 +3102,18 @@ bool FastllmCudaBatchMatMulBatch(
     return true;
 }
 
+bool FastllmCudaAttentionBatch(Data **q, Data **k, Data **v, Data **mask, Data **output, int group, float scale, int batch) {
+    if (q[0]->dataType == DataType::FLOAT32) {
+        return DoFastllmCudaAttentionBatch<float>(q, k, v, mask, output, group, scale, batch);
+    } else if (q[0]->dataType == DataType::FLOAT16) {
+        return DoFastllmCudaAttentionBatch<half>(q, k, v, mask, output, group, scale, batch);
+    } else {
+        printf("Error: attention datatype error.\n");
+        throw("Error: attention datatype error.");
+        exit(0);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
