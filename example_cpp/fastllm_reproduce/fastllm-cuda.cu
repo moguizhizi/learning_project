@@ -1246,6 +1246,90 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmHalfMatMulTransBBatchKern
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmMatMulKernel(uint8_t **pointer, float alpha) {
+    int id = blockIdx.x;
+    float *input0 = (float *)pointer[id * 8 + 0];
+    float *input1 = (float *)pointer[id * 8 + 1];
+    float *output = (float *)pointer[id * 8 + 2];
+    int n = (int)((size_t)pointer[id * 8 + 3]);
+    int m = (int)((size_t)pointer[id * 8 + 4]);
+    int k = (int)((size_t)pointer[id * 8 + 5]);
+    int input0Stride = (int)((size_t)pointer[id * 8 + 6]);
+    int input1Stride = (int)((size_t)pointer[id * 8 + 7]);
+
+    int tid = threadIdx.x;
+    int pera = 4, perb = 4;
+    float cura[4][4], curb[4][4], curc[4][4];
+    int cnta = (n - 1) / pera + 1, cntb = (k - 1) / perb + 1;
+    for (int taskId = tid; taskId < cnta * cntb; taskId += THREAD_PER_BLOCK) {
+        int taska = taskId / cntb, taskb = taskId % cntb;
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                cura[i][j] = 0;
+                curb[i][j] = 0;
+                curc[i][j] = 0;
+            }
+        }
+
+        for (int l = 0; l < m; l += 4) {
+            for (int a = taska * pera; a < (taska + 1) * pera && a < n; a++) {
+#pragma unroll
+                for (int x = 0; x < 4; x++) {
+                    cura[a - taska * pera][x] = l + x < m ? input0[a * input0Stride + l + x] : 0;
+                }
+            }
+            for (int b = taskb * perb; b < (taskb + 1) * perb && b < k; b++) {
+#pragma unroll
+                for (int x = 0; x < 4; x++) {
+                    curb[b - taskb * perb][x] = l + x < m ? input1[(l + x) * input1Stride + b] : 0;
+                }
+            }
+
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+#pragma unroll
+                for (int j = 0; j < 4; j++) {
+#pragma unroll
+                    for (int k = 0; k < 4; k++) {
+                        curc[i][j] += cura[i][k] * curb[j][k];
+                    }
+                }
+            }
+        }
+
+        if ((taska + 1) * pera <= n && (taskb + 1) * perb <= k) {
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+#pragma unroll
+                for (int j = 0; j < 4; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = curc[i][j] * alpha;
+                }
+            }
+        } else {
+            for (int i = 0; i < pera && taska * pera + i < n; i++) {
+                for (int j = 0; j < perb && taskb * perb + j < k; j++) {
+                    output[(taska * pera + i) * k + (taskb * perb + j)] = curc[i][j] * alpha;
+                }
+            }
+        }
+    }
+
+    /*
+        //int tid = threadIdx.x;
+        for (int i = 0; i < n; i++) {
+            float *curInput0 = input0 + i * input0Stride;
+            for (int j = tid; j < k; j += THREAD_PER_BLOCK) {
+                float *curInput1 = input1 + j;
+                float sum = 0.0;
+                for (int l = 0; l < m; l++) {
+                    sum += curInput0[l] * curInput1[l * input1Stride];
+                }
+                output[i * k + j] = sum * alpha;
+            }
+        }
+    */
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
