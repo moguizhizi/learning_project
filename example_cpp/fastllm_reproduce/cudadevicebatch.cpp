@@ -55,6 +55,22 @@ void CudaSplitBatchOp::Reshape(const std::string &opType, const DataDict &datas,
     }
 }
 
+void CudaMulBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+
+    float v = floatParams.find("v") != floatParams.end() ? floatParams.find("v")->second : 1.0;
+    int batch = intParams.find("input___batch")->second;
+    if (outputs[0]->Count(0) > outputs[0]->expansionSize) {
+        for (int i = 0; i < batch; i++) {
+            outputs[i]->Allocate();
+            AssertInFastLLM(inputs[i]->dataType == DataType::FLOAT32, "Mul error: Data's type should be float32.\n");
+        }
+    }
+
+    FastllmCudaMulBatch(inputs, v, batch, outputs);
+}
+
 void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **outputs, int group, float scale, int batch) {
     long long aveLen = 0;
     for (int i = 0; i < batch; i++) {
