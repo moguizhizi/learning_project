@@ -3127,6 +3127,25 @@ bool FastllmCudaAttentionBatch(Data **q, Data **k, Data **v, Data **mask, Data *
     }
 }
 
+bool FastllmCudaSplitBatch(Data &input, Data **outputs, int axis) {
+    int part = input.dims[axis];
+    int outer = input.Count(0) / input.Count(axis);
+    int inner = input.strides[axis];
+
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(part * sizeof(uint8_t *));
+    uint8_t **cpuPointers = new uint8_t *[part];
+    for (int i = 0; i < part; i++) {
+        cpuPointers[i] = (uint8_t *)outputs[i]->cudaData;
+    }
+    cudaMemcpy(pointers, cpuPointers, part * sizeof(uint8_t *), cudaMemcpyKind::cudaMemcpyHostToDevice);
+    FastllmSplitBatchKernel<256><<<outer * part, 256>>>((uint8_t *)input.cudaData, pointers, outer, part, inner);
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
