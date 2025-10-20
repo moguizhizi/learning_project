@@ -3208,6 +3208,28 @@ bool FastllmCudaMulBatch(Data **inputs, float v, int batch, Data **outputs) {
     return true;
 }
 
+bool FastllmCudaBatchMatMulTransBBatch(
+    void **i0s, void **i1s, void **os, int *ns, int *ms, int *ks, int *i0Strides, int *i1Strides, float alpha, int batch) {
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(sizeof(uint8_t *) * batch * 8);
+    uint8_t **cpuPointers = new uint8_t *[batch * 8];
+    for (int i = 0; i < batch; i++) {
+        cpuPointers[i * 8 + 0] = (uint8_t *)i0s[i];
+        cpuPointers[i * 8 + 1] = (uint8_t *)i1s[i];
+        cpuPointers[i * 8 + 2] = (uint8_t *)os[i];
+        cpuPointers[i * 8 + 3] = (uint8_t *)(size_t)ns[i];
+        cpuPointers[i * 8 + 4] = (uint8_t *)(size_t)ms[i];
+        cpuPointers[i * 8 + 5] = (uint8_t *)(size_t)ks[i];
+        cpuPointers[i * 8 + 6] = (uint8_t *)(size_t)i0Strides[i];
+        cpuPointers[i * 8 + 7] = (uint8_t *)(size_t)i1Strides[i];
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * batch * 8, cudaMemcpyHostToDevice);
+    FastllmMatMulTransBBatchKernel<128><<<batch, 128>>>(pointers, alpha);
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

@@ -189,4 +189,6 @@ bool FastllmCudaAttentionBatch(Data **q, Data **k, Data **v, Data **mask, Data *
 bool FastllmCudaSplitBatch(Data &input, Data **outputs, int axis);
 bool FastllmCudaCatBatch(Data **inputs, Data &output, int axis);
 bool FastllmCudaMulBatch(Data **inputs, float v, int batch, Data **outputs);
+bool FastllmCudaBatchMatMulTransBBatch(
+    void **i0s, void **i1s, void **os, int *ns, int *ms, int *ks, int *i0Strides, int *i1Strides, float alpha, int batch);
 cublasHandle_t getFastllmCublasHandle();
