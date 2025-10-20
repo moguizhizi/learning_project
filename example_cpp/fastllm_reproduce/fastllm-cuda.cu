@@ -3190,6 +3190,24 @@ bool FastllmCudaCatBatch(Data **inputs, Data &output, int axis) {
     return true;
 }
 
+bool FastllmCudaMulBatch(Data **inputs, float v, int batch, Data **outputs) {
+    float **pointers = (float **)FastllmCudaMalloc(sizeof(float *) * batch * 3);
+    float **cpuPointers = new float *[batch * 3];
+    for (int i = 0; i < batch; i++) {
+        cpuPointers[i] = (float *)inputs[i]->cudaData;
+        cpuPointers[i + batch] = (float *)outputs[i]->cudaData;
+        cpuPointers[i + batch * 2] = (float *)(inputs[i]->Count(0));
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(float *) * batch * 3, cudaMemcpyHostToDevice);
+    FastllmMulBatchKernel<256><<<batch, 256>>>(pointers, batch, v);
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
