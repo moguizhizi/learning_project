@@ -1,6 +1,31 @@
 #include "cudadevicebatch.h"
+#include "cudadevice.h"
 #include "fastllm-cuda.cuh"
 #include "file_utils.hpp"
+
+void CudaCatBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = inputs[0]->dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int part = intParams.find("input___batch")->second;
+    std::vector<int> dims = inputs[0]->dims;
+    dims[axis] = part;
+    output.dataType = inputs[0]->dataType;
+    output.Resize(dims);
+}
+
+void CudaCatBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = inputs[0]->dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int part = intParams.find("input___batch")->second;
+    output.Allocate();
+    FastllmCudaCatBatch(inputs, output, axis);
+}
 
 void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **outputs, int group, float scale, int batch) {
     long long aveLen = 0;
