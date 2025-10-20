@@ -1584,6 +1584,15 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmCatBatchKernel(uint8_t **
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmMulBatchKernel(float **pointer, int batch, float v) {
+    float *input = pointer[blockIdx.x];
+    float *output = pointer[blockIdx.x + batch];
+    int len = (int)((unsigned long long)pointer[blockIdx.x + batch * 2]);
+    for (int i = threadIdx.x; i < len; i += THREAD_PER_BLOCK) {
+        output[i] = input[i] * v;
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
