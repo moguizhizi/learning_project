@@ -3158,6 +3158,29 @@ bool FastllmCudaSplitBatch(Data &input, Data **outputs, int axis) {
     return true;
 }
 
+bool FastllmCudaCatBatch(Data **inputs, Data &output, int axis) {
+    int part = output.dims[axis];
+    int outer = output.Count(0) / output.Count(axis);
+    int inputStride = inputs[0]->Count(axis);
+    int outputStride = output.Count(axis);
+    int inner = output.strides[axis];
+    int unitSize = output.unitSize;
+
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(sizeof(uint8_t *) * part);
+    uint8_t **cpuPointers = new uint8_t *[part];
+    for (int i = 0; i < part; i++) {
+        cpuPointers[i] = (uint8_t *)inputs[i]->cudaData;
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * part, cudaMemcpyHostToDevice);
+    FastllmCatBatchKernel<256><<<part * outer, 256>>>(pointers, (uint8_t *)output.cudaData, outer, part, inner * unitSize);
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+
+    DeviceSync();
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
