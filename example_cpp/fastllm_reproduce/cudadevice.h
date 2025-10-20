@@ -78,3 +78,8 @@ class CudaNearlyRotatePosition2DOp : BaseOperator {
 class CudaRotatePosition2DOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaSplitBatchOp : BaseBatchOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
