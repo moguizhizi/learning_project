@@ -1559,6 +1559,19 @@ template <typename T> bool DoFastllmCudaAttentionBatch(Data **q, Data **k, Data 
     return true;
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmSplitBatchKernel(uint8_t *inputs, uint8_t **outputs, int outer, int channels, int inner) {
+    int outerid = blockIdx.x / channels;
+    int partid = blockIdx.x % channels;
+
+    int input_offset = outerid * channels * inner + partid * inner;
+
+    uint8_t *input = inputs + input_offset;
+    uint8_t *output = outputs[partid] + outerid * inner;
+    for (int i = threadIdx; i < inner; i += THREAD_PER_BLOCK) {
+        output[i] = input[i];
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
