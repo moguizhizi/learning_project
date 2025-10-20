@@ -1572,6 +1572,18 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmSplitBatchKernel(uint8_t 
     }
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmCatBatchKernel(uint8_t **inputs, uint8_t *output, int outer, int channels, int inner) {
+    int oid = blockIdx.x / channels;
+    int partid = blockIdx.x % channels;
+
+    uint8_t *input = inputs[partid] + oid * inner;
+    uint8_t *output = output + oid * channels * inner + partid * inner;
+
+    for (int i = threadIdx.x; i < inner; i += THREAD_PER_BLOCK) {
+        output[i] = input[i];
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
