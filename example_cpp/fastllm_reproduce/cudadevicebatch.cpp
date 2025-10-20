@@ -27,6 +27,34 @@ void CudaCatBatchOp::Run(const std::string &opType, const DataDict &datas, const
     FastllmCudaCatBatch(inputs, output, axis);
 }
 
+void CudaSplitBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int part = input.dims[axis];
+    for (int i = 0; i < part; i++) {
+        outputs[i]->Allocate();
+    }
+    FastllmCudaSplitBatch(input, outputs, axis);
+}
+
+void CudaSplitBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int part = input.dims[axis];
+    std::vector<int> dims = input.dims;
+    dims[axis] = 1;
+    for (int i = 0; i < part; i++) {
+        outputs[i]->dataType = input.dataType;
+        outputs[i]->Resize(dims);
+    }
+}
+
 void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **outputs, int group, float scale, int batch) {
     long long aveLen = 0;
     for (int i = 0; i < batch; i++) {
