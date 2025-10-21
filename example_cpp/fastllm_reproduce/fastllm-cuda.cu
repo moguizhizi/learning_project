@@ -10,6 +10,15 @@ using namespace nvcuda;
 #define CUDA_NO_TENSOR_CORE
 #endif
 
+typedef union __align__(16) _union_half_8 {
+    uint4 in;
+    half out[8];
+    half2 out2[4];
+    __device__ _union_half_8() {
+        // Do nothing
+    }
+} union_half8;
+
 std::map<int, std::vector<CudaMemoryBuffer>> cudaBuffersMap;
 std::map<int, int> cudaBuffersMinId;
 std::map<int, size_t> noBusyCnt;
