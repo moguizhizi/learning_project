@@ -54,6 +54,8 @@ class Data {
 
     uint8_t *cpuData = nullptr;
     void *cudaData = nullptr;
+    std::vector<void *> extraCudaData;
+    std::vector<void *> extraCudaHalfData;
 
     std::vector<int> expansionDims;
     std::vector<uint64_t> strides;
