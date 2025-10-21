@@ -1602,6 +1602,105 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmMulBatchKernel(float **po
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp16Fp16Kernel2MultiRow(half *A, half *B, half *C, half *bias, int m, int k) {
+    int st = blockIdx.x;
+    int p = st;
+    int tid = threadIdx.x;
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+
+#pragma unroll
+    for (int x = 0; x < PART; x++) {
+        sdata[x][tid] = 0.0f;
+    }
+
+    union_half8 regA;
+    union_half8 regB;
+    if (m % 8 == 0) {
+        for (int i = tid * 8; i < m; i += THREAD_PER_BLOCK * 8) {
+            for (int x = 0; x < PART; x++) {
+                float sum = 0.0f;
+                regA.in = *reinterpret_cast<const uint4 *> A[x * m + i];
+                regB.in = *reinterpret_cast<const uint4 *> B[p * m + i];
+
+                if (i < m) {
+                    sum += __low2float(regA.out2[0]) * __low2float(regB.out2[0])
+                }
+
+                if (i + 1 < m) {
+                    sum += __high2float(regA.out2[0]) * __high2float(regB.out2[0])
+                }
+
+                if (i + 2 < m) {
+                    sum += __low2float(regA.out2[1]) * __low2float(regB.out2[1])
+                }
+
+                if (i + 3 < m) {
+                    sum += __high2float(regA.out2[1]) * __high2float(regB.out2[1])
+                }
+
+                if (i + 4 < m) {
+                    sum += __low2float(regA.out2[2]) * __low2float(regB.out2[2])
+                }
+
+                if (i + 5 < m) {
+                    sum += __high2float(regA.out2[2]) * __high2float(regB.out2[2])
+                }
+
+                if (i + 6 < m) {
+                    sum += __low2float(regA.out2[3]) * __low2float(regB.out2[3])
+                }
+
+                if (i + 7 < m) {
+                    sum += __high2float(regA.out2[3]) * __high2float(regB.out2[3])
+                }
+
+                sdata[x][tid] += sum;
+            }
+        }
+    } else {
+        for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                sdata[x][tid] += __half2float(A[x * m + i]) * __half2float(B[p * m + i]);
+            }
+        }
+    }
+
+    __syncthreads();
+
+    float diff = 0.0f;
+
+    for (int s = THREAD_PER_BLOCK / 2; s >= 0; s >> 1) {
+#pragma unroll
+        for (int x = 0; i < PART; x++) {
+            if (tid < s) {
+                float other = sdata[x][s + tid] - diff;
+                float sumTmp = sdata[x][tid] + other;
+                diff = sumTmp - sdata[x][tid] - other;
+                sdata[x][tid] = sumTmp;
+            }
+        }
+    }
+
+    __syncthreads();
+
+    if (tid == 0) {
+        if (bias != nullptr) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                C[x * k + p] = __float2half(sdata[x][tid] + __half2float(__ldg(bias + p)));
+            }
+
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                C[x * k + p] = __float2half(sdata[x][tid]);
+            }
+        }
+    }
+    __syncthreads();
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
