@@ -3370,6 +3370,14 @@ __global__ void FastllmCudaBiasKernel(half *a, half *bias, int k) {
     }
 }
 
+__global__ void FastllmCudaBiasKernel(float *a, float *bias, int k) {
+    float *now = a + blockIdx.x * k;
+    int stride = blockDim.x;
+    for (int i = threadIdx.x; i < k; i += stride) {
+        now[i] += bias[i];
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
