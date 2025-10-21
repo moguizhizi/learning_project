@@ -2440,6 +2440,142 @@ int FastllmCudaGetDeviceCount() {
     return deviceCount;
 }
 
+bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale) {
+    int b = qPe.dims[0], s = qPe.dims[1], h = qPe.dims[2], c = qNope.dims.back(), t = kvCache.dims[1], r = qPe.dims[3];
+    auto fastllmCublasHandle = getFastllmCublasHandle();
+    cublasStatus_t status;
+
+    if (qNope.dataType == DataType::FLOAT32) {
+        float *score = (float *)FastllmCudaMalloc(b * s * h * t * sizeof(float));
+        float alpha = softmaxScale, beta0 = 0.0f, beta1 = 1.0f;
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           t,
+                                           h,
+                                           c,
+                                           &alpha,
+                                           (float *)kvCache.cudaData,
+                                           c,
+                                           t * c,
+                                           (float *)qNope.cudaData,
+                                           c,
+                                           h * c,
+                                           &beta0,
+                                           score,
+                                           t,
+                                           t * h,
+                                           1);
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           t,
+                                           h,
+                                           r,
+                                           &alpha,
+                                           (float *)peCache.cudaData,
+                                           r,
+                                           t * r,
+                                           (float *)qPe.cudaData,
+                                           r,
+                                           h * r,
+                                           &beta1,
+                                           score,
+                                           t,
+                                           t * h,
+                                           1);
+        int outer = b * s * h, channels = t;
+        FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(score, score, outer, channels);
+        status = cublasSgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_N,
+                                           CUBLAS_OP_N,
+                                           c,
+                                           b * s * h,
+                                           t,
+                                           &beta1,
+                                           (float *)kvCache.cudaData,
+                                           c,
+                                           t * c,
+                                           score,
+                                           t,
+                                           b * s * h * t,
+                                           &beta0,
+                                           (float *)output.cudaData,
+                                           c,
+                                           c * b * s * h,
+                                           1);
+        FastllmCudaFree(score);
+    } else if (qNope.dataType == DataType::FLOAT16) {
+        half *score = (half *)FastllmCudaMalloc(b * s * h * t * sizeof(half));
+        half alpha = __float2half_rn(softmaxScale), beta0 = __float2half_rn(0.0f), beta1 = __float2half_rn(1.0f);
+        status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           t,
+                                           h,
+                                           c,
+                                           &alpha,
+                                           (half *)kvCache.cudaData,
+                                           c,
+                                           t * c,
+                                           (half *)qNope.cudaData,
+                                           c,
+                                           h * c,
+                                           &beta0,
+                                           score,
+                                           t,
+                                           t * h,
+                                           1);
+        status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_N,
+                                           t,
+                                           h,
+                                           r,
+                                           &alpha,
+                                           (half *)peCache.cudaData,
+                                           r,
+                                           t * r,
+                                           (half *)qPe.cudaData,
+                                           r,
+                                           h * r,
+                                           &beta1,
+                                           score,
+                                           t,
+                                           t * h,
+                                           1);
+        int outer = b * s * h, channels = t;
+        FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(score, score, outer, channels);
+        status = cublasHgemmStridedBatched(fastllmCublasHandle,
+                                           CUBLAS_OP_N,
+                                           CUBLAS_OP_N,
+                                           c,
+                                           b * s * h,
+                                           t,
+                                           &beta1,
+                                           (half *)kvCache.cudaData,
+                                           c,
+                                           t * c,
+                                           score,
+                                           t,
+                                           b * s * h * t,
+                                           &beta0,
+                                           (half *)output.cudaData,
+                                           c,
+                                           c * b * s * h,
+                                           1);
+        FastllmCudaFree(score);
+    }
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        printf("status = %d\n", (int)status);
+        printf("Error: cublas error during MatMul in MLA operator.\n");
+        throw("cublas error");
+    }
+
+    DeviceSync();
+    return true;
+}
+
 bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType) {
     int q0 = q.dims[0], q1 = q.dims[1], q2 = q.dims[2], k0 = k.dims[0], k1 = k.dims[1], k2 = k.dims[2], v0 = v.dims[0], v1 = v.dims[1],
         v2 = v.dims[2];
@@ -3378,6 +3514,8 @@ void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bi
     }
 }
 
+bool FastllmCudaHalfMatMulFloat16(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k) {}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
@@ -3396,140 +3534,4 @@ cublasHandle_t getFastllmCublasHandle() {
     s_fastllmCublasHandleMap[id] = handler;
 
     return handler;
-}
-
-bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale) {
-    int b = qPe.dims[0], s = qPe.dims[1], h = qPe.dims[2], c = qNope.dims.back(), t = kvCache.dims[1], r = qPe.dims[3];
-    auto fastllmCublasHandle = getFastllmCublasHandle();
-    cublasStatus_t status;
-
-    if (qNope.dataType == DataType::FLOAT32) {
-        float *score = (float *)FastllmCudaMalloc(b * s * h * t * sizeof(float));
-        float alpha = softmaxScale, beta0 = 0.0f, beta1 = 1.0f;
-        status = cublasSgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_OP_N,
-                                           t,
-                                           h,
-                                           c,
-                                           &alpha,
-                                           (float *)kvCache.cudaData,
-                                           c,
-                                           t * c,
-                                           (float *)qNope.cudaData,
-                                           c,
-                                           h * c,
-                                           &beta0,
-                                           score,
-                                           t,
-                                           t * h,
-                                           1);
-        status = cublasSgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_OP_N,
-                                           t,
-                                           h,
-                                           r,
-                                           &alpha,
-                                           (float *)peCache.cudaData,
-                                           r,
-                                           t * r,
-                                           (float *)qPe.cudaData,
-                                           r,
-                                           h * r,
-                                           &beta1,
-                                           score,
-                                           t,
-                                           t * h,
-                                           1);
-        int outer = b * s * h, channels = t;
-        FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(score, score, outer, channels);
-        status = cublasSgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_N,
-                                           CUBLAS_OP_N,
-                                           c,
-                                           b * s * h,
-                                           t,
-                                           &beta1,
-                                           (float *)kvCache.cudaData,
-                                           c,
-                                           t * c,
-                                           score,
-                                           t,
-                                           b * s * h * t,
-                                           &beta0,
-                                           (float *)output.cudaData,
-                                           c,
-                                           c * b * s * h,
-                                           1);
-        FastllmCudaFree(score);
-    } else if (qNope.dataType == DataType::FLOAT16) {
-        half *score = (half *)FastllmCudaMalloc(b * s * h * t * sizeof(half));
-        half alpha = __float2half_rn(softmaxScale), beta0 = __float2half_rn(0.0f), beta1 = __float2half_rn(1.0f);
-        status = cublasHgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_OP_N,
-                                           t,
-                                           h,
-                                           c,
-                                           &alpha,
-                                           (half *)kvCache.cudaData,
-                                           c,
-                                           t * c,
-                                           (half *)qNope.cudaData,
-                                           c,
-                                           h * c,
-                                           &beta0,
-                                           score,
-                                           t,
-                                           t * h,
-                                           1);
-        status = cublasHgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_OP_N,
-                                           t,
-                                           h,
-                                           r,
-                                           &alpha,
-                                           (half *)peCache.cudaData,
-                                           r,
-                                           t * r,
-                                           (half *)qPe.cudaData,
-                                           r,
-                                           h * r,
-                                           &beta1,
-                                           score,
-                                           t,
-                                           t * h,
-                                           1);
-        int outer = b * s * h, channels = t;
-        FastllmSoftmaxKernelInner1<64><<<outer, 64>>>(score, score, outer, channels);
-        status = cublasHgemmStridedBatched(fastllmCublasHandle,
-                                           CUBLAS_OP_N,
-                                           CUBLAS_OP_N,
-                                           c,
-                                           b * s * h,
-                                           t,
-                                           &beta1,
-                                           (half *)kvCache.cudaData,
-                                           c,
-                                           t * c,
-                                           score,
-                                           t,
-                                           b * s * h * t,
-                                           &beta0,
-                                           (half *)output.cudaData,
-                                           c,
-                                           c * b * s * h,
-                                           1);
-        FastllmCudaFree(score);
-    }
-    if (status != CUBLAS_STATUS_SUCCESS) {
-        printf("status = %d\n", (int)status);
-        printf("Error: cublas error during MatMul in MLA operator.\n");
-        throw("cublas error");
-    }
-
-    DeviceSync();
-    return true;
 }
