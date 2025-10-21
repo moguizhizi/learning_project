@@ -19,6 +19,8 @@ typedef union __align__(16) _union_half_8 {
     }
 } union_half8;
 
+const size_t ST128_FP16_COUNT = 8;
+
 std::map<int, std::vector<CudaMemoryBuffer>> cudaBuffersMap;
 std::map<int, int> cudaBuffersMinId;
 std::map<int, size_t> noBusyCnt;
