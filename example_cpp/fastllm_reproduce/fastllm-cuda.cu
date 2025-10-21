@@ -10,6 +10,11 @@ using namespace nvcuda;
 #define CUDA_NO_TENSOR_CORE
 #endif
 
+typedef union __align__(16) {
+    uint2 in;
+    uint8_t out[8];
+} union_char8;
+
 typedef union __align__(16) _union_half_8 {
     uint4 in;
     half out[8];
