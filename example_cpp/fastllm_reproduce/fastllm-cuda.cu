@@ -3359,6 +3359,17 @@ void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bi
     }
 }
 
+__global__ void FastllmCudaBiasKernel(half *a, half *bias, int k) {
+    int stride = blockDim.x;
+    for (int i = threadIdx.x; i < k; i += stride) {
+#ifdef CUDA_NO_TENSOR_CORE
+        a[blockIdx.x * k + i] = __float2half(__half2float(a[blockIdx.x * k + i]) + __half2float(bias[i]));
+#else
+        a[blockIdx.x * k + i] = __hadd(a[blockIdx.x * k + i], bias[i]);
+#endif
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
