@@ -110,6 +110,8 @@ __global__ void FastllmLlamaRotatePosition2DKernel(half *data,
                                                    int partStride,
                                                    int sinCosStride,
                                                    int rotateDim);
+__global__ void FastllmCudaBiasKernel(half *a, half *bias, int k);
+__global__ void FastllmCudaBiasKernel(float *a, float *bias, int k);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
@@ -192,6 +194,4 @@ bool FastllmCudaMulBatch(Data **inputs, float v, int batch, Data **outputs);
 bool FastllmCudaBatchMatMulTransBBatch(
     void **i0s, void **i1s, void **os, int *ns, int *ms, int *ks, int *i0Strides, int *i1Strides, float alpha, int batch);
 void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bias, int n, int m, int k);
-__global__ void FastllmCudaBiasKernel(half *a, half *bias, int k);
-__global__ void FastllmCudaBiasKernel(float *a, float *bias, int k);
 cublasHandle_t getFastllmCublasHandle();

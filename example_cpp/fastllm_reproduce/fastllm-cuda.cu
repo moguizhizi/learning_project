@@ -392,6 +392,25 @@ __global__ void FastllmLlamaRotatePosition2DKernel(half *data,
     d[id + m / 2] = __float2half(va * curSin + vb * curCos);
 }
 
+__global__ void FastllmCudaBiasKernel(half *a, half *bias, int k) {
+    int stride = blockDim.x;
+    for (int i = threadIdx.x; i < k; i += stride) {
+#ifdef CUDA_NO_TENSOR_CORE
+        a[blockIdx.x * k + i] = __float2half(__half2float(a[blockIdx.x * k + i]) + __half2float(bias[i]));
+#else
+        a[blockIdx.x * k + i] = __hadd(a[blockIdx.x * k + i], bias[i]);
+#endif
+    }
+}
+
+__global__ void FastllmCudaBiasKernel(float *a, float *bias, int k) {
+    float *now = a + blockIdx.x * k;
+    int stride = blockDim.x;
+    for (int i = threadIdx.x; i < k; i += stride) {
+        now[i] += bias[i];
+    }
+}
+
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
     input += blockIdx.x;
     output += blockIdx.x * embSize;
@@ -3356,25 +3375,6 @@ void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bi
     } else {
         printf("Error: LaunchFastllmGemmFp16Fp16: n > 7.\n");
         exit(0);
-    }
-}
-
-__global__ void FastllmCudaBiasKernel(half *a, half *bias, int k) {
-    int stride = blockDim.x;
-    for (int i = threadIdx.x; i < k; i += stride) {
-#ifdef CUDA_NO_TENSOR_CORE
-        a[blockIdx.x * k + i] = __float2half(__half2float(a[blockIdx.x * k + i]) + __half2float(bias[i]));
-#else
-        a[blockIdx.x * k + i] = __hadd(a[blockIdx.x * k + i], bias[i]);
-#endif
-    }
-}
-
-__global__ void FastllmCudaBiasKernel(float *a, float *bias, int k) {
-    float *now = a + blockIdx.x * k;
-    int stride = blockDim.x;
-    for (int i = threadIdx.x; i < k; i += stride) {
-        now[i] += bias[i];
     }
 }
 
