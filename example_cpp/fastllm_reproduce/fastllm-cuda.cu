@@ -1727,6 +1727,95 @@ template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp16Fp16Ker
     __syncthreads();
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvFp16Int8Kernel2(half *A, uint8_t *B, half *C, half *bias, float *scales, uint8_t *zeros, int m, int k) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+
+    int tid = threadIdx.x;
+
+    union_half8 regA;
+    union_char8 regB;
+
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+
+        uint8_t *baseB = B + p * m;
+
+        uint8_t zero = zeros[p];
+
+        for (int i = tid * ST128_FP16_COUNT; i < m; i += THREAD_PER_BLOCK * ST128_FP16_COUNT) {
+            regA.in = *reinterpret_cast<const uint4 *>(A + i);
+            regB.in = *reinterpret_cast<const uint2 *>(baseB + i);
+
+            float sum = 0.0;
+
+            if (i < m) {
+                sum += __low2float(regA.out2[0]) * (float)(regB.out[0] - zero);
+            }
+
+            if (i + 1 < m) {
+                sum += __high2float(regA.out2[0]) * (float)(regB.out[1] - zero);
+            }
+
+            if (i + 2 < m) {
+                sum += __low2float(regA.out2[1]) * (float)(regB.out[2] - zero);
+            }
+
+            if (i + 3 < m) {
+                sum += __high2float(regA.out2[1]) * (float)(regB.out[3] - zero);
+            }
+
+            if (i + 4 < m) {
+                sum += __low2float(regA.out2[2]) * (float)(regB.out[4] - zero);
+            }
+
+            if (i + 5 < m) {
+                sum += __high2float(regA.out2[2]) * (float)(regB.out[5] - zero);
+            }
+
+            if (i + 6 < m) {
+                sum += __low2float(regA.out2[3]) * (float)(regB.out[6] - zero);
+            }
+
+            if (i + 7 < m) {
+                sum += __high2float(regA.out2[3]) * (float)(regB.out[7] - zero);
+            }
+
+            sdata[tid] += sum;
+        }
+
+        __syncthreads();
+
+        float diff = 0.0f;
+
+        for (int s = THREAD_PER_BLOCK / 2; s >= 0; s >> 1) {
+            if (tid < s) {
+                float other = sdata[s + tid] - diff;
+                float sumTmp = sdata[tid] + other;
+                diff = sumTmp - sdata[tid] - other;
+                sdata[tid] = sumTmp;
+            }
+        }
+
+        __syncthreads();
+
+        if (tid == 0) {
+            if (bias != nullptr) {
+#pragma unroll
+                C[p] = __float2half(sdata[tid] * __ldg(scales + p) + __half2float(__ldg(bias + p)));
+
+            } else {
+#pragma unroll
+                C[p] = __float2half(sdata[tid] * __ldg(scales + p));
+            }
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
