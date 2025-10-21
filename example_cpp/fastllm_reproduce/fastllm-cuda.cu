@@ -3514,7 +3514,117 @@ void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bi
     }
 }
 
-bool FastllmCudaHalfMatMulFloat16(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k) {}
+bool FastllmCudaHalfMatMulFloat16(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k) {
+    if (weight.cudaData == nullptr || (weight.extraCudaHalfData.size() == 0 && bias.dims.size() > 0)) {
+        half *cudaBiasData;
+        cudaError_t state = cudaSuccess;
+        state = cudaMalloc(&cudaBiasData, k * sizeof(half));
+        if (bias.dims.size() > 0) {
+            float *tempBiasData;
+            state = cudaMalloc(&tempBiasData, k * sizeof(float));
+            state = cudaMemcpy(tempBiasData, (uint8_t *)bias.cudaData, k * sizeof(float), cudaMemcpyDeviceToDevice);
+            int threadPerBlock = std::min(256, k);
+            FastllmCudaFloat2HalfKernel<<<(k - 1) / threadPerBlock + 1, threadPerBlock>>>(tempBiasData, cudaBiasData, k);
+            state = cudaFree(tempBiasData);
+        } else {
+            state = cudaMemset(cudaBiasData, 0, k * sizeof(half));
+        }
+        checkCudaErrors("Error: CUDA error when moving bias to device!", state);
+        weight.extraCudaHalfData.push_back((void *)cudaBiasData);
+    }
+
+    half *cudaInput = (half *)FastllmCudaPrepareInput(input);
+    half *cudaOutput = (half *)FastllmCudaPrepareOutput(output);
+    half *cudaBiasData = bias.cudaData == nullptr ? nullptr : static_cast<half *>(weight.extraCudaHalfData[0]);
+    if (n < 8) {
+        LaunchFastllmGemmFp16Fp16(cudaInput, (half *)weight.cudaData, cudaOutput, cudaBiasData, n, m, k);
+    } else {
+
+        auto fastllmCublasHandle = getFastllmCublasHandle();
+        cublasStatus_t status;
+
+#ifdef CUDA_NO_TENSOR_CORE
+        float *cudaFp32Output = (float *)FastllmCudaMalloc(n * k * sizeof(float));
+        cudaMemset(cudaFp32Output, 0.0f, n * k * sizeof(float));
+
+        float alpha = 1.0f;
+        float beta = 0.0f;
+
+        cudaDataType A_dataType = cudaDataType::CUDA_R_16F;
+        cudaDataType B_dataType = cudaDataType::CUDA_R_16F;
+        cudaDataType C_dataType = cudaDataType::CUDA_R_32F;
+        cudaDataType Compute_dataType = cudaDataType::CUDA_R_32F;
+
+        status = cublasGemmEx(fastllmCublasHandle,
+                              cublasOperation_t::CUBLAS_OP_T,
+                              cublasOperation_t::CUBLAS_OP_N,
+                              k,
+                              n,
+                              m,
+                              &alpha,
+                              (half *)weight.cudaData,
+                              A_dataType,
+                              m,
+                              cudaInputdata,
+                              B_dataType,
+                              m,
+                              &beta,
+                              cudaFp32Output,
+                              C_dataType,
+                              k,
+                              Compute_dataType,
+                              static_cast<cublasGemmAlgo_t>(CUBLAS_GEMM_DEFAULT));
+#else
+        half h_alpha = __float2half(1.0f);
+        half h_beta = __float2half(0.0f);
+        cudaDataType A_dataType = cudaDataType::CUDA_R_16F;
+        cudaDataType B_dataType = cudaDataType::CUDA_R_16F;
+        cudaDataType C_dataType = cudaDataType::CUDA_R_16F;
+        cudaDataType Compute_dataType = cudaDataType::CUDA_R_16F;
+
+        status = cublasGemmEx(fastllmCublasHandle,
+                              cublasOperation_t::CUBLAS_OP_T,
+                              cublasOperation_t::CUBLAS_OP_N,
+                              k,
+                              n,
+                              m,
+                              &h_alpha,
+                              (half *)weight.cudaData,
+                              A_dataType,
+                              m,
+                              cudaInput,
+                              B_dataType,
+                              m,
+                              &h_beta,
+                              cudaOutput,
+                              C_dataType,
+                              k,
+                              Compute_dataType,
+                              static_cast<cublasGemmAlgo_t>(CUBLAS_GEMM_DEFAULT));
+
+#endif
+
+        if (status != CUBLAS_STATUS_SUCCESS) {
+            printf("Error: cublas error.\n");
+            throw("cublas error");
+            exit(0);
+        }
+
+#ifdef CUDA_NO_TENSOR_CORE
+        int len = n * k;
+        int threadPerBlock = std::min(256, len);
+        FastllmCudaFloat2HalfKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaFp32Output, cudaOutput, len);
+        FastllmCudaFree(cudaFp32Output);
+#endif
+        if (bias.dims.size() > 0) {
+            FastllmCudaBiasKernel<<<n, 256>>>(cudaOutput, (half *)weight.extraCudaHalfData[0], k);
+        }
+    }
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishInput(output, cudaOutput);
+    return true;
+}
 
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
