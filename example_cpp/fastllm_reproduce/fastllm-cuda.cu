@@ -3722,6 +3722,12 @@ bool FastllmCudaHalfMatMulFloat16(const Data &input, Data &weight, const Data &b
     return true;
 }
 
+void LaunchFastllmGemmFp16Int8(half *input, uint8_t *weight, half *output, half *bias, float *scales, uint8_t *zeros, int n, int m, int k) {
+    for (int i = 0; i < n; i++) {
+        FastllmGemvFp16Int8Kernel2<256, 1><<<k, 256>>>(input + i * m, weight, output + i * k, bias, scales, zeros, m, k);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

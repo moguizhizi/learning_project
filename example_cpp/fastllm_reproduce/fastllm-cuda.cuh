@@ -195,4 +195,5 @@ bool FastllmCudaBatchMatMulTransBBatch(
     void **i0s, void **i1s, void **os, int *ns, int *ms, int *ks, int *i0Strides, int *i1Strides, float alpha, int batch);
 void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bias, int n, int m, int k);
 bool FastllmCudaHalfMatMulFloat16(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
+void LaunchFastllmGemmFp16Int8(half *input, uint8_t *weight, half *output, half *bias, float *scales, uint8_t *zeros, int n, int m, int k);
 cublasHandle_t getFastllmCublasHandle();
