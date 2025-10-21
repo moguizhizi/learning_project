@@ -3338,6 +3338,27 @@ bool FastllmCudaBatchMatMulTransBBatch(
     return true;
 }
 
+void LaunchFastllmGemmFp16Fp16(half *input, half *weight, half *output, half *bias, int n, int m, int k) {
+    if (n == 1) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 1><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 2) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 2><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 3) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 3><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 4) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 4><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 5) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 5><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 6) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 6><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 7) {
+        FastllmGemvFp16Fp16Kernel2MultiRow<256, 7><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else {
+        printf("Error: LaunchFastllmGemmFp16Fp16: n > 7.\n");
+        exit(0);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
