@@ -1959,6 +1959,67 @@ template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp32Fp16Ker
     __syncthreads();
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvInt8Kernel2(float *A, uint8_t *B, float *C, float *bias, float *scales, uint8_t *zeros, int m, int k) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+
+    // 1. 读入fdata
+    /*for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+        fdata[i] = A[i];
+    }
+    __syncthreads();*/
+
+    float4 regA;
+    union_char4 regB;
+
+    // 2. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+        uint8_t zero = zeros[p];
+        const uint8_t *baseB = B + p * m;
+#ifdef CUDA_NO_TENSOR_CORE
+#pragma unroll
+        for (int i = tid * 4; i < m; i += THREAD_PER_BLOCK * 4) {
+            regA = FETCH_FLOAT4(A[i]);
+            regB.in = *reinterpret_cast<const uint32_t *>(baseB + i);
+            float sum = 0.0f;
+            if (i < m)
+                sum += regA.x * (float)(regB.out[0] - zero);
+            if (i + 1 < m)
+                sum += regA.y * (float)(regB.out[1] - zero);
+            if (i + 2 < m)
+                sum += regA.z * (float)(regB.out[2] - zero);
+            if (i + 3 < m)
+                sum += regA.w * (float)(regB.out[3] - zero);
+            sdata[tid] += sum;
+        }
+#else
+        for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+            sdata[tid] += A[i] * (B[p * m + i] - zero);
+        }
+#endif
+        __syncthreads();
+        float diff = 0.0f;
+        for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+            if (tid < s) {
+                float other = sdata[tid + s] - diff;
+                float sumTmp = sdata[tid] + other;
+                diff = (sumTmp - sdata[tid]) - other;
+                sdata[tid] = sumTmp;
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[p] = sdata[0] * __ldg(scales + p) + __ldg(bias + p);
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
