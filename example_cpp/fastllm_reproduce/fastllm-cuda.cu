@@ -418,6 +418,43 @@ __global__ void FastllmCudaBiasKernel(float *a, float *bias, int k) {
     }
 }
 
+__global__ void FastllmCudaInt82HalfKernel(uint8_t *a, float *scales, uint8_t *zeros, half *b, int len, int per) {
+#ifdef CUDA_NO_TENSOR_CORE
+    float scalesBuffer[2];
+    uint8_t zerosBuffer[2];
+    int threshold = ST128_FP16_COUNT;
+    int index = (threadIdx.x + blockIdx.x * blockDim.x) * ST128_FP16_COUNT;
+    for (int idx = index; idx < len; idx += (gridDim.x * blockDim.x) * ST128_FP16_COUNT) {
+        int startIdx = idx / per;
+        int endIdx = (idx + ST128_FP16_COUNT - 1) / per;
+        scalesBuffer[1] = scalesBuffer[0] = scales[startIdx];
+        zerosBuffer[1] = zerosBuffer[0] = zeros[startIdx];
+        if (endIdx > startIdx) {
+            threshold = (idx + ST128_FP16_COUNT - 1) % per;
+            scalesBuffer[1] = scales[endIdx];
+            zerosBuffer[1] = zeros[endIdx];
+        }
+        // 读取
+        union_char8 aBuffer[2];
+        half bBuffer[ST128_FP16_COUNT];
+        aBuffer[0].in = *reinterpret_cast<const uint2 *>(a + idx);
+        // 处理
+        for (int i = 0; i < ST128_FP16_COUNT; i++) {
+            if (idx + i < len) {
+                int scaleIdx = i < threshold ? 0 : 1;
+                bBuffer[i] = __float2half(scalesBuffer[scaleIdx] * ((float)aBuffer[0].out[i] - zerosBuffer[scaleIdx]));
+            }
+        }
+        reinterpret_cast<uint4 *>(b)[idx / ST128_FP16_COUNT] = *reinterpret_cast<uint4 *>(bBuffer);
+    }
+#else
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        b[idx] = __float2half(scales[idx / per] * ((float)a[idx] - zeros[idx / per]));
+    }
+#endif
+}
+
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
     input += blockIdx.x;
     output += blockIdx.x * embSize;
