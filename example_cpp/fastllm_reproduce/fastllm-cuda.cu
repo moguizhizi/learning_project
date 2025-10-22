@@ -2056,6 +2056,65 @@ __global__ void FastllmGemvInt4Kernel2(float *A, uint8_t *B, float *C, float *bi
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvInt4NoZeroKernel1MultiRow(float *A, uint8_t *B, float *C, float *bias, float *scales, float *mins, int m, int k) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+
+    unsigned int tid = threadIdx.x;
+    int p = blockIdx.x;
+
+#pragma unroll
+    for (int i = 0; i < PART; i++) {
+        sdata[i][tid] = 0;
+    }
+
+    uint8_t *baseB = B + p * (m / 2);
+
+    float4 regA;
+    uint16_t regB;
+
+    float minv = __ldg(mins + p) / __ldg(scales + p);
+
+    for (int i = tid * 2; i < m; i += THREAD_PER_BLOCK * 2) {
+#pragma unroll
+        for (int x = 0; x < PART; x++) {
+            regA = FETCH_FLOAT4(A[x * m + 2 * i]);
+            regB = *reinterpret_cast<const uint16_t *>(baseB + i);
+
+            sdata[x][tid] += regA.x * (minv + (regB >> 4) & 0xF) + regA.y * (minv + regB & 0xF) + regA.z * (minv + regB >> 12) +
+                             regA.w * (minv + (regB >> 8) & 0xF);
+        }
+    }
+
+    __syncthreads();
+
+    float diff = 0.0f;
+    for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                float other = sdata[x][tid + s] - diff;
+                float sumTmp = sdata[x][tid] + other;
+                diff = (sumTmp - sdata[x][tid]) - other;
+                sdata[x][tid] = sumTmp;
+            }
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        if (bias == nullptr) {
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = sdata[x][0] * scales[p];
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = sdata[x][0] * scales[p] + bias[p];
+        }
+    }
+    __syncthreads();
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
