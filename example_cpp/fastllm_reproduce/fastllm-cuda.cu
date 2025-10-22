@@ -1889,6 +1889,76 @@ template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp32Fp32Ker
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp32Fp16Kernel2MultiRow(float *A, half *B, float *C, float *bias, int m, int k) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+    const half zero = __float2half_rn(0.0);
+    float4 regA;
+    union_half4 regB;
+
+    // 1. 计算
+    int st = blockIdx.x;
+    int p = st;
+#pragma unroll
+    for (int x = 0; x < PART; x++)
+        sdata[x][tid] = 0;
+
+    const half *baseB = B + p * m;
+    if (m % 4 == 0) {
+#pragma unroll
+        for (int i = tid * 4; i + 3 < m; i += THREAD_PER_BLOCK * 4) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                regA = FETCH_FLOAT4(A[i + x * m]);
+                regB.in = *reinterpret_cast<const uint2 *>(baseB + i);
+                float sum = 0.0f;
+                if (i < m)
+                    sum += regA.x * __low2float(regB.out2[0]);
+                if (i + 1 < m)
+                    sum += regA.y * __high2float(regB.out2[0]);
+                if (i + 2 < m)
+                    sum += regA.z * __low2float(regB.out2[1]);
+                if (i + 3 < m)
+                    sum += regA.w * __high2float(regB.out2[1]);
+                sdata[x][tid] += sum;
+            }
+        }
+    } else {
+        for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                sdata[x][tid] += A[i + x * m] * (float)baseB[i];
+            }
+        }
+    }
+    __syncthreads();
+    float diff = 0.0f;
+    for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                float other = sdata[x][tid + s] - diff;
+                float sumTmp = sdata[x][tid] + other;
+                diff = (sumTmp - sdata[x][tid]) - other;
+                sdata[x][tid] = sumTmp;
+            }
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        if (bias == nullptr) {
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = sdata[x][0];
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = sdata[x][0] + __ldg(bias + p);
+        }
+    }
+    __syncthreads();
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
