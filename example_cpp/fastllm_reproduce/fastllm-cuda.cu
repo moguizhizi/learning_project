@@ -4398,6 +4398,48 @@ void LaunchFastllmGemvInt4Kernel2(float *input, uint8_t *weight, float *output, 
     }
 }
 
+bool FastllmCudaMatMulFloatInt4(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k) {
+    if (weight.cudaData == nullptr || weight.extraCudaData.size() == 0) {
+        float *cudaScales;
+        cudaError_t state = cudaSuccess;
+        state = cudaMalloc(&cudaScales, k * sizeof(float));
+        state = cudaMemcpy(cudaScales, weight.scales.data(), k * sizeof(float), cudaMemcpyHostToDevice);
+        weight.extraCudaData.push_back((void *)cudaScales);
+
+        uint8_t *cudaZeropoints;
+        state = cudaMalloc(&cudaZeropoints, k);
+        uint8_t *zeropoints = new uint8_t[k];
+        for (int i = 0; i < k; i++) {
+            zeropoints[i] = weight.perChannelsConfigs[i].zeroPoint;
+        }
+        state = cudaMemcpy(cudaZeropoints, zeropoints, k, cudaMemcpyHostToDevice);
+        delete[] zeropoints;
+        weight.extraCudaData.push_back((void *)cudaZeropoints);
+
+        float *cudaBiasData;
+        state = cudaMalloc(&cudaBiasData, k * sizeof(float));
+        if (bias.dims.size() > 0) {
+            state = cudaMemcpy(cudaBiasData, (uint8_t *)bias.cudaData, k * sizeof(float), cudaMemcpyDeviceToDevice);
+        } else {
+            state = cudaMemset(cudaBiasData, 0, k * sizeof(float));
+        }
+        checkCudaErrors("Error: CUDA error when moving bias to device!", state);
+        weight.extraCudaData.push_back((void *)cudaBiasData);
+    }
+
+    float *cudaScales = (float *)weight.extraCudaData[0];
+    uint8_t *cudaZeropoints = (uint8_t *)weight.extraCudaData[1];
+    float *cudaBiasData = (float *)weight.extraCudaData[2];
+
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    LaunchFastllmGemvInt4Kernel2(cudaInput, (uint8_t *)weight.cudaData, cudaOutput, cudaBiasData, cudaScales, cudaZeropoints, n, m, k);
+
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
