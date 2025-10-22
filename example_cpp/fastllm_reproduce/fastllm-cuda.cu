@@ -4127,6 +4127,32 @@ bool FastllmCudaHalfMatMulFloat32(const Data &input, Data &weight, const Data &b
     return true;
 }
 
+void LaunchFastllmGemmFp32Fp16(float *input, half *weight, float *output, float *bias, int n, int m, int k) {
+    if (n == 1) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 1><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 2) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 2><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 3) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 3><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 4) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 4><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 5) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 5><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 6) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 6><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else if (n == 7) {
+        FastllmGemvFp32Fp16Kernel2MultiRow<256, 7><<<k, 256>>>(input, weight, output, bias, m, k);
+    } else {
+        for (int i = 0; i < n; i++) {
+            FastllmGemvFp32Fp16Kernel2MultiRow<256, 1><<<k, 256>>>(input + i * m, weight, output + i * k, bias, m, k);
+        }
+        return;
+
+        printf("Error: LaunchFastllmGemmFp32Fp16: n > 7.\n");
+        exit(0);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;

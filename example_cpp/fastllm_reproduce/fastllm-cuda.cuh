@@ -200,4 +200,5 @@ void LaunchFastllmGemmFp16Int8(half *input, uint8_t *weight, half *output, half 
 bool FastllmCudaHalfMatMulFloatInt8(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
 bool FastllmCudaMatMulFloat32(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
 bool FastllmCudaHalfMatMulFloat32(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
+void LaunchFastllmGemmFp32Fp16(float *input, half *weight, float *output, float *bias, int n, int m, int k);
 cublasHandle_t getFastllmCublasHandle();
