@@ -1853,6 +1853,33 @@ __global__ void FastllmGemvFp16Int8Kernel2(half *A, uint8_t *B, half *C, half *b
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART> __global__ void FastllmGemvFp32Fp32Kernel2(float *A, float *B, float *C, float *bias, int m, int k) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+
+    // 1. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+        for (int i = tid; i < m; i += THREAD_PER_BLOCK) {
+            sdata[tid] += A[i] * B[p * m + i];
+        }
+        __syncthreads();
+        for (unsigned int s = 1; s < THREAD_PER_BLOCK; s *= 2) {
+            if ((tid & (2 * s - 1)) == 0) {
+                sdata[tid] += sdata[tid + s];
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[p] = sdata[0] + bias[p];
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
