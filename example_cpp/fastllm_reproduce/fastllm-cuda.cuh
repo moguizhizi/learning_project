@@ -205,4 +205,5 @@ void LaunchFastllmGemmFp32Int8(float *input, uint8_t *weight, float *output, flo
 bool FastllmCudaMatMulFloatInt8(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
 void LaunchFastllmGemvInt4Kernel2(float *input, uint8_t *weight, float *output, float *bias, float *scales, uint8_t *zeros, int n, int m, int k);
 bool FastllmCudaMatMulFloatInt4(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
+void LaunchFastllmGemmFp32Int4NoZero(float *input, uint8_t *weight, float *output, float *bias, float *scales, float *mins, int n, int m, int k);
 cublasHandle_t getFastllmCublasHandle();

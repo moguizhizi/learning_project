@@ -4542,6 +4542,33 @@ bool FastllmCudaMatMulFloatInt4(const Data &input, Data &weight, const Data &bia
     return true;
 }
 
+void LaunchFastllmGemmFp32Int4NoZero(float *input, uint8_t *weight, float *output, float *bias, float *scales, float *mins, int n, int m, int k) {
+    /* for (int i = 0; i < n; i++) {
+         FastllmGemvInt4NoZeroKernel1<64, 1> <<< k, 64 >>>(input + i * m, weight, output + i * k, bias, scales, mins, m, k);
+     }
+     return;*/
+    if (n == 1) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 1><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 2) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 2><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 3) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 3><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 4) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 4><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 5) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 5><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 6) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 6><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else if (n == 7) {
+        FastllmGemvInt4NoZeroKernel1MultiRow<64, 7><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k);
+    } else {
+        for (int i = 0; i < n; i++) {
+            FastllmGemvInt4NoZeroKernel1<64, 1><<<k, 64>>>(input + i * m, weight, output + i * k, bias, scales, mins, m, k);
+        }
+        return;
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
