@@ -15,6 +15,15 @@ typedef union __align__(16) {
     uint8_t out[8];
 } union_char8;
 
+typedef union __align__(16) _union_half_4 {
+    uint2 in;
+    half out[4];
+    half2 out2[2];
+    __device__ _union_half_4() {
+        // Do nothing
+    }
+} union_half4;
+
 typedef union __align__(16) _union_half_8 {
     uint4 in;
     half out[8];
