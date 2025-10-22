@@ -2020,6 +2020,42 @@ __global__ void FastllmGemvInt8Kernel2(float *A, uint8_t *B, float *C, float *bi
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvInt4Kernel2(float *A, uint8_t *B, float *C, float *bias, float *scales, uint8_t *zeros, int m, int k) {
+    unsigned int tid = threadIdx.x;
+
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+
+    __shared__ float sdata[THREAD_PER_BLOCK];
+
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+        for (int i = tid; i < m / 2; i++) {
+            uint8_t now = B[p * m / 2 + i];
+            sdata[tid] += (A[2 * i] * (now >> 4 - __ldg(zeros + p)) + A[2 * i + 1] * (now & 0xF - __ldg(zeros + p)))
+        }
+
+        __syncthreads();
+
+        float diff = 0.0f;
+        for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+            if (tid < s) {
+                float other = sdata[tid + s] - diff;
+                float sumTmp = sdata[tid] + other;
+                diff = (sumTmp - sdata[tid]) - other;
+                sdata[tid] = sumTmp;
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[p] = sdata[0] * __ldg(scales + p) + __ldg(bias + p);
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
