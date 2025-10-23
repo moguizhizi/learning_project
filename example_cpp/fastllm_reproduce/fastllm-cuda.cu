@@ -2218,6 +2218,70 @@ __global__ void FastllmGemvInt4NoZeroKernel1(float *A, uint8_t *B, float *C, flo
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvFp16Int4NoZeroKernel1MultiRow(half *A, uint8_t *B, half *C, half *bias, float *scales, float *mins, int m, int k) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+
+    // 1. 计算
+    int st = blockIdx.x;
+    int p = st;
+#pragma unroll
+    for (int x = 0; x < PART; x++)
+        sdata[x][tid] = 0;
+
+    union_char4 bBuffer;
+    float minv = __ldg(mins + p) / __ldg(scales + p);
+
+    for (int i = tid; i < m / 8; i += THREAD_PER_BLOCK) {
+        bBuffer.in = *reinterpret_cast<const uint32_t *>(B + st * m / 2 + i * 4);
+        // uint8_t now0 = B[st * m / 2 + i * 4];
+        // uint8_t now1 = B[st * m / 2 + i * 4 + 1];
+        // uint8_t now2 = B[st * m / 2 + i * 4 + 2];
+        // uint8_t now3 = B[st * m / 2 + i * 4 + 3];
+        for (int x = 0; x < PART; x++) {
+            union_half8 aBuffer;
+            aBuffer.in = *reinterpret_cast<const uint4 *>(A + x * m + i * 8);
+            sdata[x][tid] +=
+                (__low2float(aBuffer.out2[0]) * (minv + (bBuffer.out[0] >> 4)) + __high2float(aBuffer.out2[0]) * (minv + (bBuffer.out[0] & 15)));
+            sdata[x][tid] +=
+                (__low2float(aBuffer.out2[1]) * (minv + (bBuffer.out[1] >> 4)) + __high2float(aBuffer.out2[1]) * (minv + (bBuffer.out[1] & 15)));
+            sdata[x][tid] +=
+                (__low2float(aBuffer.out2[2]) * (minv + (bBuffer.out[2] >> 4)) + __high2float(aBuffer.out2[2]) * (minv + (bBuffer.out[2] & 15)));
+            sdata[x][tid] +=
+                (__low2float(aBuffer.out2[3]) * (minv + (bBuffer.out[3] >> 4)) + __high2float(aBuffer.out2[3]) * (minv + (bBuffer.out[3] & 15)));
+        }
+    }
+    __syncthreads();
+
+    float diff = 0.0f;
+    for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                float other = sdata[x][tid + s] - diff;
+                float sumTmp = sdata[x][tid] + other;
+                diff = (sumTmp - sdata[x][tid]) - other;
+                sdata[x][tid] = sumTmp;
+            }
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        if (bias == nullptr) {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = (half)(sdata[x][0] * scales[p]);
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[p + k * x] = (half)(sdata[x][0] * scales[p] + float(bias[p]));
+        }
+    }
+    __syncthreads();
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
