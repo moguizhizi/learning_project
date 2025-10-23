@@ -15,6 +15,11 @@ typedef union __align__(16) {
     uint8_t out[8];
 } union_char8;
 
+typedef union __align__(16) {
+    uint32_t in;
+    uint8_t out[4];
+} union_char4;
+
 typedef union __align__(16) _union_half_4 {
     uint2 in;
     half out[4];
@@ -462,6 +467,61 @@ __global__ void FastllmCudaInt82HalfKernel(uint8_t *a, float *scales, uint8_t *z
         b[idx] = __float2half(scales[idx / per] * ((float)a[idx] - zeros[idx / per]));
     }
 #endif
+}
+
+__global__ void FastllmCudaInt42HalfKernel(uint8_t *a, float *scales, float *mins, half *b, int len, int per) {
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    for (int index = idx * ST128_FP16_COUNT; index < len; index += (gridDim.x * blockDim.x) * ST128_FP16_COUNT) {
+        int startId = index / per;
+        int endId = (index + ST128_FP16_COUNT - 1) / per;
+
+        float2 scaleBuffer;
+        float2 minsBuffer;
+
+        scaleBuffer.x = __ldg(scales + startId);
+        scaleBuffer.y = __ldg(scales + endId);
+
+        minsBuffer.x = __ldg(mins + startId);
+        minsBuffer.y = __ldg(mins + endId);
+
+        uint8_t *baseA = a + index / 2;
+
+        union_char4 aBuffer;
+        union_half8 bBuffer;
+
+        aBuffer.in = *(reinterpret_cast<const uint32_t *>(baseA));
+
+        float scale, min;
+        for (int i = 0; i < ST128_FP16_COUNT / 2; i++) {
+            if (index + 2 * i + 1 < len) {
+                if ((index + 2 * i) / per == startId) {
+                    scale = scaleBuffer.x;
+                    min = minsBuffer.x;
+                }
+
+                if ((index + 2 * i) / per == endId) {
+                    scale = scaleBuffer.y;
+                    min = minsBuffer.y;
+                }
+
+                if ((index + 2 * i + 1) / per == startId) {
+                    scale = scaleBuffer.x;
+                    min = minsBuffer.x;
+                }
+
+                if ((index + 2 * i + 1) / per == endId) {
+                    scale = scaleBuffer.y;
+                    min = minsBuffer.y;
+                }
+
+                bBuffer.out[2 * i] = __float2half((aBuffer.out[i] >> 4) * scale + min);
+                bBuffer.out[2 * i + 1] = __float2half((aBuffer.out[i] >> 0xF) * scale + min);
+            }
+        }
+
+        (reinterpret_cast<uint4 *>(b))[index] = bBuffer.in;
+    }
 }
 
 template <int THREAD_PER_BLOCK, typename T> __global__ void FastllmCudaFloatEmbeddingKernel(float *input, T *weight, T *output, int embSize) {
