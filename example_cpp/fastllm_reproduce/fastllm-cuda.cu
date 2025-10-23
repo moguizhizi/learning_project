@@ -2282,6 +2282,40 @@ __global__ void FastllmGemvFp16Int4NoZeroKernel1MultiRow(half *A, uint8_t *B, ha
     __syncthreads();
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvFp16Int4NoZeroKernel2(half *A, uint8_t *B, half *C, half *bias, float *scales, float *mins, int m, int k) {
+    __shared__ float sdata[THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+
+    // 1. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+    for (int p = st; p < end; p++) {
+        sdata[tid] = 0;
+        float minv = mins[p] / scales[p];
+        for (int i = tid; i < m / 2; i += THREAD_PER_BLOCK) {
+            uint8_t now = B[p * m / 2 + i];
+            sdata[tid] += ((float)A[i * 2] * (minv + (now >> 4)) + (float)A[i * 2 + 1] * (minv + (now & 15)));
+        }
+        __syncthreads();
+        for (unsigned int s = 1; s < THREAD_PER_BLOCK; s *= 2) {
+            if ((tid & (2 * s - 1)) == 0) {
+                sdata[tid] += sdata[tid + s];
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            if (bias == nullptr) {
+                C[p] = (half)(sdata[0] * scales[p]);
+            } else {
+                C[p] = (half)(sdata[0] * scales[p] + (float)bias[p]);
+            }
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
