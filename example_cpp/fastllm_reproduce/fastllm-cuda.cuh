@@ -215,4 +215,5 @@ void LaunchFastllmGemmFp16Int4Group(
     half *input, uint8_t *weight, half *output, half *bias, half *scales, half *mins, int n, int m, int k, int group, int groupCnt);
 void LaunchFastllmGemmFp32Int4Group(
     float *input, uint8_t *weight, float *output, float *bias, half *scales, half *mins, int n, int m, int k, int group, int groupCnt);
+bool FastllmCudaMatMulFloatInt4Group(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
 cublasHandle_t getFastllmCublasHandle();
