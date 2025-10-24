@@ -114,6 +114,7 @@ __global__ void FastllmCudaBiasKernel(half *a, half *bias, int k);
 __global__ void FastllmCudaBiasKernel(float *a, float *bias, int k);
 __global__ void FastllmCudaInt82HalfKernel(uint8_t *a, float *scales, uint8_t *zeros, half *b, int len, int per);
 __global__ void FastllmCudaInt42HalfKernel(uint8_t *a, float *scales, float *mins, half *b, int len, int per);
+__global__ void FastllmCudaInt4Group2HalfKernel(uint8_t *a, half *scales, half *mins, half *b, int k, int m, int group, int groupCnt);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
