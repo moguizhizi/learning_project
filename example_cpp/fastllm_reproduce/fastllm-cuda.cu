@@ -2415,6 +2415,48 @@ __global__ void FastllmCudaInt4Group2HalfKernel(uint8_t *a, half *scales, half *
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void
+FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+    // 1. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+#pragma unroll
+    for (int p = 0; p < PART; p++) {
+        sdata[p][tid] = 0;
+    }
+
+    for (int i = tid * 2; i < m / 2; i += THREAD_PER_BLOCK * 2) {
+        float4 aBuffer = FETCH_FLOAT4(A[i * 2]);
+
+        for (int p = st; p < end; p++) {
+            uint16_t bBuffer = *reinterpret_cast<const uint16_t *>(B + p * m / 2 + i);
+            int g = p * group + (i * 2 / groupCnt);
+            float curmin = __half2float(__ldg(mins + g)), curscale = __half2float(__ldg(scales + g));
+            sdata[p - st][tid] +=
+                aBuffer.x * (curmin + curscale * (float)((bBuffer >> 4) & 15)) + aBuffer.y * (curmin + curscale * (float)(bBuffer & 15));
+            sdata[p - st][tid] +=
+                aBuffer.z * (curmin + curscale * (float)(bBuffer >> 12)) + aBuffer.w * (curmin + curscale * (float)((bBuffer >> 8) & 15));
+        }
+    }
+    __syncthreads();
+    for (int p = 0; p < PART; p++) {
+        for (unsigned int s = 1; s < THREAD_PER_BLOCK; s *= 2) {
+            if ((tid & (2 * s - 1)) == 0) {
+                sdata[p][tid] += sdata[p][tid + s];
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[st + p] = sdata[p][0] + bias[st + p];
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
