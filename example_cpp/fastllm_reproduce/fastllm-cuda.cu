@@ -2457,6 +2457,52 @@ FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *s
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void
+FastllmGemvInt4GroupKernel2(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+    unsigned int tid = threadIdx.x;
+    // 1. 计算
+    int st = blockIdx.x * PART;
+    int end = st + PART;
+#pragma unroll
+    for (int p = 0; p < PART; p++) {
+        sdata[p][tid] = 0;
+    }
+
+    for (int i = tid; i < m / 8; i += THREAD_PER_BLOCK) {
+        float4 aBuffer = FETCH_FLOAT4(A[i * 8]);
+        float4 bBuffer = FETCH_FLOAT4(A[i * 8 + 4]);
+
+        for (int p = st; p < end; p++) {
+            uint8_t now0 = B[p * m / 2 + i * 4];
+            uint8_t now1 = B[p * m / 2 + i * 4 + 1];
+            uint8_t now2 = B[p * m / 2 + i * 4 + 2];
+            uint8_t now3 = B[p * m / 2 + i * 4 + 3];
+            int g = p * group + (i * 8 / groupCnt);
+            float curmin = (float)mins[g], curscale = (float)scales[g];
+            sdata[p - st][tid] += (aBuffer.x * (curmin + (float)curscale * (now0 >> 4)) + aBuffer.y * (curmin + (float)curscale * (now0 & 15)));
+            sdata[p - st][tid] += (aBuffer.z * (curmin + (float)curscale * (now1 >> 4)) + aBuffer.w * (curmin + (float)curscale * (now1 & 15)));
+            sdata[p - st][tid] += (bBuffer.x * (curmin + (float)curscale * (now2 >> 4)) + bBuffer.y * (curmin + (float)curscale * (now2 & 15)));
+            sdata[p - st][tid] += (bBuffer.z * (curmin + (float)curscale * (now3 >> 4)) + bBuffer.w * (curmin + (float)curscale * (now3 & 15)));
+        }
+    }
+    __syncthreads();
+    for (int p = 0; p < PART; p++) {
+        for (unsigned int s = 1; s < THREAD_PER_BLOCK; s *= 2) {
+            if ((tid & (2 * s - 1)) == 0) {
+                sdata[p][tid] += sdata[p][tid + s];
+            }
+            __syncthreads();
+        }
+
+        if (tid == 0) {
+            C[st + p] = sdata[p][0] + bias[st + p];
+        }
+        __syncthreads();
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
