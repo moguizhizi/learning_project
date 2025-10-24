@@ -5067,6 +5067,49 @@ bool FastllmCudaHalfMatMulFloatInt4NoZero(const Data &input, Data &weight, const
     return true;
 }
 
+void LaunchFastllmGemmFp16Int4Group(
+    half *input, uint8_t *weight, half *output, half *bias, half *scales, half *mins, int n, int m, int k, int group, int groupCnt) {
+    if (n == 1) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 1><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 2) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 2><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 3) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 3><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 4) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 4><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 5) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 5><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 6) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 6><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 7) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 7><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 8) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 8><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 9) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 9><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 10) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 10><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 11) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 11><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 12) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 12><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 13) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 13><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 14) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 14><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 15) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 15><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else if (n == 16) {
+        FastllmGemvHalfInt4GroupKernelMultiRow<64, 16><<<k, 64>>>(input, weight, output, bias, scales, mins, m, k, group, groupCnt);
+    } else {
+        for (int i = 0; i < n; i++) {
+            FastllmGemvHalfInt4GroupKernelMultiRow<64, 1>
+                <<<k, 64>>>(input + i * m, weight, output + i * k, bias, scales, mins, m, k, group, groupCnt);
+        }
+        return;
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
