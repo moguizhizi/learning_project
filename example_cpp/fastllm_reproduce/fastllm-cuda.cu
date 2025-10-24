@@ -2361,6 +2361,10 @@ FastllmGemvHalfInt4GroupKernelMultiRow(half *A, uint8_t *B, half *C, half *bias,
         for (int offset = warpSize / 2; offset >= 0; offset >>= 1) {
             val += __shfl_down_sync(0xFFFFFFFF, val, offset);
         }
+
+        if (tid == 0) {
+            sdata[x][tid] = val;
+        }
     }
 
     if (tid == 0) {
