@@ -5232,6 +5232,17 @@ void LaunchFastllmGemmFp16Int4Group(
     }
 }
 
+void LaunchFastllmGemmFp32Int4Group(
+    float *input, uint8_t *weight, float *output, float *bias, half *scales, half *mins, int n, int m, int k, int group, int groupCnt) {
+    for (int i = 0; i < n; i++) {
+#ifdef CUDA_NO_TENSOR_CORE
+        FastllmGemvInt4GroupKernel3<64, 4><<<k / 4, 64>>>(input + i * m, weight, output + i * k, bias, scales, mins, m, k, group, groupCnt);
+#else
+        FastllmGemvInt4GroupKernel2<64, 4><<<k / 4, 64>>>(input + i * m, weight, output + i * k, bias, scales, mins, m, k, group, groupCnt);
+#endif
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
