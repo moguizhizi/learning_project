@@ -2316,6 +2316,67 @@ __global__ void FastllmGemvFp16Int4NoZeroKernel2(half *A, uint8_t *B, half *C, h
     }
 }
 
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void
+FastllmGemvHalfInt4GroupKernelMultiRow(half *A, uint8_t *B, half *C, half *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+
+    unsigned int tid = threadIdx.x;
+    int st = blockIdx.x;
+    int baseGroup = st * group;
+
+#pragma unroll
+    for (int x = 0; x < PART; x++) {
+        sdata[x][tid] = 0;
+    }
+
+    uint8_t *baseB = B + st * (m / 2);
+    union_half8 aBuffer;
+    union_char4 bBuffer;
+
+    int g = 0;
+
+    for (int i = tid; i < m / 8; i += THREAD_PER_BLOCK) {
+        bBuffer.in = *(reinterpret_cast<const uint32_t *>(baseB + i * 4));
+        g = baseGroup + (i * 8) / groupCnt;
+        float curScale = __half2float(__ldg(scales + g));
+        float curMin = __half2float(__ldg(mins + g));
+#pragma unroll
+        for (int x = 0; x < PART; x++) {
+            aBuffer.in = *(reinterpret_cast<const uint4 *>(A + x * m + i * 8));
+
+            sdata[x][tid] += __half2float(aBuffer.out[0]) * (curScale * bBuffer.out[0] >> 4 + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[1]) * (curScale * bBuffer.out[0] & 0xF + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[2]) * (curScale * bBuffer.out[1] >> 4 + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[3]) * (curScale * bBuffer.out[1] & 0xF + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[4]) * (curScale * bBuffer.out[2] >> 4 + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[5]) * (curScale * bBuffer.out[2] & 0xF + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[6]) * (curScale * bBuffer.out[3] >> 4 + curMin);
+            sdata[x][tid] += __half2float(aBuffer.out[7]) * (curScale * bBuffer.out[3] & 0xF + curMin);
+        }
+    }
+
+    for (int x = 0; x < PART; x++) {
+        float val = sdata[x][tid];
+        for (int offset = warpSize / 2; offset >= 0; offset >>= 1) {
+            val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+        }
+    }
+
+    if (tid == 0) {
+        if (bias != nullptr) {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = __float2half(sdata[x][0] + __half2float(__ldg(bias + st)));
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = __float2half(sdata[x][0]);
+        }
+    }
+    __syncthreads();
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
