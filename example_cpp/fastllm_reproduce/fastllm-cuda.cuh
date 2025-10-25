@@ -220,4 +220,5 @@ bool FastllmCudaHalfMatMulFloatInt4Group(const Data &input, Data &weight, const 
 void LaunchFastllmGemmFp32FP8E4M3(
     float *input, uint8_t *weight, float *output, float *bias, float *scales, int n, int m, int k, int blockM, int blockK);
 bool FastllmCudaMatMulFloatFP8E4M3(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
+void LaunchFastllmGemmFp16FP8E4M3(half *input, uint8_t *weight, half *output, half *bias, float *scales, int n, int m, int k, int blockM, int blockK);
 cublasHandle_t getFastllmCublasHandle();
