@@ -2358,12 +2358,29 @@ FastllmGemvHalfInt4GroupKernelMultiRow(half *A, uint8_t *B, half *C, half *bias,
 
     for (int x = 0; x < PART; x++) {
         float val = sdata[x][tid];
-        for (int offset = warpSize / 2; offset >= 0; offset >>= 1) {
+        for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
             val += __shfl_down_sync(0xFFFFFFFF, val, offset);
         }
 
-        if (tid == 0) {
-            sdata[x][tid] = val;
+        if ((tid % warpSize) == 0) {
+            sdata[x][tid / warpSize] = val;
+        }
+
+        __syncthreads(); // 等所有 warp 写完部分和
+    }
+
+    if (tid < warpSize) {
+        for (x = 0; x < PART; x++) {
+            float val = tid < (THREAD_PER_BLOCK / warpSize) ? sdata[x][tid] : 0.0;
+            for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+                val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+            }
+
+            if (tid == 0) {
+                sdata[x][tid] = val;
+            }
+
+            __syncthreads();
         }
     }
 
@@ -2501,6 +2518,93 @@ FastllmGemvInt4GroupKernel2(float *A, uint8_t *B, float *C, float *bias, half *s
         }
         __syncthreads();
     }
+}
+
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvFP8E4M3Kernel1MultiRow(float *A, uint8_t *B, float *C, float *bias, float *scales, int m, int k, int blockM, int blockK) {
+
+    __shared__ float sdata[PART][THREAD_PER_BLOCK];
+
+    unsigned int tid = threadIdx.x;
+    int st = blockIdx.x;
+    int ms = (m - 1) / blockM + 1;
+    const float magicScaleConstant = exp2f(120.0f);
+
+    uint8_t *baseB = B + st * m;
+    float *baseScale = scales + (st / blockK) * ms;
+
+#pragma unroll
+    for (int x = 0; x < PART; x++) {
+        sdata[x][tid] = 0.0;
+    }
+
+    union_char4 bBuffer;
+
+    for (int i = tid * 4; i < m; i += THREAD_PER_BLOCK * 4) {
+        float curScale = *(baseScale + (i / blockM));
+        bBuffer.in = *reinterpret_cast<const uint32_t *>(baseB + i);
+
+        for (int x = 0; x < PART; x++) {
+            float4 aBuffer = FETCH_FLOAT4(A[x * m + i]);
+            sdata[x][i] += aBuffer.x * (__uint_as_float(bBuffer.out[0] & 0x80 | bBuffer.out[0] & 0x7F));
+            sdata[x][i] += aBuffer.y * (__uint_as_float(bBuffer.out[1] & 0x80 | bBuffer.out[1] & 0x7F));
+            sdata[x][i] += aBuffer.z * (__uint_as_float(bBuffer.out[2] & 0x80 | bBuffer.out[2] & 0x7F));
+            sdata[x][i] += aBuffer.w * (__uint_as_float(bBuffer.out[3] & 0x80 | bBuffer.out[3] & 0x7F));
+        }
+    }
+
+    __syncthreads();
+
+#pragma unroll
+    for (int x = 0; x < PART; x++) {
+        float val = sdata[x][tid];
+        float c = 0.0f;
+        for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+            float y = __shfl_down_sync(0xffffffff, val, offset) - c;
+            float t = val + y;
+            c = (t - val) - y;
+            val = t;
+        }
+
+        // 写回每个 warp 的归约结果
+        if ((tid % warpSize) == 0)
+            sdata[x][tid / warpSize] = val;
+    }
+
+    __syncthreads();
+
+    // 再在第一个 warp 上归约 warp-level 部分
+    if (tid < warpSize) {
+#pragma unroll
+        for (int x = 0; x < PART; x++) {
+            float val = (tid < THREAD_PER_BLOCK / warpSize) ? sdata[x][tid] : 0.0f;
+            float c = 0.0f;
+
+            for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+                float y = __shfl_down_sync(0xffffffff, val, offset) - c;
+                float t = val + y;
+                c = (t - val) - y;
+                val = t;
+            }
+
+            if (tid == 0)
+                sdata[x][0] = val;
+        }
+    }
+
+    __syncthreads();
+
+    if (tid == 0) {
+        if (bias == nullptr) {
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = sdata[x][0] * magicScaleConstant;
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = sdata[x][0] * magicScaleConstant + bias[st];
+        }
+    }
+    __syncthreads();
 }
 
 CudaInfos *cudaInfos = nullptr;
