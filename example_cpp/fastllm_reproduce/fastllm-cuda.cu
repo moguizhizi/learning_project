@@ -2455,6 +2455,54 @@ __global__ void FastllmCudaFP8E4M32HalfKernel(uint8_t *a, float *scales, half *b
     }
 }
 
+__global__ void FastllmCudaNaiveConv2DKernel(float *input,
+                                             float *weight,
+                                             float *bias,
+                                             int inputChannels,
+                                             int outputChannels,
+                                             int kernelH,
+                                             int kernelW,
+                                             int strideH,
+                                             int strideW,
+                                             int padH,
+                                             int padW,
+                                             int inputHeight,
+                                             int inputWidth,
+                                             int outputHeight,
+                                             int outputWidth,
+                                             float *output) {
+    int outChannelID = blockIdx.x;
+    float *baseOutput = output + outChannelID * outputHeight * outputWidth;
+    float *baseWeight = weight + outChannelID * (inputChannels * kernelH * kernelW);
+
+    int tid = threadIdx.x;
+
+    for (int i = tid; i < outputHeight * outputWidth; i += blockDim.x) {
+        int oh = i / outputWidth;
+        int ow = i % outputWidth;
+
+        int ih = oh * strideH - padH;
+        int iw = ow * strideW - padW;
+
+        float value = 0.0;
+        float *curWeight = baseWeight;
+        for (int inputChannelID = 0; inputChannelID < inputChannels; inputChannelID++) {
+            float *baseInput = input + inputChannelID * inputHeight * inputWidth;
+            for (int h = 0; h < kernelH; h++) {
+                for (int w = 0; w < kernelW; w++) {
+                    float inputValue = 0.0;
+                    if (((ih + h) >= 0) && ((ih + h) < inputHeight) && ((iw + w) >= 0) && ((iw + w) < inputWidth)) {
+                        inputValue = baseInput[(ih + h) * inputWidth + iw + w];
+                    }
+                    value += inputValue * (*curWeight++);
+                }
+            }
+        }
+
+        baseOutput[i] = value;
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
