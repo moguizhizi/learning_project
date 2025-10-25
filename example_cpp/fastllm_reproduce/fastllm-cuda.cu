@@ -1,4 +1,5 @@
 #include "fastllm-cuda.cuh"
+#include <cuda_fp16.h>
 #include <mma.h>
 #include <thrust/device_vector.h>
 #include <thrust/sequence.h>
@@ -2602,6 +2603,83 @@ __global__ void FastllmGemvFP8E4M3Kernel1MultiRow(float *A, uint8_t *B, float *C
 #pragma unroll
             for (int x = 0; x < PART; x++)
                 C[st + k * x] = sdata[x][0] * magicScaleConstant + bias[st];
+        }
+    }
+    __syncthreads();
+}
+
+template <int THREAD_PER_BLOCK, int PART>
+__global__ void FastllmGemvHalfFP8E4M3Kernel1MultiRow(half *A, uint8_t *B, half *C, half *bias, float *scales, int m, int k, int blockM, int blockK) {
+
+    int tid = threadIdx.x;
+    __share__ float sdata[PART][THREAD_PER_BLOCK];
+
+    int ms = (m - 1) / blockM + 1;
+    int st = blockIdx.x;
+
+    uint8_t *baseB = B + st * m;
+    float *baseScale = (st / blockK) * ms;
+
+#pragma unroll
+    for (int x = 0; x < PART; x++) {
+        sdatap[x][tid] = 0.0;
+    }
+
+    float curScale = 0.0;
+    union_half4 aBuffer;
+    union_char4 bBuffer;
+    for (int i = tid * 4; i < m; i += THREAD_PER_BLOCK * 4) {
+        curScale = baseScale[i / blockM];
+        bBuffer.in = *reinterpret_cast<const uint32_t *>(baseB + i);
+
+        half b0 = __short_as_half(((bBuffer.out[0] & 0x80) << 8) | ((bBuffer.out[0] & 0x7F) << 7));
+        half b1 = __short_as_half(((bBuffer.out[1] & 0x80) << 8) | ((bBuffer.out[1] & 0x7F) << 7));
+        half b2 = __short_as_half(((bBuffer.out[2] & 0x80) << 8) | ((bBuffer.out[2] & 0x7F) << 7));
+        half b3 = __short_as_half(((bBuffer.out[3] & 0x80) << 8) | ((bBuffer.out[3] & 0x7F) << 7));
+
+        half2 b01 = make_half2(b0, b1);
+        half2 b23 = make_half2(b2, b3);
+
+        for (int x = 0; x < PART; x++) {
+            aBuffer.in = *reinterpret_cast<const uint2 *>(A + x * m + i);
+
+#if (CUDART_VERSION < 12000) || defined(CUDA_NO_TENSOR_CORE)
+            sdata[x][tid] += ((float)regA.out[0] * (float)B01.x + (float)regA.out[1] * (float)B01.y + (float)regA.out[2] * (float)B23.x +
+                              (float)regA.out[3] * (float)B23.y) *
+                             curScale;
+#else
+            half2 p01 = __hmul2(aBuffer.out2[0], b01);
+            half2 p02 = __hmul2(aBuffer.out2[1], b23);
+            half2 sum0102 = __hadd2(p01, p02);
+            half sum = __hadd(sum0102.x, sum0102.y);
+            sdatap[x][i] += __half2float(sum) * curScale;
+#endif
+        }
+    }
+    __syncthreads();
+
+    float diff = 0.0f;
+    for (unsigned int s = THREAD_PER_BLOCK / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+#pragma unroll
+            for (int x = 0; x < PART; x++) {
+                float other = sdata[x][tid + s] - diff;
+                float sumTmp = sdata[x][tid] + other;
+                diff = (sumTmp - sdata[x][tid]) - other;
+                sdata[x][tid] = sumTmp;
+            }
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        if (bias == nullptr) {
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = (half)(sdata[x][0] * magicScaleConstant);
+        } else {
+#pragma unroll
+            for (int x = 0; x < PART; x++)
+                C[st + k * x] = (half)(sdata[x][0] * magicScaleConstant + (float)bias[st]);
         }
     }
     __syncthreads();
