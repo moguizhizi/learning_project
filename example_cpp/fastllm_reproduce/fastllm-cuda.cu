@@ -6161,6 +6161,80 @@ bool FastllmCudaMatMulFloat16(const Data &input, Data &weight, const Data &bias,
     return true;
 }
 
+bool FastllmCudaConv2DFloat32(const Data &input,
+                              Data &weight,
+                              Data &bias,
+                              int inputChannels,
+                              int outputChannels,
+                              int kernelH,
+                              int kernelW,
+                              int strideH,
+                              int strideW,
+                              int padH,
+                              int padW,
+                              Data &output) {
+    if (weight.cudaData == nullptr || weight.extraCudaData.size() == 0) {
+        float *cudaBiasData;
+        cudaError_t state = cudaSuccess;
+        state = cudaMalloc(&cudaBiasData, outputChannels * sizeof(float));
+        if (bias.dims.size() > 0) {
+            state = cudaMemcpy(cudaBiasData, (uint8_t *)bias.cudaData, outputChannels * sizeof(float), cudaMemcpyDeviceToDevice);
+        } else {
+            state = cudaMemset(cudaBiasData, 0, outputChannels * sizeof(float));
+        }
+        checkCudaErrors("Error: CUDA error when moving bias to device!", state);
+        weight.extraCudaData.push_back((void *)cudaBiasData);
+    }
+
+    float *cudaBiasData = (float *)weight.extraCudaData[0];
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+
+    std::vector<int> dims = input.dims;
+    int inputHeight = dims[2], inputWidth = dims[3];
+    int outputHeight = (inputHeight + padH + padH - kernelH) / strideH + 1;
+    int outputWidth = (inputWidth + padW + padW - kernelW) / strideW + 1;
+
+    if (weight.dataType == DataType::FLOAT16) {
+        FastllmCudaNaiveConv2DHalfKernel<<<outputChannels, 256>>>(cudaInput,
+                                                                  (half *)weight.cudaData,
+                                                                  cudaBiasData,
+                                                                  inputChannels,
+                                                                  outputChannels,
+                                                                  kernelH,
+                                                                  kernelW,
+                                                                  strideH,
+                                                                  strideW,
+                                                                  padH,
+                                                                  padW,
+                                                                  inputHeight,
+                                                                  inputWidth,
+                                                                  outputHeight,
+                                                                  outputWidth,
+                                                                  cudaOutput);
+    } else {
+        FastllmCudaNaiveConv2DKernel<<<outputChannels, 256>>>(cudaInput,
+                                                              (float *)weight.cudaData,
+                                                              cudaBiasData,
+                                                              inputChannels,
+                                                              outputChannels,
+                                                              kernelH,
+                                                              kernelW,
+                                                              strideH,
+                                                              strideW,
+                                                              padH,
+                                                              padW,
+                                                              inputHeight,
+                                                              inputWidth,
+                                                              outputHeight,
+                                                              outputWidth,
+                                                              cudaOutput);
+    }
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
