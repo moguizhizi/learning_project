@@ -365,3 +365,28 @@ void CudaMatMulTransBOp::Run(const std::string &opType, const DataDict &datas, c
     FastllmCudaBatchMatMulTransB(
         input0, input1, output, input0Spatial, input1Spatial, outputSpatial, input0Stride, input1Stride, batch1, n, m, k, alpha);
 }
+
+void CudaConv2DOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &bias = *(datas.find("bias")->second);
+
+    output.Allocate();
+
+    int inputChannels = intParams.find("inputChannels")->second;
+    int outputChannels = intParams.find("outputChannels")->second;
+    int kernelH = intParams.find("kernelH")->second;
+    int kernelW = intParams.find("kernelW")->second;
+    int padH = intParams.find("padH")->second;
+    int padW = intParams.find("padW")->second;
+    int strideH = intParams.find("strideH")->second;
+    int strideW = intParams.find("strideW")->second;
+
+    std::vector<int> dims = input.dims;
+    int inputHeight = dims[2], inputWidth = dims[3];
+    int outputHeight = (inputHeight + padH + padH - kernelH) / strideH + 1;
+    int outputWidth = (inputWidth + padW + padW - kernelW) / strideW + 1;
+
+    FastllmCudaConv2DFloat32(input, weight, bias, inputChannels, outputChannels, kernelH, kernelW, strideH, strideW, padH, padW, output);
+}
