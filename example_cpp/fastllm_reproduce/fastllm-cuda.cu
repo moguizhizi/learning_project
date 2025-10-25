@@ -2433,6 +2433,28 @@ __global__ void FastllmCudaInt4Group2HalfKernel(uint8_t *a, half *scales, half *
     }
 }
 
+__global__ void FastllmCudaFP8E4M32HalfKernel(uint8_t *a, float *scales, half *b, int k, int m, int blockK, int blockM) {
+    unsigned int tid = threadIdx.x;
+    unsigned int st = blockIdx.x;
+
+    int ms = (m - 1) / blockM + 1;
+    scales += (st / blockK) * ms;
+
+    for (int i = tid * 4; i < m; i += blockDim.x * 4) {
+        float curScale = scales[i / blockM];
+        uint32_t ori = *(uint32_t *)(a + st * m + i);
+        half bf0 = __ushort_as_half((((ori >> 0) & 0x80) << 8) | (((ori >> 0) & 0x7F) << 7));
+        half bf1 = __ushort_as_half((((ori >> 8) & 0x80) << 8) | (((ori >> 8) & 0x7F) << 7));
+        half bf2 = __ushort_as_half((((ori >> 16) & 0x80) << 8) | (((ori >> 16) & 0x7F) << 7));
+        half bf3 = __ushort_as_half((((ori >> 24) & 0x80) << 8) | (((ori >> 24) & 0x7F) << 7));
+
+        b[st * m + i + 0] = __float2half((float)bf0 * curScale);
+        b[st * m + i + 1] = __float2half((float)bf1 * curScale);
+        b[st * m + i + 2] = __float2half((float)bf2 * curScale);
+        b[st * m + i + 3] = __float2half((float)bf3 * curScale);
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
