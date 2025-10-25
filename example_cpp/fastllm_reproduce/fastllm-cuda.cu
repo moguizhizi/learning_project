@@ -2546,10 +2546,10 @@ __global__ void FastllmGemvFP8E4M3Kernel1MultiRow(float *A, uint8_t *B, float *C
 
         for (int x = 0; x < PART; x++) {
             float4 aBuffer = FETCH_FLOAT4(A[x * m + i]);
-            sdata[x][i] += aBuffer.x * (__uint_as_float(bBuffer.out[0] & 0x80 | bBuffer.out[0] & 0x7F));
-            sdata[x][i] += aBuffer.y * (__uint_as_float(bBuffer.out[1] & 0x80 | bBuffer.out[1] & 0x7F));
-            sdata[x][i] += aBuffer.z * (__uint_as_float(bBuffer.out[2] & 0x80 | bBuffer.out[2] & 0x7F));
-            sdata[x][i] += aBuffer.w * (__uint_as_float(bBuffer.out[3] & 0x80 | bBuffer.out[3] & 0x7F));
+            sdata[x][i] += aBuffer.x * (__uint_as_float(((bBuffer.out[0] & 0x80) << 24) | ((bBuffer.out[0] & 0x7F) << 20)));
+            sdata[x][i] += aBuffer.y * (__uint_as_float(((bBuffer.out[1] & 0x80) << 24) | ((bBuffer.out[1] & 0x7F) << 20)));
+            sdata[x][i] += aBuffer.z * (__uint_as_float(((bBuffer.out[2] & 0x80) << 24) | ((bBuffer.out[2] & 0x7F) << 20)));
+            sdata[x][i] += aBuffer.w * (__uint_as_float(((bBuffer.out[3] & 0x80) << 24) | ((bBuffer.out[3] & 0x7F) << 20)));
         }
     }
 
