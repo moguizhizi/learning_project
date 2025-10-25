@@ -132,6 +132,22 @@ __global__ void FastllmCudaNaiveConv2DKernel(float *input,
                                              int outputHeight,
                                              int outputWidth,
                                              float *output);
+__global__ void FastllmCudaNaiveConv2DHalfKernel(float *input,
+                                                 half *weight,
+                                                 float *bias,
+                                                 int inputChannels,
+                                                 int outputChannels,
+                                                 int kernelH,
+                                                 int kernelW,
+                                                 int strideH,
+                                                 int strideW,
+                                                 int padH,
+                                                 int padW,
+                                                 int inputHeight,
+                                                 int inputWidth,
+                                                 int outputHeight,
+                                                 int outputWidth,
+                                                 float *output);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
