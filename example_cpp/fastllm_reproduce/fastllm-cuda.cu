@@ -6397,6 +6397,22 @@ void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, in
     FastllmRepeatKernel<256><<<outer * repeatTimes, 256>>>(input, output, outer, repeatTimes, inputStride, outputStride0, outputStride1, copyLen);
 }
 
+bool FastllmCudaRelu(const Data &input, Data &output) {
+    int len = input.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int threadPerBlock = std::min(256, len);
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmReluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len);
+    } else {
+        printf("Relu datatype error.\n");
+        exit(0);
+    }
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
