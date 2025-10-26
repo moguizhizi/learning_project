@@ -2568,6 +2568,19 @@ __global__ void FastllmReduceKernel(half *output, half *input, int len, int thre
     }
 }
 
+__global__ void FastllmCudaResetLogitsOfEOS(int batch, int stride, float *logits, int *res_lens, int *eos_nums, int *eos_ids) {
+    int base = 0;
+    for (int b = 0; b < batch; b++) {
+        if (res_lens[b] > 0) {
+            for (int i = 0; i < eos_nums[b]; i++) {
+                logits[stride * b + eos_ids[base + i]] = 0;
+            }
+        }
+        base += eos_nums[b];
+    }
+    return;
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
