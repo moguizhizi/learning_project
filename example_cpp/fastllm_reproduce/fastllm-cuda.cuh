@@ -270,4 +270,5 @@ bool FastllmCudaConv2DFloat32(const Data &input,
                               int padH,
                               int padW,
                               Data &output);
+void FastllmReduce(uint8_t *output, uint8_t *partOutput, int len, int threadNum, DataType dataType);
 cublasHandle_t getFastllmCublasHandle();
