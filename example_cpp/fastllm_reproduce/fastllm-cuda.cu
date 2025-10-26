@@ -6471,6 +6471,21 @@ bool FastllmCudaAdd(const Data &input, float v, Data &output) {
     return true;
 }
 
+bool FastllmCudaAttentionMask(Data &input, const Data &mask, float maskValue) {
+    int spatial = input.Count(2), n = input.dims[0], m = input.dims[1];
+    float *cudaData = (float *)FastllmCudaPrepareInput(input);
+    float *maskData = (float *)FastllmCudaPrepareInput(mask);
+
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmAttentionMaskKernel<256><<<n * m, 256>>>(cudaData, maskData, maskValue, n, m, spatial);
+    } else {
+        FastllmAttentionMaskKernel<256><<<n * m, 256>>>((half *)cudaData, (half *)maskData, __float2half(maskValue), n, m, spatial);
+    }
+    FastllmCudaFinishInput(mask, maskData);
+    FastllmCudaFinishOutput(input, cudaData);
+    return true;
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
