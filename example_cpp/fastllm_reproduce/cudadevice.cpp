@@ -390,3 +390,30 @@ void CudaConv2DOp::Run(const std::string &opType, const DataDict &datas, const F
 
     FastllmCudaConv2DFloat32(input, weight, bias, inputChannels, outputChannels, kernelH, kernelW, strideH, strideW, padH, padW, output);
 }
+
+void CudaRepeatOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int repeatTimes = intParams.find("repeatTimes") != intParams.end() ? intParams.find("repeatTimes")->second : 1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    output.Allocate();
+
+    int outer = output.Count(0) / output.Count(axis);
+    int inputStride = input.Count(axis);
+    int outputStride = output.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.strides[axis];
+    int unitSize = input.unitSize;
+
+    FastllmCudaRepeat(input.cudaData,
+                      output.cudaData,
+                      outer,
+                      repeatTimes,
+                      inputStride * unitSize,
+                      outputStride * unitSize,
+                      channels * inner * unitSize,
+                      channels * inner * unitSize);
+}
