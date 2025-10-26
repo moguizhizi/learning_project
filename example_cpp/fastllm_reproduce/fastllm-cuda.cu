@@ -2598,6 +2598,20 @@ __global__ void FastllmSwigluKernel(float *__restrict__ a, float *__restrict__ b
     }
 }
 
+__global__ void FastllmSwigluKernel(half *__restrict__ a, half *__restrict__ b, int len, int spatial, int mid) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        int id = idx / mid * spatial + idx % mid;
+#ifdef CUDA_NO_TENSOR_CORE
+        float x = __half2float(a[id]), y = __half2float(a[id + mid]);
+        b[idx] = __float2half((x / (1.0 + expf(-x))) * y);
+#else
+        half x = a[id], y = a[id + mid];
+        b[idx] = __hmul(__hdiv(x, __hadd(__float2half(1.0), hexp(-x))), y);
+#endif
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
@@ -6417,6 +6431,24 @@ bool FastllmCudaRelu(const Data &input, Data &output) {
         printf("Relu datatype error.\n");
         exit(0);
     }
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
+bool FastllmCudaSwiglu(const Data &input, Data &output) {
+    int len = output.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int spatial = input.Count(input.dims.size() - 1), mid = spatial / 2;
+
+    int threadPerBlock = std::min(1024, len);
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmSwigluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len, spatial, mid);
+    } else if (input.dataType == DataType::FLOAT16) {
+        FastllmSwigluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)cudaInput, (half *)cudaOutput, len, spatial, mid);
+    }
+
     FastllmCudaFinishInput(input, cudaInput);
     FastllmCudaFinishOutput(output, cudaOutput);
     return true;
