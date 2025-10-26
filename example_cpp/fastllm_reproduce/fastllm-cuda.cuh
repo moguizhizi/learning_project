@@ -151,6 +151,7 @@ __global__ void FastllmCudaNaiveConv2DHalfKernel(float *input,
 __global__ void FastllmReduceKernel(float *output, float *input, int len, int threadNum);
 __global__ void FastllmReduceKernel(half *output, half *input, int len, int threadNum);
 __global__ void FastllmCudaResetLogitsOfEOS(int batch, int stride, float *logits, int *res_lens, int *eos_nums, int *eos_ids);
+__global__ void FastllmReluKernel(float *a, float *b, int len);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);

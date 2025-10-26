@@ -2581,6 +2581,14 @@ __global__ void FastllmCudaResetLogitsOfEOS(int batch, int stride, float *logits
     return;
 }
 
+__global__ void FastllmReluKernel(float *a, float *b, int len) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        float x = a[idx];
+        b[idx] = x > 0 ? x : 0;
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
