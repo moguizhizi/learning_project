@@ -288,5 +288,6 @@ void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, in
 bool FastllmCudaRelu(const Data &input, Data &output);
 bool FastllmCudaSwiglu(const Data &input, Data &output);
 bool FastllmCudaAdd(const Data &input, float v, Data &output);
+bool FastllmCudaAttentionMask(Data &input, const Data &mask, float maskValue);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();
