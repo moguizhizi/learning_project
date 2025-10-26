@@ -272,4 +272,6 @@ bool FastllmCudaConv2DFloat32(const Data &input,
                               int padW,
                               Data &output);
 void FastllmReduce(uint8_t *output, uint8_t *partOutput, int len, int threadNum, DataType dataType);
+void FastllmResetLogitsOfEOS(
+    int batch, Data *logits, const std::vector<int> res_lens, const std::vector<int> eos_nums, const std::vector<int> eos_ids);
 cublasHandle_t getFastllmCublasHandle();
