@@ -6327,6 +6327,11 @@ void FastllmCudaMemcpy2D(
     }
 }
 
+void FastllmCudaMemcpy2DDeviceToDeviceAuto(
+    void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, int dstDeviceId, int srcDeviceId) {
+    FastllmCudaMemcpy2D(dst, dpitch, src, spitch, width, height, cudaMemcpyDeviceToDevice, dstDeviceId, srcDeviceId);
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
