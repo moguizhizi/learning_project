@@ -2558,6 +2558,16 @@ __global__ void FastllmReduceKernel(float *output, float *input, int len, int th
     }
 }
 
+__global__ void FastllmReduceKernel(half *output, half *input, int len, int threadNum) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        output[idx] = (half)0;
+        for (int i = 0; i < threadNum; i++) {
+            output[idx] = __hadd(output[idx], input[idx + i * len]);
+        }
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
