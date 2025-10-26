@@ -278,5 +278,7 @@ void ForceDeviceSync();
 void FastllmCudaDirectFree(void *ret);
 void FastllmCudaMemcpy2D(
     void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, cudaMemcpyKind type, int dstDeviceId, int srcDeviceId);
+void FastllmCudaMemcpy2DDeviceToDeviceAuto(
+    void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, int dstDeviceId, int srcDeviceId);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();
