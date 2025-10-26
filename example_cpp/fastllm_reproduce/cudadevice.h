@@ -1,6 +1,7 @@
 #pragma once // 或者用 #ifndef 方式
 
 #include "basellm.h"
+#include "cpudevice.h"
 #include "device.h"
 
 class CudaDevice : BaseDevice {
@@ -105,5 +106,9 @@ class CudaMatMulTransBBatchOp : BaseBatchOperator {
 };
 
 class CudaConv2DOp : CpuConv2DOp {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CudaRepeatOp : CpuRepeatOp {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
