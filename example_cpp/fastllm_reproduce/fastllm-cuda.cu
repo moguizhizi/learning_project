@@ -6277,6 +6277,23 @@ void FastllmReduce(uint8_t *output, uint8_t *partOutput, int len, int threadNum,
     }
 }
 
+void FastllmResetLogitsOfEOS(
+    int batch, Data *logits, const std::vector<int> res_lens, const std::vector<int> eos_nums, const std::vector<int> eos_ids) {
+    cudaError_t state = cudaSuccess;
+    int *cuda_res_lens = (int *)FastllmCudaMalloc(sizeof(int) * res_lens.size());
+    state = cudaMemcpy(cuda_res_lens, res_lens.data(), sizeof(int) * res_lens.size(), cudaMemcpyHostToDevice);
+    int *cuda_eos_nums = (int *)FastllmCudaMalloc(sizeof(int) * eos_nums.size());
+    state = cudaMemcpy(cuda_eos_nums, eos_nums.data(), sizeof(int) * eos_nums.size(), cudaMemcpyHostToDevice);
+    int *cuda_eos_ids = (int *)FastllmCudaMalloc(sizeof(int) * eos_ids.size());
+    state = cudaMemcpy(cuda_eos_ids, eos_ids.data(), sizeof(int) * eos_ids.size(), cudaMemcpyHostToDevice);
+    FastllmCudaResetLogitsOfEOS<<<1, 1>>>(batch, logits->Count(0) / batch, (float *)logits->cudaData, cuda_res_lens, cuda_eos_nums, cuda_eos_ids);
+    checkCudaErrors("Error: CUDA error when reset logtis of EOS!", state);
+    FastllmCudaFree(cuda_res_lens);
+    FastllmCudaFree(cuda_eos_nums);
+    FastllmCudaFree(cuda_eos_ids);
+    return;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
