@@ -2843,6 +2843,23 @@ template <int THREAD_PER_BLOCK> __global__ void FastllmMemcpyBatchKernel(uint8_t
     }
 }
 
+template <int THREAD_PER_BLOCK>
+__global__ void
+FastllmRepeatKernel(void *inputOri, void *outputOri, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen) {
+    unsigned int tid = threadIdx.x;
+    int or = blockIdx.x;
+
+    int outerId = or / repeatTimes;
+    int repeatId = or % repeatTimes;
+
+    uint8_t *baseInput = (uint8_t *)inputOri + outerId * inputStride;
+    uint8_t *baseOutput = (uint8_t *)outputOri + outerId * outputStride0 + repeatId * outputStride1;
+
+    for (int i = tid; i < copyLen; i += THREAD_PER_BLOCK) {
+        baseOutput[i] = baseInput[i];
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
