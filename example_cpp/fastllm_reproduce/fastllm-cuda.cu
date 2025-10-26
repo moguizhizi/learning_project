@@ -6255,6 +6255,15 @@ bool FastllmCudaConv2DFloat32(const Data &input,
     return true;
 }
 
+void FastllmReduce(uint8_t *output, uint8_t *partOutput, int len, int threadNum, DataType dataType) {
+    int threadPerBlock = std::min(256, len);
+    if (dataType == DataType::FLOAT32) {
+        FastllmReduceKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((float *)output, (float *)partOutput, len, threadNum);
+    } else if (dataType == DataType::FLOAT16) {
+        FastllmReduceKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)output, (half *)partOutput, len, threadNum);
+    }
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
