@@ -417,3 +417,11 @@ void CudaRepeatOp::Run(const std::string &opType, const DataDict &datas, const F
                       channels * inner * unitSize,
                       channels * inner * unitSize);
 }
+
+void CudaReluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "Relu error: Data's type should be float32\n");
+    FastllmCudaRelu(input, output);
+}
