@@ -6385,6 +6385,10 @@ void FastllmCudaMemcpy2DDeviceToDeviceBatch(void **dsts, size_t *dpitchs, void *
     DeviceSync();
 }
 
+void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen) {
+    FastllmRepeatKernel<256><<<outer * repeatTimes, 256>>>(input, output, outer, repeatTimes, inputStride, outputStride0, outputStride1, copyLen);
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
