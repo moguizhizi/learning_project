@@ -6294,6 +6294,8 @@ void FastllmResetLogitsOfEOS(
     return;
 }
 
+void ForceDeviceSync() { cudaDeviceSynchronize(); }
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
