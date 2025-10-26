@@ -2833,6 +2833,16 @@ __global__ void FastllmGemvHalfFP8E4M3Kernel1MultiRow(half *A, uint8_t *B, half 
     __syncthreads();
 }
 
+template <int THREAD_PER_BLOCK> __global__ void FastllmMemcpyBatchKernel(uint8_t **pointer) {
+    unsigned int id = blockIdx.x;
+    uint8_t *dst = pointer[id * 3 + 0];
+    uint8_t *src = pointer[id * 3 + 1];
+    size_t len = (size_t)pointer[id * 3 + 2];
+    for (int i = threadIdx.x; i < len; i += THREAD_PER_BLOCK) {
+        dst[i] = src[i];
+    }
+}
+
 CudaInfos *cudaInfos = nullptr;
 
 CudaInfos *getCudaInfos() {
