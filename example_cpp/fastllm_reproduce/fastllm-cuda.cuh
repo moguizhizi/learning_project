@@ -153,6 +153,7 @@ __global__ void FastllmReduceKernel(half *output, half *input, int len, int thre
 __global__ void FastllmCudaResetLogitsOfEOS(int batch, int stride, float *logits, int *res_lens, int *eos_nums, int *eos_ids);
 __global__ void FastllmReluKernel(float *a, float *b, int len);
 __global__ void FastllmSwigluKernel(float *__restrict__ a, float *__restrict__ b, int len, int spatial, int mid);
+__global__ void FastllmSwigluKernel(half *__restrict__ a, half *__restrict__ b, int len, int spatial, int mid);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
@@ -285,5 +286,6 @@ void FastllmCudaMemcpy2DDeviceToDeviceAuto(
 void FastllmCudaMemcpy2DDeviceToDeviceBatch(void **dsts, size_t *dpitchs, void **srcs, size_t *spitchs, size_t *widths, size_t *heights, int batch);
 void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen);
 bool FastllmCudaRelu(const Data &input, Data &output);
+bool FastllmCudaSwiglu(const Data &input, Data &output);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();
