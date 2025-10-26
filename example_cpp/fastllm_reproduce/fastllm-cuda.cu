@@ -6294,6 +6294,36 @@ void FastllmResetLogitsOfEOS(
     return;
 }
 
+std::vector<long long> FastllmCudaGetFreeSizes() {
+    int deviceCount;
+    auto error = cudaGetDeviceCount(&deviceCount);
+    if (error != cudaSuccess) {
+        printf("cudaGetDeviceCount returned %d\n-> %s\n", (int)error, cudaGetErrorString(error));
+        return {};
+    }
+    std::vector<long long> ret;
+
+    // 遍历所有设备
+    int id = -1;
+    cudaGetDevice(&id);
+
+    for (int i = 0; i < deviceCount; ++i) {
+        cudaDeviceProp prop;
+        error = cudaGetDeviceProperties(&prop, i);
+        if (error == cudaSuccess) {
+            // 获取当前设备的显存使用情况
+            cudaSetDevice(i);
+            size_t free = 0, total = 0;
+            cudaMemGetInfo(&free, &total);
+            ret.push_back(free);
+        } else {
+            printf("cudaGetDeviceProperties returned %d\n-> %s\n", (int)error, cudaGetErrorString(error));
+        }
+    }
+    cudaSetDevice(id);
+    return ret;
+}
+
 static std::map<int, cublasHandle_t> s_fastllmCublasHandleMap;
 cublasHandle_t getFastllmCublasHandle() {
     int id = -1;
