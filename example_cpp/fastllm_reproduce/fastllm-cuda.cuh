@@ -148,6 +148,7 @@ __global__ void FastllmCudaNaiveConv2DHalfKernel(float *input,
                                                  int outputHeight,
                                                  int outputWidth,
                                                  float *output);
+__global__ void FastllmReduceKernel(float *output, float *input, int len, int threadNum);
 
 CudaInfos *getCudaInfos();
 void *FastllmCudaMalloc(size_t);
