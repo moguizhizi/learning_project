@@ -2589,6 +2589,15 @@ __global__ void FastllmReluKernel(float *a, float *b, int len) {
     }
 }
 
+__global__ void FastllmSwigluKernel(float *__restrict__ a, float *__restrict__ b, int len, int spatial, int mid) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < len) {
+        int id = idx / mid * spatial + idx % mid;
+        float x = a[id], y = a[id + mid];
+        b[idx] = (x / (1.0f + expf(-x))) * y;
+    }
+}
+
 template <int THREAD_PER_BLOCK, int PART>
 __global__ void
 FastllmGemvInt4GroupKernel3(float *A, uint8_t *B, float *C, float *bias, half *scales, half *mins, int m, int k, int group, int groupCnt) {
