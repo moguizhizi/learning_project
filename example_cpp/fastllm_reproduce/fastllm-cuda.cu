@@ -6342,6 +6342,32 @@ void FastllmCudaMemcpy2DDeviceToDeviceAuto(
     FastllmCudaMemcpy2D(dst, dpitch, src, spitch, width, height, cudaMemcpyDeviceToDevice, dstDeviceId, srcDeviceId);
 }
 
+void FastllmCudaMemcpy2DDeviceToDeviceBatch(void **dsts, size_t *dpitchs, void **srcs, size_t *spitchs, size_t *widths, size_t *heights, int batch) {
+    int total = 0;
+    for (int i = 0; i < batch; i++) {
+        total += heights[i];
+    }
+    uint8_t **pointers = (uint8_t **)FastllmCudaMalloc(sizeof(uint8_t *) * total * 3);
+    uint8_t **cpuPointers = new uint8_t *[total * 3];
+    int cur = 0;
+    for (int i = 0; i < batch; i++) {
+        for (int h = 0; h < heights[i]; h++) {
+            cpuPointers[cur * 3 + 0] = (uint8_t *)dsts[i] + h * dpitchs[i];
+            cpuPointers[cur * 3 + 1] = (uint8_t *)srcs[i] + h * spitchs[i];
+            cpuPointers[cur * 3 + 2] = (uint8_t *)(widths[i]);
+
+            cur++;
+        }
+    }
+    cudaMemcpy(pointers, cpuPointers, sizeof(uint8_t *) * total * 3, cudaMemcpyHostToDevice);
+    FastllmMemcpyBatchKernel<256><<<total, 256>>>(pointers);
+
+    FastllmCudaFree(pointers);
+    delete[] cpuPointers;
+
+    DeviceSync();
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
