@@ -287,5 +287,6 @@ void FastllmCudaMemcpy2DDeviceToDeviceBatch(void **dsts, size_t *dpitchs, void *
 void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen);
 bool FastllmCudaRelu(const Data &input, Data &output);
 bool FastllmCudaSwiglu(const Data &input, Data &output);
+bool FastllmCudaAdd(const Data &input, float v, Data &output);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();
