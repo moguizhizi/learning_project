@@ -276,5 +276,7 @@ void FastllmResetLogitsOfEOS(
     int batch, Data *logits, const std::vector<int> res_lens, const std::vector<int> eos_nums, const std::vector<int> eos_ids);
 void ForceDeviceSync();
 void FastllmCudaDirectFree(void *ret);
+void FastllmCudaMemcpy2D(
+    void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, cudaMemcpyKind type, int dstDeviceId, int srcDeviceId);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();

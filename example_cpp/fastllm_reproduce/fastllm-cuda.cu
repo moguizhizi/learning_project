@@ -6297,6 +6297,36 @@ void FastllmResetLogitsOfEOS(
 void ForceDeviceSync() { cudaDeviceSynchronize(); }
 void FastllmCudaDirectFree(void *ret) { cudaError_t state = cudaFree(ret); }
 
+void FastllmCudaMemcpy2D(
+    void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, cudaMemcpyKind type, int dstDeviceId, int srcDeviceId) {
+
+#if defined(USE_ROCM) && defined(USE_MI50_WORKAROUND)
+    // MI50 的 2D D2D 拷贝会导致数据错误
+    if (type == cudaMemcpyDeviceToDevice && srcDeviceId != dstDeviceId) {
+        std::vector<uint8_t> hostBuffer(height * width);
+
+        cudaSetDevice(srcDeviceId);
+        cudaMemcpy2D(hostBuffer.data(), width, src, spitch, width, height, cudaMemcpyDeviceToHost);
+
+        cudaSetDevice(dstDeviceId);
+        cudaMemcpy2D(dst, dpitch, hostBuffer.data(), width, width, height, cudaMemcpyHostToDevice);
+
+        cudaDeviceSynchronize();
+        return;
+    }
+#endif
+
+    auto state = cudaMemcpy2D(dst, dpitch, src, spitch, width, height, type);
+
+#ifdef USE_ROCM
+    cudaDeviceSynchronize();
+#endif
+
+    if (state != cudaSuccess) {
+        checkCudaErrors("Error: CUDA error when memcpy2D!", state);
+    }
+}
+
 std::vector<long long> FastllmCudaGetFreeSizes() {
     int deviceCount;
     auto error = cudaGetDeviceCount(&deviceCount);
