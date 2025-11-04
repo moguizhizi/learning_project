@@ -5690,7 +5690,6 @@ bool FastllmCudaAlibiMask(Data &input, const Data &mask, float maskValue) {
     FastllmCudaFinishInput(mask, maskData);
     FastllmCudaFinishOutput(input, cudaData);
     return true;
-
 }
 
 std::vector<long long> FastllmCudaGetFreeSizes() {
