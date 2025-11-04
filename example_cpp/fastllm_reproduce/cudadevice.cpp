@@ -1,4 +1,5 @@
 #include "cudadevice.h"
+
 #include "fastllm-cuda.cuh"
 #include "fastllm.h"
 #include "file_utils.hpp"
@@ -160,8 +161,7 @@ void CudaConvertToFloat16::Reshape(const std::string &opType, const DataDict &da
     Data *output = (datas.find("output")->second);
     output->dataType = DataType::FLOAT16;
     output->Resize(input->dims);
-    if (input->expansionDims.size() != 0)
-        output->Expansion(input->expansionDims);
+    if (input->expansionDims.size() != 0) output->Expansion(input->expansionDims);
 }
 
 void CudaConvertToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -184,8 +184,7 @@ void CudaConvertToFloat32::Reshape(const std::string &opType, const DataDict &da
     Data *output = (datas.find("output")->second);
     output->dataType = DataType::FLOAT32;
     output->Resize(input->dims);
-    if (input->expansionDims.size() != 0)
-        output->Expansion(input->expansionDims);
+    if (input->expansionDims.size() != 0) output->Expansion(input->expansionDims);
 }
 
 void CudaConvertToFloat32::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -217,7 +216,8 @@ void CudaAttention::Reshape(const std::string &opType, const DataDict &datas, co
     AssertInFastLLM(q.dims[0] == k.dims[0] * group, "Attention: q.dims[0] should be equal to k.dims[0] * group.\n");
 
     AssertInFastLLM(q.dataType == k.dataType && q.dataType == v.dataType, "Attention: q, k, v's datatype should be same.\n");
-    AssertInFastLLM(q.dataType == DataType::FLOAT32 || q.dataType == DataType::FLOAT16, "Attention's input's type should be float32 or float16.\n");
+    AssertInFastLLM(
+        q.dataType == DataType::FLOAT32 || q.dataType == DataType::FLOAT16, "Attention's input's type should be float32 or float16.\n");
 
     DoCudaAttentionReshape(q, v, output);
 }
@@ -250,7 +250,7 @@ void CudaMulToOp::Run(const std::string &opType, const DataDict &datas, const Fl
 
     AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
                         (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16),
-                    "MulTo error: Data's type should be float32 or float16.\n");
+        "MulTo error: Data's type should be float32 or float16.\n");
     AssertInFastLLM(input0.dims == input1.dims, "MulTo error: input's shape should be same.\n");
     FastllmCudaMulTo(input0, input1, alpha);
 }
@@ -262,7 +262,7 @@ void CudaAddToOp::Run(const std::string &opType, const DataDict &datas, const Fl
 
     AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
                         (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16),
-                    "AddTo error: Data's type should be float32 or float16.\n");
+        "AddTo error: Data's type should be float32 or float16.\n");
     AssertInFastLLM(input0.dims == input1.dims, "AddTo error: input's shape should be same.\n");
     FastllmCudaAddTo(input0, input1, alpha);
 }
@@ -273,8 +273,8 @@ void CudaMulOp::Run(const std::string &opType, const DataDict &datas, const Floa
     output.Allocate();
 
     float v = floatParams.find("v") != floatParams.end() ? floatParams.find("v")->second : 1.0;
-    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
-                    "Mul error: Data's type should be float32 or float16.\n");
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Mul error: Data's type should be float32 or float16.\n");
     FastllmCudaMul(input, v, output);
 }
 
@@ -296,7 +296,8 @@ void CudaLlamaRotatePosition2DOp::Run(const std::string &opType, const DataDict 
     FastllmCudaLlamaRotatePosition2D(data, positionIds, sinData, cosData, rotaryDim);
 }
 
-void CudaNearlyRotatePosition2DOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+void CudaNearlyRotatePosition2DOp::Run(
+    const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &data = *(datas.find("input")->second);
     Data &positionIds = *(datas.find("positionIds")->second);
     Data &sinData = *(datas.find("sin")->second);
@@ -325,7 +326,7 @@ void CudaMatMulTransBOp::Reshape(const std::string &opType, const DataDict &data
     AssertInFastLLM((input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT32) ||
                         (input0.dataType == DataType::FLOAT16 && input1.dataType == DataType::FLOAT16) ||
                         (input0.dataType == DataType::FLOAT32 && input1.dataType == DataType::FLOAT16),
-                    "MatMulTransB's input's type should be float32 or float16.\n");
+        "MatMulTransB's input's type should be float32 or float16.\n");
     AssertInFastLLM(input0.dims.size() >= 2 && input1.dims.size() >= 2, "MatMulTransB's input's shape's size should be >= 2.\n");
     AssertInFastLLM(input0.dims.back() == input1.dims.back(), "MatMulTransB's shape error.\n");
     int input0Spatial = input0.Count(input0.dims.size() - 2);
@@ -408,14 +409,8 @@ void CudaRepeatOp::Run(const std::string &opType, const DataDict &datas, const F
     int inner = input.strides[axis];
     int unitSize = input.unitSize;
 
-    FastllmCudaRepeat(input.cudaData,
-                      output.cudaData,
-                      outer,
-                      repeatTimes,
-                      inputStride * unitSize,
-                      outputStride * unitSize,
-                      channels * inner * unitSize,
-                      channels * inner * unitSize);
+    FastllmCudaRepeat(input.cudaData, output.cudaData, outer, repeatTimes, inputStride * unitSize, outputStride * unitSize,
+        channels * inner * unitSize, channels * inner * unitSize);
 }
 
 void CudaReluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -424,4 +419,11 @@ void CudaReluOp::Run(const std::string &opType, const DataDict &datas, const Flo
     output.Allocate();
     AssertInFastLLM(input.dataType == DataType::FLOAT32, "Relu error: Data's type should be float32\n");
     FastllmCudaRelu(input, output);
+}
+
+void CudaAlibiMaskOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &mask = *(datas.find("mask")->second);
+    float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
+    FastllmCudaAlibiMask(input, mask, maskValue);
 }
