@@ -1,12 +1,14 @@
 #pragma once
 
-#include "struct_space.hpp"
-#include <cstdio>
 #include <cublas_v2.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
+
+#include <cstdio>
 #include <map>
 #include <vector>
+
+#include "struct_space.hpp"
 
 extern std::map<int, std::vector<CudaMemoryBuffer>> cudaBuffersMap;
 extern std::map<int, int> cudaBuffersMinId;
@@ -50,104 +52,28 @@ __global__ void FastllmCudaHalf2FloatKernel(half *a, float *b, int len);
 __global__ void FastllmCudaBF162FloatKernel(uint16_t *a, float *b, int len);
 __global__ void GetCudaInfoKernel(int *infos);
 __global__ void InitBlockAtten(float *sum0, float *max0, float *sum1, float *max1, int len);
-__global__ void FastllmRotatePosition2DKernel(float *data,
-                                              float *positionIds,
-                                              float *sin,
-                                              float *cos,
-                                              int len,
-                                              int bs,
-                                              int spatial,
-                                              int n,
-                                              int m,
-                                              int partStride,
-                                              int sinCosStride,
-                                              int rotateDim);
-__global__ void FastllmNearlyRotatePosition2DKernel(float *data,
-                                                    float *positionIds,
-                                                    float *sin,
-                                                    float *cos,
-                                                    int len,
-                                                    int bs,
-                                                    int spatial,
-                                                    int n,
-                                                    int m,
-                                                    int partStride,
-                                                    int sinCosStride,
-                                                    int rotateDim);
-__global__ void FastllmNearlyRotatePosition2DKernel(half *data,
-                                                    float *positionIds,
-                                                    float *sin,
-                                                    float *cos,
-                                                    int len,
-                                                    int bs,
-                                                    int spatial,
-                                                    int n,
-                                                    int m,
-                                                    int partStride,
-                                                    int sinCosStride,
-                                                    int rotateDim);
-__global__ void FastllmLlamaRotatePosition2DKernel(float *data,
-                                                   float *positionIds,
-                                                   float *sin,
-                                                   float *cos,
-                                                   int len,
-                                                   int bs,
-                                                   int spatial,
-                                                   int n,
-                                                   int m,
-                                                   int partStride,
-                                                   int sinCosStride,
-                                                   int rotateDim);
-__global__ void FastllmLlamaRotatePosition2DKernel(half *data,
-                                                   float *positionIds,
-                                                   float *sin,
-                                                   float *cos,
-                                                   int len,
-                                                   int bs,
-                                                   int spatial,
-                                                   int n,
-                                                   int m,
-                                                   int partStride,
-                                                   int sinCosStride,
-                                                   int rotateDim);
+__global__ void FastllmRotatePosition2DKernel(float *data, float *positionIds, float *sin, float *cos, int len, int bs, int spatial, int n,
+    int m, int partStride, int sinCosStride, int rotateDim);
+__global__ void FastllmNearlyRotatePosition2DKernel(float *data, float *positionIds, float *sin, float *cos, int len, int bs, int spatial, int n,
+    int m, int partStride, int sinCosStride, int rotateDim);
+__global__ void FastllmNearlyRotatePosition2DKernel(half *data, float *positionIds, float *sin, float *cos, int len, int bs, int spatial, int n,
+    int m, int partStride, int sinCosStride, int rotateDim);
+__global__ void FastllmLlamaRotatePosition2DKernel(float *data, float *positionIds, float *sin, float *cos, int len, int bs, int spatial, int n,
+    int m, int partStride, int sinCosStride, int rotateDim);
+__global__ void FastllmLlamaRotatePosition2DKernel(half *data, float *positionIds, float *sin, float *cos, int len, int bs, int spatial, int n,
+    int m, int partStride, int sinCosStride, int rotateDim);
 __global__ void FastllmCudaBiasKernel(half *a, half *bias, int k);
 __global__ void FastllmCudaBiasKernel(float *a, float *bias, int k);
 __global__ void FastllmCudaInt82HalfKernel(uint8_t *a, float *scales, uint8_t *zeros, half *b, int len, int per);
 __global__ void FastllmCudaInt42HalfKernel(uint8_t *a, float *scales, float *mins, half *b, int len, int per);
 __global__ void FastllmCudaInt4Group2HalfKernel(uint8_t *a, half *scales, half *mins, half *b, int k, int m, int group, int groupCnt);
 __global__ void FastllmCudaFP8E4M32HalfKernel(uint8_t *a, float *scales, half *b, int k, int m, int blockK, int blockM);
-__global__ void FastllmCudaNaiveConv2DKernel(float *input,
-                                             float *weight,
-                                             float *bias,
-                                             int inputChannels,
-                                             int outputChannels,
-                                             int kernelH,
-                                             int kernelW,
-                                             int strideH,
-                                             int strideW,
-                                             int padH,
-                                             int padW,
-                                             int inputHeight,
-                                             int inputWidth,
-                                             int outputHeight,
-                                             int outputWidth,
-                                             float *output);
-__global__ void FastllmCudaNaiveConv2DHalfKernel(float *input,
-                                                 half *weight,
-                                                 float *bias,
-                                                 int inputChannels,
-                                                 int outputChannels,
-                                                 int kernelH,
-                                                 int kernelW,
-                                                 int strideH,
-                                                 int strideW,
-                                                 int padH,
-                                                 int padW,
-                                                 int inputHeight,
-                                                 int inputWidth,
-                                                 int outputHeight,
-                                                 int outputWidth,
-                                                 float *output);
+__global__ void FastllmCudaNaiveConv2DKernel(float *input, float *weight, float *bias, int inputChannels, int outputChannels, int kernelH,
+    int kernelW, int strideH, int strideW, int padH, int padW, int inputHeight, int inputWidth, int outputHeight, int outputWidth,
+    float *output);
+__global__ void FastllmCudaNaiveConv2DHalfKernel(float *input, half *weight, float *bias, int inputChannels, int outputChannels, int kernelH,
+    int kernelW, int strideH, int strideW, int padH, int padW, int inputHeight, int inputWidth, int outputHeight, int outputWidth,
+    float *output);
 __global__ void FastllmReduceKernel(float *output, float *input, int len, int threadNum);
 __global__ void FastllmReduceKernel(half *output, half *input, int len, int threadNum);
 __global__ void FastllmCudaResetLogitsOfEOS(int batch, int stride, float *logits, int *res_lens, int *eos_nums, int *eos_ids);
@@ -192,36 +118,15 @@ bool FastllmCudaPermute(Data &input, const std::vector<int> &axis);
 int GetPointerDeviceId(void *ptr);
 int FastllmCudaGetDeviceCount();
 bool FastllmCudaMLA(const Data &qNope, const Data &qPe, const Data &kvCache, const Data &peCache, Data &ss, Data &output, float softmaxScale);
-bool FastllmCudaAttention(const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
+bool FastllmCudaAttention(
+    const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
 void GpuQK(half *q, half *k, half *qk, int qlen, int klen, int dim, float scale, int base);
 bool FastllmCudaHalfAttention(
     const Data &q, const Data &k, const Data &v, const Data &mask, const Data &output, int group, float scale, int maskType);
-bool FastllmCudaBatchMatMul(const Data &input0,
-                            const Data &input1,
-                            Data &output,
-                            int input0Spatial,
-                            int input1Spatial,
-                            int outputSpatial,
-                            int input0Stride,
-                            int input1Stride,
-                            int batch,
-                            int n,
-                            int m,
-                            int k,
-                            float alpha);
-bool FastllmCudaBatchMatMulTransB(const Data &input0,
-                                  const Data &input1,
-                                  Data &output,
-                                  int input0Spatial,
-                                  int input1Spatial,
-                                  int outputSpatial,
-                                  int input0Stride,
-                                  int input1Stride,
-                                  int batch,
-                                  int n,
-                                  int m,
-                                  int k,
-                                  float alpha);
+bool FastllmCudaBatchMatMul(const Data &input0, const Data &input1, Data &output, int input0Spatial, int input1Spatial, int outputSpatial,
+    int input0Stride, int input1Stride, int batch, int n, int m, int k, float alpha);
+bool FastllmCudaBatchMatMulTransB(const Data &input0, const Data &input1, Data &output, int input0Spatial, int input1Spatial, int outputSpatial,
+    int input0Stride, int input1Stride, int batch, int n, int m, int k, float alpha);
 bool FastllmCudaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaNearlyRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
 bool FastllmCudaLlamaRotatePosition2D(Data &data, const Data &positionIds, const Data &sinData, const Data &cosData, int rotaryDim);
@@ -259,35 +164,29 @@ bool FastllmCudaHalfMatMulFloatInt4Group(const Data &input, Data &weight, const 
 void LaunchFastllmGemmFp32FP8E4M3(
     float *input, uint8_t *weight, float *output, float *bias, float *scales, int n, int m, int k, int blockM, int blockK);
 bool FastllmCudaMatMulFloatFP8E4M3(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
-void LaunchFastllmGemmFp16FP8E4M3(half *input, uint8_t *weight, half *output, half *bias, float *scales, int n, int m, int k, int blockM, int blockK);
+void LaunchFastllmGemmFp16FP8E4M3(
+    half *input, uint8_t *weight, half *output, half *bias, float *scales, int n, int m, int k, int blockM, int blockK);
 bool FastllmCudaHalfMatMulFloatFP8E4M3(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
 bool FastllmCudaMatMulFloat16(const Data &input, Data &weight, const Data &bias, Data &output, int n, int m, int k);
-bool FastllmCudaConv2DFloat32(const Data &input,
-                              Data &weight,
-                              Data &bias,
-                              int inputChannels,
-                              int outputChannels,
-                              int kernelH,
-                              int kernelW,
-                              int strideH,
-                              int strideW,
-                              int padH,
-                              int padW,
-                              Data &output);
+bool FastllmCudaConv2DFloat32(const Data &input, Data &weight, Data &bias, int inputChannels, int outputChannels, int kernelH, int kernelW,
+    int strideH, int strideW, int padH, int padW, Data &output);
 void FastllmReduce(uint8_t *output, uint8_t *partOutput, int len, int threadNum, DataType dataType);
 void FastllmResetLogitsOfEOS(
     int batch, Data *logits, const std::vector<int> res_lens, const std::vector<int> eos_nums, const std::vector<int> eos_ids);
 void ForceDeviceSync();
 void FastllmCudaDirectFree(void *ret);
-void FastllmCudaMemcpy2D(
-    void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, cudaMemcpyKind type, int dstDeviceId, int srcDeviceId);
+void FastllmCudaMemcpy2D(void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, cudaMemcpyKind type,
+    int dstDeviceId, int srcDeviceId);
 void FastllmCudaMemcpy2DDeviceToDeviceAuto(
     void *dst, size_t dpitch, const void *src, size_t spitch, size_t width, size_t height, int dstDeviceId, int srcDeviceId);
-void FastllmCudaMemcpy2DDeviceToDeviceBatch(void **dsts, size_t *dpitchs, void **srcs, size_t *spitchs, size_t *widths, size_t *heights, int batch);
-void FastllmCudaRepeat(void *input, void *output, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen);
+void FastllmCudaMemcpy2DDeviceToDeviceBatch(
+    void **dsts, size_t *dpitchs, void **srcs, size_t *spitchs, size_t *widths, size_t *heights, int batch);
+void FastllmCudaRepeat(
+    void *input, void *output, int outer, int repeatTimes, int inputStride, int outputStride0, int outputStride1, int copyLen);
 bool FastllmCudaRelu(const Data &input, Data &output);
 bool FastllmCudaSwiglu(const Data &input, Data &output);
 bool FastllmCudaAdd(const Data &input, float v, Data &output);
 bool FastllmCudaAttentionMask(Data &input, const Data &mask, float maskValue);
+bool FastllmCudaAlibiMask(Data &input, const Data &mask, float maskValue);
 std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();
