@@ -188,5 +188,4 @@ bool FastllmCudaSwiglu(const Data &input, Data &output);
 bool FastllmCudaAdd(const Data &input, float v, Data &output);
 bool FastllmCudaAttentionMask(Data &input, const Data &mask, float maskValue);
 bool FastllmCudaAlibiMask(Data &input, const Data &mask, float maskValue);
-std::vector<long long> FastllmCudaGetFreeSizes();
 cublasHandle_t getFastllmCublasHandle();

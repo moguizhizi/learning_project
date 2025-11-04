@@ -5,6 +5,7 @@
 #include <thrust/sort.h>
 
 #include "fastllm-cuda.cuh"
+#include "fastllm-multicuda.cuh"
 
 using namespace nvcuda;
 
