@@ -60,3 +60,11 @@ void CopyToMultiDevices(Data &data, std::vector<int> devices, bool copyData) {
     }
     FastllmCudaSetDevice(orid);
 }
+
+void *AutoMalloc(size_t size, int type) {
+    if (type == 0) {
+        return (void *)(new uint8_t[size]);
+    } else {
+        return (void *)FastllmCudaMalloc(size);
+    }
+}
