@@ -1,13 +1,14 @@
 #pragma once // 或者用 #ifndef 方式
 
-#include "common_struct.h"
-#include "enum_space.h"
 #include <cstdint> // C++ 推荐
 #include <string>
 #include <vector>
 
+#include "common_struct.h"
+#include "enum_space.h"
+
 class Data {
-  public:
+   public:
     Data();
     Data(DataType datatype);
     Data(DataType datatype, const std::vector<int> &dims);
@@ -21,6 +22,9 @@ class Data {
     bool isFake = false;
     bool directMemory = false;
     bool isKVCache = false;
+
+    bool multiDeviceData = false;
+    std::map<int, Data *> multiDeviceDatas;
 
     uint64_t expansionSize = 0;
     uint64_t expansionBytes = 0;
