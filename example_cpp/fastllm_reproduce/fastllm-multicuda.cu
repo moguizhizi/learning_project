@@ -77,3 +77,19 @@ cudaError_t AutoMemset(void *a, int value, size_t size, int type) {
         return cudaMemset(a, value, size);
     }
 }
+
+cudaMemcpyKind GetCudaMemcpyType(int dstType, int srcType) {
+    if (srcType == 0) {
+        if (dstType == 0) {
+            return cudaMemcpyHostToHost;
+        } else {
+            return cudaMemcpyHostToDevice;
+        }
+    } else {
+        if (dstType == 0) {
+            return cudaMemcpyDeviceToHost;
+        } else {
+            return cudaMemcpyDeviceToDevice;
+        }
+    }
+}
