@@ -19,3 +19,6 @@ void FastllmMultiCudaSetDevice(std::vector<int> ids);
 void FastllmMultiCudaSetDeviceRatio(std::map<int, int> &deviceRatio);
 
 void FastllmGetMulticudaDeviceAndRatio(std::vector<int> &devices, std::map<int, int> &ratios, bool noSpecial);
+
+std::vector<int> FastllmMultiCudaGetSplitPoints(
+    std::vector<int> &multiCudaCurrentDevices, std::map<int, int> &multiCudaCurrentRatios, int total, int unit = 1);

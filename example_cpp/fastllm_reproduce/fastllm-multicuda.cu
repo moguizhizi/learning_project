@@ -115,3 +115,35 @@ void FastllmGetMulticudaDeviceAndRatio(std::vector<int> &devices, std::map<int, 
         }
     }
 }
+
+// 将total个计算任务切分
+// 若当前有x个设备，返回一个长度为(x + 1)的vector，第i个设备执行任务[ret[i], ret[i + 1])
+std::vector<int> FastllmMultiCudaGetSplitPoints(
+    std::vector<int> &multiCudaCurrentDevices, std::map<int, int> &multiCudaCurrentRatios, int total, int unit = 1) {
+    int deviceNum = multiCudaCurrentDevices.size();
+    int nodes = total / unit;
+    int totalRatio = 0;
+    if (multiCudaCurrentRatios.size() > 0) {
+        for (auto &it : multiCudaCurrentRatios) {
+            totalRatio += it.second;
+        }
+    } else {
+        totalRatio = deviceNum;
+    }
+    std::vector<int> ret;
+    int cur = 0;
+    for (int i = 0; i < deviceNum; i++) {
+        int curRatio = 1;
+        if (multiCudaCurrentRatios.find(multiCudaCurrentDevices[i]) != multiCudaCurrentRatios.end()) {
+            curRatio = multiCudaCurrentRatios[i];
+        }
+        int now = std::max(1, nodes * curRatio / totalRatio) * unit;
+        int end = (i == deviceNum - 1 ? total : cur + now);
+        ret.push_back(cur);
+        if (i == deviceNum - 1) {
+            ret.push_back(end);
+        }
+        cur = end;
+    }
+    return ret;
+}
