@@ -93,3 +93,14 @@ cudaMemcpyKind GetCudaMemcpyType(int dstType, int srcType) {
         }
     }
 }
+
+std::vector<int> multiCudaCurrentDevices;
+std::map<int, int> multiCudaCurrentRatios;
+
+void FastllmMultiCudaSetDevice(std::vector<int> ids) {
+    multiCudaCurrentDevices = ids;
+}
+
+void FastllmMultiCudaSetDeviceRatio(std::map<int, int> &deviceRatio) {
+    multiCudaCurrentRatios = deviceRatio;
+}
