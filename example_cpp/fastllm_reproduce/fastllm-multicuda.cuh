@@ -13,3 +13,7 @@ void *AutoMalloc(size_t size, int type);
 cudaError_t AutoMemset(void *a, int value, size_t size, int type);
 
 cudaMemcpyKind GetCudaMemcpyType(int dstType, int srcType);
+
+void FastllmMultiCudaSetDevice(std::vector<int> ids);
+
+void FastllmMultiCudaSetDeviceRatio(std::map<int, int> &deviceRatio);
