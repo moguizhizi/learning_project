@@ -147,3 +147,16 @@ std::vector<int> FastllmMultiCudaGetSplitPoints(
     }
     return ret;
 }
+
+std::vector<bool> streamInits = std::vector<bool>(4, 0);
+cudaStream_t streams[4];
+
+cudaStream_t *GetFastllmStream(int id) {
+    if (!streamInits[id]) {
+        streamInits[id] = true;
+        cudaSetDevice(id);
+        cudaStreamCreate(&streams[id]);
+        cudaSetDevice(0);
+    }
+    return &streams[id];
+}

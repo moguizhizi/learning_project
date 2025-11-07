@@ -22,3 +22,5 @@ void FastllmGetMulticudaDeviceAndRatio(std::vector<int> &devices, std::map<int, 
 
 std::vector<int> FastllmMultiCudaGetSplitPoints(
     std::vector<int> &multiCudaCurrentDevices, std::map<int, int> &multiCudaCurrentRatios, int total, int unit = 1);
+
+cudaStream_t *GetFastllmStream(int id);
