@@ -9,3 +9,5 @@ void SwitchDeviceAndGetInfos(int deviceId, std::string &specialId, int &mallocTy
 void CopyToMultiDevices(Data &data, std::vector<int> devices, bool copyData);
 
 void *AutoMalloc(size_t size, int type);
+
+cudaError_t AutoMemset(void *a, int value, size_t size, int type);

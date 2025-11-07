@@ -68,3 +68,12 @@ void *AutoMalloc(size_t size, int type) {
         return (void *)FastllmCudaMalloc(size);
     }
 }
+
+cudaError_t AutoMemset(void *a, int value, size_t size, int type) {
+    if (type == 0) {
+        memset(a, value, size);
+        return cudaSuccess;
+    } else {
+        return cudaMemset(a, value, size);
+    }
+}
