@@ -104,3 +104,14 @@ void FastllmMultiCudaSetDevice(std::vector<int> ids) {
 void FastllmMultiCudaSetDeviceRatio(std::map<int, int> &deviceRatio) {
     multiCudaCurrentRatios = deviceRatio;
 }
+
+void FastllmGetMulticudaDeviceAndRatio(std::vector<int> &devices, std::map<int, int> &ratios, bool noSpecial) {
+    devices.clear();
+    ratios.clear();
+    for (int i : multiCudaCurrentDevices) {
+        if (noSpecial == false || specialDeviceIds.find(i) == specialDeviceIds.end()) {
+            devices.push_back(i);
+            ratios[i] = multiCudaCurrentRatios.find(i) != multiCudaCurrentRatios.end() ? multiCudaCurrentRatios[i] : 1;
+        }
+    }
+}

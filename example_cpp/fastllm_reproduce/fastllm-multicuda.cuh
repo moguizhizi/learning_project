@@ -17,3 +17,5 @@ cudaMemcpyKind GetCudaMemcpyType(int dstType, int srcType);
 void FastllmMultiCudaSetDevice(std::vector<int> ids);
 
 void FastllmMultiCudaSetDeviceRatio(std::map<int, int> &deviceRatio);
+
+void FastllmGetMulticudaDeviceAndRatio(std::vector<int> &devices, std::map<int, int> &ratios, bool noSpecial);
