@@ -160,3 +160,34 @@ cudaStream_t *GetFastllmStream(int id) {
     }
     return &streams[id];
 }
+
+void EnablePeerAccessAll(const std::vector<int> &devices) {
+    int curdev = -1;
+    auto setDevice = [&](int i) {
+        if (curdev != i) {
+            cudaSetDevice(i);
+            curdev = i;
+        }
+    };
+
+    for (int i = 0; i < devices.size(); i++) {
+        for (int j = i + 1; j < devices.size(); j++) {
+            int A = devices[i];
+            int B = devices[j];
+            int canAB = 0, canBA = 0;
+
+            cudaDeviceCanAccessPeer(&canAB, A, B);
+            cudaDeviceCanAccessPeer(&canBA, B, A);
+
+            if (canAB) {
+                setDevice(A), cudaDeviceEnablePeerAccess(B, 0);
+            }
+
+            if (canBA) {
+                setDevice(B), cudaDeviceEnablePeerAccess(A, 0);
+            }
+        }
+    }
+}
+
+bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaCurrentDevices, DivisionScheme divisionScheme, int splitAxis) {}

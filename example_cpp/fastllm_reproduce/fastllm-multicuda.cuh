@@ -1,5 +1,7 @@
 #include "fastllm.h"
 
+using DivisionScheme = std::map<int, std::vector<std::pair<int, int> > >;
+
 std::vector<long long> FastllmCudaGetFreeSizes();
 
 std::map<int, std::string> specialDeviceIds = {{99999, "cpu"}};
@@ -24,3 +26,7 @@ std::vector<int> FastllmMultiCudaGetSplitPoints(
     std::vector<int> &multiCudaCurrentDevices, std::map<int, int> &multiCudaCurrentRatios, int total, int unit = 1);
 
 cudaStream_t *GetFastllmStream(int id);
+
+void EnablePeerAccessAll(const std::vector<int> &devices);
+
+bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaCurrentDevices, DivisionScheme divisionScheme, int splitAxis);
