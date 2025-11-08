@@ -190,4 +190,99 @@ void EnablePeerAccessAll(const std::vector<int> &devices) {
     }
 }
 
-bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaCurrentDevices, DivisionScheme divisionScheme, int splitAxis) {}
+bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaCurrentDevices, DivisionScheme divisionScheme, int splitAxis) {
+    if (weight.multiDeviceData && bias.multiDeviceData) {
+        return true;
+    }
+
+    weight.multiDeviceData = true;
+    bias.multiDeviceData = true;
+    int deviceNum = multiCudaCurrentDevices.size();
+    int k = weight.dims[0];
+    int m = weight.dims[1];
+    DataType weightDataType = weight.dataType;
+    DataType biasDataType = bias.dataType;
+    uint8_t *devWeightData = nullptr;
+    uint8_t *devBiasData = nullptr;
+    int elementSize = weight.unitSize / weight.unitSizeDiv;
+
+    FastllmCudaSetDevice(0);
+
+    float *biasCuda = (float *)FastllmCudaMalloc(k * sizeof(float));
+    if (bias.dims.size() > 0) {
+        cudaMemcpy((uint8_t *)biasCuda, (uint8_t *)bias.cudaData, k * sizeof(float), GetCudaMemcpyType(1, 1));
+    } else {
+        cudaMemset((uint8_t *)biasCuda, 0, k * sizeof(float));
+    }
+    EnablePeerAccessAll(multiCudaCurrentDevices);
+
+    for (int i = 0; i < deviceNum; i++) {
+        int deviceID = multiCudaCurrentDevices[i];
+
+        // --- 1. 切换设备并获取信息 ---
+        int mallocType = 0;
+        std::string specialId;
+        SwitchDeviceAndGetInfos(deviceID, specialId, mallocType);
+        DataDevice dataDevice = (mallocType == 0 ? DataDevice::CPU : DataDevice::CUDA);
+
+        // --- 2. 计算当前设备分得的长度 ---
+        const auto &devScheme = divisionScheme[deviceID];
+        int len = 0;
+        for (const auto &it : devScheme) len += (it.second - it.first);
+
+        // --- 3. 创建子 weight / bias 张量 ---
+        std::vector<int> devWeightDims, devBiasDims;
+        if (splitAxis == 0) {
+            devWeightDims = {len, m};
+            devBiasDims = {len};
+        } else {
+            devWeightDims = {k, len};
+            devBiasDims = {k};
+        }
+
+        weight.multiDeviceDatas[deviceID] = new Data(weightDataType, devWeightDims);
+        bias.multiDeviceDatas[deviceID] = new Data(biasDataType, devBiasDims);
+
+        Data *tempWeight = weight.multiDeviceDatas[deviceID];
+        Data *tempBias = bias.multiDeviceDatas[deviceID];
+
+        tempWeight->dataDevice = dataDevice;
+        tempBias->dataDevice = dataDevice;
+
+        uint8_t *devWeightData = (uint8_t *)(mallocType == 0 ? tempWeight->cpuData : tempWeight->cudaData);
+        uint8_t *devBiasData = (uint8_t *)(mallocType == 0 ? tempBias->cpuData : tempBias->cudaData);
+
+        // --- 4. 根据 splitAxis 拷贝数据 ---
+        int curLen = 0;
+        for (const auto &it : devScheme) {
+            int sliceLen = it.second - it.first;
+
+            if (splitAxis == 0) {
+                // 行分块：拷贝连续区间 [it.first : it.second)
+                cudaMemcpy(devWeightData + curLen * m * elementSize, (uint8_t *)weight.cudaData + it.first * m * elementSize,
+                    sliceLen * m * elementSize, GetCudaMemcpyType(mallocType, 1));
+
+                cudaMemcpy(devBiasData + curLen * sizeof(float), (uint8_t *)bias.cudaData + it.first * sizeof(float), sliceLen * sizeof(float),
+                    GetCudaMemcpyType(mallocType, 1));
+            } else {
+                // 列分块：使用 2D 拷贝
+                FastllmCudaMemcpy2D(devWeightData + curLen * elementSize, len * elementSize, (uint8_t *)weight.cudaData + it.first * elementSize,
+                    m * elementSize,
+                    sliceLen * elementSize, // width
+                    k,                      // height
+                    GetCudaMemcpyType(mallocType, 1), deviceID, 0);
+            }
+
+            curLen += sliceLen;
+        }
+
+        // --- 5. 处理 bias ---
+        if (splitAxis == 1) {
+            if (i == 0) {
+                cudaMemcpy(devBiasData, (uint8_t *)biasCuda, k * sizeof(float), GetCudaMemcpyType(1, 1));
+            } else {
+                AutoMemset(devBiasData, 0, k * sizeof(float), mallocType);
+            }
+        }
+    }
+}
