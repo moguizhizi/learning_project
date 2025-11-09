@@ -31,3 +31,15 @@ bool MultiCudaDevice::CopyDataToCPU(void *dst, void *src, size_t size) {
     FastllmCudaCopyFromDeviceToHost(dst, src, size);
     return true;
 }
+
+bool MultiCudaDevice::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (this->ops.find(opType) == this->ops.end()) {
+        if (((BaseDevice *)this->cudaDevice)->ops.find(opType) == ((BaseDevice *)this->cudaDevice)->ops.end()) {
+            return false;
+        } else {
+            return ((BaseDevice *)this->cudaDevice)->CanRun(opType, datas, floatParams, intParams);
+        }
+    } else {
+        return this->ops[opType]->CanRun(opType, datas, floatParams, intParams);
+    }
+}
