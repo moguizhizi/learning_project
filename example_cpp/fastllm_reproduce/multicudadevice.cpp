@@ -1,4 +1,5 @@
 #include "multicudadevice.h"
+
 #include "fastllm-cuda.cuh"
 
 MultiCudaDevice::MultiCudaDevice(CudaDevice *cudaDevice) {
@@ -13,5 +14,10 @@ MultiCudaDevice::MultiCudaDevice(CudaDevice *cudaDevice) {
 
 bool MultiCudaDevice::Malloc(void **ret, size_t size) {
     *ret = FastllmCudaMalloc(size);
+    return true;
+}
+
+bool MultiCudaDevice::Free(void *ret) {
+    FastllmCudaFree(ret);
     return true;
 }
