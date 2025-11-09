@@ -5,7 +5,7 @@
 #include "device.h"
 
 class CudaDevice : BaseDevice {
-  public:
+   public:
     CudaDevice();
 
     bool Malloc(void **ret, size_t size); // 分配尺寸为size的空间
@@ -118,5 +118,15 @@ class CudaReluOp : BaseOperator {
 };
 
 class CudaAlibiMaskOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMergeMOE : BaseOperator {
+   protected:
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CudaMergeAttention : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
