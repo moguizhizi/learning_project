@@ -43,3 +43,12 @@ bool MultiCudaDevice::CanRun(const std::string &opType, const DataDict &datas, c
         return this->ops[opType]->CanRun(opType, datas, floatParams, intParams);
     }
 }
+
+// 对某一个算子进行形状推理
+void MultiCudaDevice::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (this->ops.find(opType) == this->ops.end()) {
+        ((BaseDevice *)this->cudaDevice)->Reshape(opType, datas, floatParams, intParams);
+    } else {
+        this->ops[opType]->Reshape(opType, datas, floatParams, intParams);
+    }
+}
