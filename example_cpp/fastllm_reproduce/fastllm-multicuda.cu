@@ -243,30 +243,30 @@ bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaC
         weight.multiDeviceDatas[deviceID] = new Data(weightDataType, devWeightDims);
         bias.multiDeviceDatas[deviceID] = new Data(biasDataType, devBiasDims);
 
-        Data *tempWeight = weight.multiDeviceDatas[deviceID];
-        Data *tempBias = bias.multiDeviceDatas[deviceID];
+        Data *devWeight = weight.multiDeviceDatas[deviceID];
+        Data *devBias = bias.multiDeviceDatas[deviceID];
 
-        tempWeight->dataDevice = dataDevice;
-        tempBias->dataDevice = dataDevice;
+        devWeight->dataDevice = dataDevice;
+        devBias->dataDevice = dataDevice;
 
-        uint8_t *devWeightData = (uint8_t *)(mallocType == 0 ? tempWeight->cpuData : tempWeight->cudaData);
-        uint8_t *devBiasData = (uint8_t *)(mallocType == 0 ? tempBias->cpuData : tempBias->cudaData);
+        uint8_t *devWeightData = (uint8_t *)(mallocType == 0 ? devWeight->cpuData : devWeight->cudaData);
+        uint8_t *devBiasData = (uint8_t *)(mallocType == 0 ? devBias->cpuData : devBias->cudaData);
 
         // --- 4. 根据 splitAxis 拷贝数据 ---
         int curLen = 0;
-        for (const auto &it : devScheme) {
-            int sliceLen = it.second - it.first;
+        for (const auto &[start, end] : devScheme) {
+            int sliceLen = end - start;
 
             if (splitAxis == 0) {
                 // 行分块：拷贝连续区间 [it.first : it.second)
-                cudaMemcpy(devWeightData + curLen * m * elementSize, (uint8_t *)weight.cudaData + it.first * m * elementSize,
+                cudaMemcpy(devWeightData + curLen * m * elementSize, (uint8_t *)weight.cudaData + start * m * elementSize,
                     sliceLen * m * elementSize, GetCudaMemcpyType(mallocType, 1));
 
-                cudaMemcpy(devBiasData + curLen * sizeof(float), (uint8_t *)bias.cudaData + it.first * sizeof(float), sliceLen * sizeof(float),
+                cudaMemcpy(devBiasData + curLen * sizeof(float), (uint8_t *)bias.cudaData + start * sizeof(float), sliceLen * sizeof(float),
                     GetCudaMemcpyType(mallocType, 1));
             } else {
                 // 列分块：使用 2D 拷贝
-                FastllmCudaMemcpy2D(devWeightData + curLen * elementSize, len * elementSize, (uint8_t *)weight.cudaData + it.first * elementSize,
+                FastllmCudaMemcpy2D(devWeightData + curLen * elementSize, len * elementSize, (uint8_t *)weight.cudaData + start * elementSize,
                     m * elementSize,
                     sliceLen * elementSize, // width
                     k,                      // height
@@ -285,4 +285,106 @@ bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaC
             }
         }
     }
-}
+
+    int weightGroup = weight.group = -1 ? 1 : weight.group;
+    int weightGroupCnt = weight.groupCnt;
+    const std::vector<float> &weightScales = weight.scales;
+    const std::vector<float> &weightMins = weight.mins;
+    std::vector<int> weightZeros;
+
+    weightZeros.resize(k * weightGroup);
+    if (weight.perChannelsConfigs.size() > 0) {
+        for (int i = 0; i < k * weightGroup; i++) {
+            weightZeros[i] = weight.perChannelsConfigs[i].zeroPoint;
+        }
+    } else if (weight.zeros.size() > 0) {
+        weightZeros = weight.zeros;
+    } else {
+        std::fill(weightZeros.begin(), weightZeros.end(), 0);
+    }
+
+    if (weight.dataType == DataType::FP8_E4M3) {
+    } else if (weight.mins.size() > 0) {
+        for (int i = 0; i < deviceNum; i++) {
+            int deviceID = multiCudaCurrentDevices[i];
+            const auto &devScheme = divisionScheme[deviceID];
+            int len = 0;
+            for (const auto &it : devScheme) len += (it.second - it.first);
+
+            Data *devWeight = weight.multiDeviceDatas[deviceID];
+
+            int devScaleCount = 0;
+            int devMinsCount = 0;
+            int devZerosCount = 0;
+            if (splitAxis == 0) {
+                devScaleCount = len * weightGroup;
+                devMinsCount = len * weightGroup;
+                devZerosCount = len * weightGroup;
+            } else {
+                devScaleCount = k * weightGroup;
+                devMinsCount = k * weightGroup;
+                devZerosCount = k * weightGroup;
+            }
+
+            std::vector<float> &devScales = devWeight->scales;
+            std::vector<float> &devMins = devWeight->mins;
+            std::vector<int> &devZeros = devWeight->zeros;
+
+            devScales.resize(devScaleCount, 0.0f);
+            devMins.resize(devMinsCount, 0.0f);
+            devZeros.resize(devZerosCount, 0);
+
+            int curLen = 0;
+            int curGroupLen = 0;
+            for (const auto &[start, end] : devScheme) {
+                int sliceLen = end - start;
+
+                if (splitAxis == 0) {
+                    memcpy(devScales.data() + curLen, weightScales.data() + start * weightGroup, sliceLen * weightGroup * sizeof(float));
+                    memcpy(devMins.data() + curLen, weightMins.data() + start * weightGroup, sliceLen * weightGroup * sizeof(float));
+                    memcpy(devZeros.data() + curLen, weightZeros.data() + start * weightGroup, sliceLen * weightGroup * sizeof(int));
+                } else {
+                    if (weightGroupCnt == -1) {
+                        // 情况1：未分组，直接整体拷贝
+                        memcpy(devScales.data(), weightScales.data(), k * sizeof(float));
+                        memcpy(devMins.data(), weightMins.data(), k * sizeof(float));
+                        memcpy(devZeros.data(), weightZeros.data(), k * sizeof(int));
+                    } else {
+                        // 情况2：按分组进行拷贝
+                        const bool startAligned = (start % weightGroupCnt == 0);
+                        const bool endAligned = (end % weightGroupCnt == 0);
+
+                        const int startGroup = start / weightGroupCnt;
+                        const int endGroup = end / weightGroupCnt;
+                        const int sliceGroupLen = endGroup - startGroup;
+
+                        if (startAligned && endAligned) {
+                            // 对齐时整块拷贝，每行的 group 数据连续
+                            for (int row = 0; row < k; ++row) {
+                                const float *srcScale = weightScales.data() + row * weightGroup + startGroup;
+                                const float *srcMin = weightMins.data() + row * weightGroup + startGroup;
+                                const int *srcZero = weightZeros.data() + row * weightGroup + startGroup;
+
+                                float *dstScale = devScales.data() + row * weightGroup + curGroupLen;
+                                float *dstMin = devMins.data() + row * weightGroup + curGroupLen;
+                                int *dstZero = devZeros.data() + row * weightGroup + curGroupLen;
+
+                                const size_t copyF = sliceGroupLen * sizeof(float);
+                                const size_t copyI = sliceGroupLen * sizeof(int);
+
+                                memcpy(dstScale, srcScale, copyF);
+                                memcpy(dstMin, srcMin, copyF);
+                                memcpy(dstZero, srcZero, copyI);
+                            }
+
+                            curGroupLen += sliceGroupLen;
+                        } else {
+                            // TODO: 非对齐情况处理（如果有）
+                            // printf("Warning: group range [%d, %d) not aligned with weightGroupCnt=%d\n", start, end, weightGroupCnt);
+                        }
+                    }
+                }
+                curLen += sliceLen;
+            }
+        }
+    }
