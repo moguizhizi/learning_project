@@ -1,13 +1,15 @@
 #pragma once
 
+#include <string>
+
 #include "common_class.h"
+#include "device.h"
 #include "enum_space.h"
 #include "struct_space.hpp"
 #include "types.h"
-#include <string>
 
 class basellm {
-  public:
+   public:
     basellm();
     ~basellm();
 
@@ -43,13 +45,16 @@ class basellm {
 
     void InitParams();
     std::map<std::string, std::vector<std::pair<std::string, DataType>>> GetTensorMap(const std::vector<std::string> &tensorNames);
-    std::map<std::string, std::vector<std::pair<std::string, DataType>>>
-    GetTensorMap(const std::vector<std::string> &tensorNames, bool useMoeDataType, DataType moeDataType);
-    void MergeWeightsFromRules(const std::string &weightName,
-                               const std::set<std::string> &allWeightNames,
-                               const std::set<std::string> &allFinishName,
-                               bool &needMerge);
+    std::map<std::string, std::vector<std::pair<std::string, DataType>>> GetTensorMap(
+        const std::vector<std::string> &tensorNames, bool useMoeDataType, DataType moeDataType);
+    void MergeWeightsFromRules(
+        const std::string &weightName, const std::set<std::string> &allWeightNames, const std::set<std::string> &allFinishName, bool &needMerge);
 };
 
-class BaseDevice {};
+class BaseDevice {
+   public:
+    std::string deviceType;
+
+    std::map<std::string, BaseOperator *> ops;
+};
 class CpuDevice : BaseDevice {};

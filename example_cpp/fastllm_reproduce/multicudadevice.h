@@ -1,3 +1,5 @@
+#pragma once // 或者用 #ifndef 方式
+
 #include "basellm.h"
 #include "cpudevice.h"
 #include "cudadevice.h"
