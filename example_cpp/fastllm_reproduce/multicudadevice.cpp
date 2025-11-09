@@ -26,3 +26,8 @@ bool MultiCudaDevice::CopyDataFromCPU(void *dst, void *src, size_t size) {
     FastllmCudaCopyFromHostToDevice(dst, src, size);
     return true;
 }
+
+bool MultiCudaDevice::CopyDataToCPU(void *dst, void *src, size_t size) {
+    FastllmCudaCopyFromDeviceToHost(dst, src, size);
+    return true;
+}
