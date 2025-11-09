@@ -313,6 +313,9 @@ bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaC
 
             Data *devWeight = weight.multiDeviceDatas[deviceID];
 
+            devWeight->group = weight.group;
+            devWeight->groupCnt = weight.groupCnt;
+
             int devScaleCount = 0;
             int devMinsCount = 0;
             int devZerosCount = 0;
