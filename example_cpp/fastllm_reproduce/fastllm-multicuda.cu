@@ -288,6 +288,10 @@ bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaC
 
     int weightGroup = weight.group = -1 ? 1 : weight.group;
     int weightGroupCnt = weight.groupCnt;
+    int weightBlockK = weight.blockK;
+    int weightBlockM = weight.blockM;
+    int weightKS = (weight.dims[0] - 1) / weightBlockK + 1;
+    int weightMS = (weight.dims[1] - 1) / weightBlockM + 1;
     const std::vector<float> &weightScales = weight.scales;
     const std::vector<float> &weightMins = weight.mins;
     std::vector<int> weightZeros;
@@ -304,6 +308,54 @@ bool SplitMultiCudaWeight(Data &weight, Data &bias, std::vector<int> &multiCudaC
     }
 
     if (weight.dataType == DataType::FP8_E4M3) {
+        for (int i = 0; i < deviceNum; ++i) {
+            const int deviceID = multiCudaCurrentDevices[i];
+            const auto &devScheme = divisionScheme[deviceID];
+            Data *devWeight = weight.multiDeviceDatas[deviceID];
+
+            // 基本配置
+            devWeight->blockK = weightBlockK;
+            devWeight->blockM = weightBlockM;
+
+            std::vector<float> &devScales = devWeight->scales;
+
+            const int devK = devWeight->dims[0];
+            const int devM = devWeight->dims[1];
+            const int devKS = (devK + devWeight->blockK - 1) / devWeight->blockK;
+            const int devMS = (devM + devWeight->blockM - 1) / devWeight->blockM;
+
+            devScales.assign(devKS * devMS, 0.0f); // 自动清零 + resize
+
+            int offset = 0;
+            for (const auto &[start, end] : devScheme) {
+                const int sliceLen = end - start;
+
+                if (splitAxis == 0) {
+                    // 沿 K 轴拆分
+                    const int startK = start / weightBlockK;
+                    const int sliceK = sliceLen / weightBlockK;
+                    const size_t copyCount = sliceK * devMS;
+
+                    memcpy(devScales.data() + offset, weightScales.data() + startK * weightMS, copyCount * sizeof(float));
+
+                    offset += copyCount;
+
+                } else {
+                    // 沿 M 轴拆分
+                    const int startM = start / weightBlockM;
+                    const int sliceM = sliceLen / devWeight->blockM;
+                    const size_t copyCount = sliceM * sizeof(float);
+
+                    for (int row = 0; row < weightKS; ++row) {
+                        float *dst = devScales.data() + row * devMS + offset;
+                        const float *src = weightScales.data() + row * weightMS + startM;
+                        memcpy(dst, src, copyCount);
+                    }
+
+                    offset += sliceM;
+                }
+            }
+        }
     } else if (weight.mins.size() > 0) {
         for (int i = 0; i < deviceNum; i++) {
             int deviceID = multiCudaCurrentDevices[i];
