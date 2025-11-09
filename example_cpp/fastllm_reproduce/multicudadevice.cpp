@@ -61,3 +61,11 @@ void MultiCudaDevice::Run(const std::string &opType, const DataDict &datas, cons
         this->ops[opType]->Run(opType, datas, floatParams, intParams);
     }
 }
+
+bool MultiCudaLinearOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (intParams.find("exType") != intParams.end()) {
+        return false;
+    }
+    Data &weight = *(datas.find("weight")->second);
+    return weight.dims[0] > 10000 || weight.dims[1] > 10000;
+}
