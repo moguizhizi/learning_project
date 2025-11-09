@@ -21,3 +21,8 @@ bool MultiCudaDevice::Free(void *ret) {
     FastllmCudaFree(ret);
     return true;
 }
+
+bool MultiCudaDevice::CopyDataFromCPU(void *dst, void *src, size_t size) {
+    FastllmCudaCopyFromHostToDevice(dst, src, size);
+    return true;
+}
