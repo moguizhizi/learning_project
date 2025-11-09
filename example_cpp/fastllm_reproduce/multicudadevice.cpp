@@ -52,3 +52,12 @@ void MultiCudaDevice::Reshape(const std::string &opType, const DataDict &datas, 
         this->ops[opType]->Reshape(opType, datas, floatParams, intParams);
     }
 }
+
+// 对某一个算子进行推理
+void MultiCudaDevice::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    if (this->ops.find(opType) == this->ops.end()) {
+        ((BaseDevice *)this->cudaDevice)->Run(opType, datas, floatParams, intParams);
+    } else {
+        this->ops[opType]->Run(opType, datas, floatParams, intParams);
+    }
+}

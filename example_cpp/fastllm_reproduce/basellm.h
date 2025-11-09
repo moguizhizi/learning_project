@@ -59,6 +59,9 @@ class BaseDevice {
     // 对某一个算子进行形状推理
     virtual void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 
+    // 对某一个算子进行推理
+    virtual void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+
     std::string deviceType;
 
     std::map<std::string, BaseOperator *> ops;
