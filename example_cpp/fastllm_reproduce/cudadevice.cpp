@@ -138,6 +138,40 @@ void DoCudaPermuteSelf(Data &input, const std::vector<int> &axis) {
     FastllmCudaPermute(input, axis);
 }
 
+void DoCudaCatDirect(Data &input0, Data &input1, int axis) {
+    int dimsLen = input1.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    if (input0.dims.size() == 0) {
+        input0.Resize(input1.dims);
+        input0.Allocate();
+
+        int outer = input1.Count(0) / input1.Count(axis);
+        int inputStride0 = input0.Count(axis);
+        int inputStride1 = input1.Count(axis);
+        int inner = input1.strides[axis];
+        int unitSize = input0.unitSize;
+
+        FastllmCudaMemcpy2DDeviceToDevice((uint8_t *)input0.cudaData, inputStride0 * unitSize, (uint8_t *)input1.cudaData,
+            inputStride1 * unitSize, inputStride1 * unitSize, outer);
+
+    } else {
+        std::vector<int> dims = input0.dims;
+        std::vector<int> oldDims = dims;
+        dims[axis] += input1.dims[axis];
+        input0.Resize(dims);
+        int outer = input0.Count(0) / input0.Count(axis);
+        int input0Stride = input0.Count(axis);
+        int input1Stride = input1.Count(axis);
+
+        int inner = input0.strides[axis];
+        int unitSize = input0.unitSize;
+
+        FastllmCudaMemcpy2DDeviceToDevice((uint8_t *)input0.cudaData + oldDims[axis] * inner * unitSize, input0Stride * unitSize,
+            (uint8_t *)input1.cudaData, input1Stride * unitSize, input1.dims[axis] * inner * unitSize, outer);
+    }
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
