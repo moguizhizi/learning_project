@@ -118,6 +118,26 @@ void DoCudaSplit(Data &input, int axis, int start, int end, Data &output) {
         (uint8_t *)input.cudaData + start * inner * uniteSize, inputStride * uniteSize, (end - start) * inner * uniteSize, outer);
 }
 
+void DoCudaPermuteSelf(Data &input, const std::vector<int> &axis) {
+    bool same = false;
+    same |= ((axis == std::vector<int>{1, 2, 0} || axis == std::vector<int>{1, 0, 2}) && (input.dims[0] == 1 || input.dims[1] == 1));
+    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[2] == 1);
+    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[0] == 1 && input.dims[1] == 1);
+    same |= ((axis == std::vector<int>{0, 2, 1, 3}) && (input.dims[1] == 1 || input.dims[2] == 1));
+    same |= ((axis == std::vector<int>{1, 0, 2, 3}) && (input.dims[0] == 1 || input.dims[1] == 1));
+    same |= ((axis == std::vector<int>{1, 2, 0, 3}) && input.dims[1] == 1 && input.dims[2] == 1);
+    if (same) {
+        std::vector<int> new_dims;
+        for (int i = 0; i < axis.size(); i++) {
+            new_dims.push_back(input.dims[axis[i]]);
+        }
+        input.Resize(new_dims);
+        return;
+    }
+
+    FastllmCudaPermute(input, axis);
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
