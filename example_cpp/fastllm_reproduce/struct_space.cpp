@@ -1383,3 +1383,35 @@ void MultiCudaDoLinearOp::Run() {
             len * output->unitSize / output->unitSizeDiv, n, 0, this->deviceId);
     }
 }
+
+MultiCudaDoMergeAttentionOp::MultiCudaDoMergeAttentionOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, uint8_t *partOutput, Data *input,
+    Data *weight0, Data *bias0, Data *weight1, Data *bias1, Data *qkv, Data *q, Data *k, Data *v, int qNum, int kvNum, int headDim, int rotDim,
+    float attentionScale, Data *positionIds, Data *sinData, Data *cosData, Data **keys, Data **values, Data **masks, Data *output, int batch,
+    int deviceId) {
+    this->oriCudaInput = oriCudaInput;
+    this->oriCpuInput = oriCpuInput;
+    this->partOutput = partOutput;
+    this->input = input;
+    this->weight0 = weight0;
+    this->bias0 = bias0;
+    this->weight1 = weight1;
+    this->bias1 = bias1;
+    this->qkv = qkv;
+    this->q = q;
+    this->k = k;
+    this->v = v;
+    this->qNum = qNum;
+    this->kvNum = kvNum;
+    this->headDim = headDim;
+    this->rotDim = rotDim;
+    this->attentionScale = attentionScale;
+    this->positionIds = positionIds;
+    this->sinData = sinData;
+    this->cosData = cosData;
+    this->keys = keys;
+    this->values = values;
+    this->masks = masks;
+    this->output = output;
+    this->batch = batch;
+    this->deviceId = deviceId;
+}

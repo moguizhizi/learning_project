@@ -17,8 +17,8 @@
 #include "common_class.h"
 #include "common_struct.h"
 #include "enum_space.h"
-#include "json11.hpp"
 #include "fastllm-cuda.cuh"
+#include "json11.hpp"
 
 struct SafeTensorItem {
     std::string tensorName;
@@ -333,6 +333,25 @@ struct MultiCudaDoLinearOp : MultiThreadBaseOp {
 
     MultiCudaDoLinearOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, Data *input, Data *weight, Data *bias, Data *output, int n, int m, int k,
         int start, int len, uint8_t *lastOutput, int deviceId);
+
+    void Run();
+};
+
+struct MultiCudaDoMergeAttentionOp : MultiThreadBaseOp {
+    uint8_t *oriCudaInput, *oriCpuInput, *partOutput;
+    Data *input, *weight0, *bias0, *weight1, *bias1;
+    Data *qkv, *q, *k, *v;
+    int qNum, kvNum, headDim, rotDim;
+    float attentionScale;
+    Data *positionIds, *sinData, *cosData;
+    Data **keys, **values, **masks;
+    Data *output;
+    int batch;
+    int deviceId;
+
+    MultiCudaDoMergeAttentionOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data *weight0, Data *bias0,
+        Data *weight1, Data *bias1, Data *qkv, Data *q, Data *k, Data *v, int qNum, int kvNum, int headDim, int rotDim, float attentionScale,
+        Data *positionIds, Data *sinData, Data *cosData, Data **keys, Data **values, Data **masks, Data *output, int batch, int deviceId);
 
     void Run();
 };
