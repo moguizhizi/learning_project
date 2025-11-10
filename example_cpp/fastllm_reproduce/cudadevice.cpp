@@ -87,6 +87,19 @@ void DoCudaLinear(Data &input, Data &weight, const Data &bias, Data &output) {
     }
 }
 
+void DoCudaSplitReshape(Data &input, int axis, int start, int end, Data &output) {
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    start = std::max(0, std::min(input.dims[axis] - 1, start));
+    end = std::max(0, std::min(input.dims[axis], end));
+    std::vector<int> dims = input.dims;
+    dims[axis] = end - start;
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
