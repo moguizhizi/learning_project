@@ -100,6 +100,24 @@ void DoCudaSplitReshape(Data &input, int axis, int start, int end, Data &output)
     output.Resize(dims);
 }
 
+void DoCudaSplit(Data &input, int axis, int start, int end, Data &output) {
+    output.Allocate();
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    start = std::max(0, std::min(input.dims[axis] - 1, start));
+    end = std::max(0, std::min(input.dims[axis], end));
+
+    int outer = input.Count(0) / input.dims[axis];
+    int outputStride = output.Count(axis);
+    int inputStride = input.Count(axis);
+    int uniteSize = output.unitSize;
+    int inner = input.strides[axis];
+
+    FastllmCudaMemcpy2DDeviceToDevice((uint8_t *)output.cudaData, outputStride * uniteSize,
+        (uint8_t *)input.cudaData + start * inner * uniteSize, inputStride * uniteSize, (end - start) * inner * uniteSize, outer);
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
