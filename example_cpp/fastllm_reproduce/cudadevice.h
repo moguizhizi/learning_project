@@ -21,6 +21,7 @@ void DoCudaLinear(Data &input, Data &weight, const Data &bias, Data &output);
 void DoCudaSplitReshape(Data &input, int axis, int start, int end, Data &output);
 void DoCudaSplit(Data &input, int axis, int start, int end, Data &output);
 void DoCudaPermuteSelf(Data &input, const std::vector<int> &axis);
+void DoCudaCatDirect(Data &input0, Data &input1, int axis);
 
 class CudaLinearOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
