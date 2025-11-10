@@ -126,3 +126,13 @@ void MultiCudaLinearOp::Run(const std::string &opType, const DataDict &datas, co
         delete ops[i];
     }
 }
+
+void MultiCudaMergeAttention::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight1 = *(datas.find("weight1")->second);
+    Data &output = *(datas.find("output")->second);
+    std::vector<int> dims = input.dims;
+    dims.back() = weight1.dims[0];
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
