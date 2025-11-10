@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "cudadevice.h"
 #include "enum_space.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
@@ -1357,4 +1358,28 @@ MultiCudaDoLinearOp::MultiCudaDoLinearOp(uint8_t *oriCudaInput, uint8_t *oriCpuI
     this->len = len;
     this->lastOutput = lastOutput;
     this->deviceId = deviceId;
+}
+
+void MultiCudaDoLinearOp::Run() {
+    FastllmCudaSetDevice(this->deviceId);
+    if (deviceId == 0) {
+        input->cudaData = oriCudaInput;
+    } else {
+        input->Allocate();
+        FastllmCudaCopyFromDeviceToDevice(input->cudaData, oriCudaInput, input->GetBytes());
+    }
+    DoCudaLinearReshape(*input, *weight, *output);
+    if (deviceId == 0 && n == 1) {
+        output->isFake = true;
+        output->UpdateUnitSize();
+        output->cudaData = lastOutput;
+        output->expansionSize = output->Count(0);
+        output->expansionBytes = (output->Count(0) * output->unitSize - 1) / output->unitSizeDiv + 1;
+    }
+    DoCudaLinear(*input, *weight, (bias == nullptr ? Data() : *bias), *output);
+    if (deviceId != 0 || n > 1) {
+        FastllmCudaMemcpy2DDeviceToDeviceAuto(this->lastOutput + this->start * output->unitSize / output->unitSizeDiv,
+            k * output->unitSize / output->unitSizeDiv, output->cudaData, len * output->unitSize / output->unitSizeDiv,
+            len * output->unitSize / output->unitSizeDiv, n, 0, this->deviceId);
+    }
 }

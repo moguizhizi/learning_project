@@ -18,6 +18,7 @@
 #include "common_struct.h"
 #include "enum_space.h"
 #include "json11.hpp"
+#include "fastllm-cuda.cuh"
 
 struct SafeTensorItem {
     std::string tensorName;
