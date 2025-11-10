@@ -1,17 +1,20 @@
 // safetensors.cpp
 
 #include "struct_space.hpp"
-#include "enum_space.h"
-#include "fastllm.h"
-#include "file_utils.hpp"
-#include "utils.h"
-#include <algorithm>
-#include <cmath>
-#include <cstring>
+
 #include <fcntl.h>
 #include <numa.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
+#include "enum_space.h"
+#include "fastllm.h"
+#include "file_utils.hpp"
+#include "utils.h"
 
 const int DDRLEN = 256 * 1024 * 1024;
 const int OUTPUTOFFSET = 128 * 1024 * 1024;
@@ -176,11 +179,11 @@ void SafeTensorItem::CreateBufferWithScale(DataType dstType, SafeTensorItem &sca
 void SafeTensorItem::CreateBufferWithAWQ(DataType dstType, SafeTensorItem &scale, SafeTensorItem &qzero) {
     const int groupCnt = this->intShape[0] / qzero.intShape[0];
 
-    AssertInFastLLM(this->shape.size() == 2 && scale.shape.size() == 2 && qzero.shape.size() == 2,
-                    "CreateBufferWithAWQ error: shape.size() should be 2.");
+    AssertInFastLLM(
+        this->shape.size() == 2 && scale.shape.size() == 2 && qzero.shape.size() == 2, "CreateBufferWithAWQ error: shape.size() should be 2.");
     AssertInFastLLM(groupCnt * scale.shape[0] == this->shape[0] && groupCnt * qzero.shape[0] == this->shape[0] &&
                         8 * this->shape[1] == scale.shape[1] && this->shape[1] == qzero.shape[1],
-                    "CreateBufferWithAWQ error: shape error.");
+        "CreateBufferWithAWQ error: shape error.");
     AssertInFastLLM(this->dtype == "I32" && qzero.dtype == "I32", "CreateBufferWithAWQ error: dtype shoud be I32.");
 
     this->ClearBuffer();
@@ -318,7 +321,6 @@ SafeTensors::SafeTensors(const std::set<std::string> fileNames) {
 std::vector<std::string> SafeTensors::GetSortedItemNames() {
     std::vector<std::pair<std::pair<std::string, uint64_t>, std::string>> v;
     for (auto &it : this->itmeDict) {
-
         std::string fileName = it.second.fileName;
         uint64_t baseOffset = it.second.dataOffsets[0];
         std::string tensorName = it.first;
@@ -342,8 +344,12 @@ std::vector<std::string> SafeTensors::GetSortedItemNames() {
     return ret;
 }
 
-void WeightMap::AddDict(const std::string &key, const std::string &value) { this->dicts[key] = value; }
-void WeightMap::AddTokenizerWord(const std::string &key, int value, float score) { this->tokenizer.Insert(key, value, score); }
+void WeightMap::AddDict(const std::string &key, const std::string &value) {
+    this->dicts[key] = value;
+}
+void WeightMap::AddTokenizerWord(const std::string &key, int value, float score) {
+    this->tokenizer.Insert(key, value, score);
+}
 void WeightMap::AddEmptyWeight(const std::string &key, const std::vector<int> &dims, DataType dataType) {
     Data weightData = Data(dataType, dims);
     weightData.name = key;
@@ -389,7 +395,9 @@ WeightType WeightMap::GetWeightType(const std::string &key) {
     return WeightType::NONE;
 }
 
-Data &WeightMap::operator[](const std::string &key) { return weight[key]; }
+Data &WeightMap::operator[](const std::string &key) {
+    return weight[key];
+}
 
 WeightMergeRuleSingle::WeightMergeRuleSingle(const std::vector<std::string> &inputs, std::string output, std::string type)
     : inputs(inputs), output(output), type(type) {}
@@ -421,7 +429,6 @@ MultiThreadGroupQuantizationOp::MultiThreadGroupQuantizationOp(
 }
 
 void MultiThreadGroupQuantizationOp::Run() {
-
     int cid = 0, groupStart, groupEnd;
     for (int i = this->st; i < this->end; i++) {
         for (int g = 0; g < this->group; g++) {
@@ -482,7 +489,6 @@ MultiThreadGroupQuantizationBF16Op::MultiThreadGroupQuantizationBF16Op(
 }
 
 void MultiThreadGroupQuantizationBF16Op::Run() {
-
     int cid = 0, groupStart, groupEnd;
     for (int i = this->st; i < this->end; i++) {
         for (int g = 0; g < this->group; g++) {
@@ -691,7 +697,9 @@ void MultiThreadBase3GroupQuantizationBF16Op::Run() {
     }
 }
 
-ByteWriter::ByteWriter(uint8_t *cur) { this->cur = cur; }
+ByteWriter::ByteWriter(uint8_t *cur) {
+    this->cur = cur;
+}
 
 void ByteWriter::WriteInt(int v) {
     *((int *)this->cur) = v;
@@ -714,7 +722,9 @@ void ByteWriter::WriteBytes(uint8_t *buffer, uint64_t bytes) {
     this->cur = this->cur + bytes;
 }
 
-ByteReader::ByteReader(uint8_t *data) { this->cur = data; }
+ByteReader::ByteReader(uint8_t *data) {
+    this->cur = data;
+}
 
 int ByteReader::ReadInt() {
     int ret = *((int *)this->cur);
@@ -740,7 +750,9 @@ void ByteReader::ReadBytes(uint8_t *buffer, uint64_t bytes) {
     this->cur += bytes;
 }
 
-Tokenizer::TrieNode::TrieNode() { this->tokenId = -999999; }
+Tokenizer::TrieNode::TrieNode() {
+    this->tokenId = -999999;
+}
 
 Tokenizer::Tokenizer() {
     this->root = new TrieNode();
@@ -759,7 +771,9 @@ Tokenizer::Tokenizer() {
     this->charByteDict[L'\xAD'] = L'\x100' + (n - 1);
 }
 
-void Tokenizer::SetTokenizerConfig(const json11::Json &config) { this->tokenizerConfig = config; }
+void Tokenizer::SetTokenizerConfig(const json11::Json &config) {
+    this->tokenizerConfig = config;
+}
 
 void Tokenizer::SetChatTemplate() {
     if (!this->tokenizerConfig.is_null()) {
@@ -862,7 +876,8 @@ std::string Tokenizer::Normalize(const std::string &ori, const bool addDummyPref
 }
 
 int Tokenizer::GetTokenId(const std::string &s) {
-    AssertInFastLLM(this->stringToTokenDict.find(s) != this->stringToTokenDict.end(), "Tokenizer.GetTokenId error: can't find token \"" + s + "\"");
+    AssertInFastLLM(
+        this->stringToTokenDict.find(s) != this->stringToTokenDict.end(), "Tokenizer.GetTokenId error: can't find token \"" + s + "\"");
     return this->stringToTokenDict[s];
 }
 
@@ -1039,10 +1054,8 @@ MultiThreadSingleAttentionOp::MultiThreadSingleAttentionOp(
 }
 
 void MultiThreadSingleAttentionOp::Run() {
-
     int base = k1 - q1;
     for (int i = 0; i < this->q1; i++) {
-
         float *qk = new float[this->k1]();
         float *temp = new float[this->k1]();
 
@@ -1116,7 +1129,6 @@ void MultiThreadSingleAttentionOp::Run() {
 
 MultiThreadSingleAttentionFloat16Op::MultiThreadSingleAttentionFloat16Op(
     uint16_t *qd, uint16_t *kd, uint16_t *vd, uint16_t *maskd, uint16_t *od, float scale, int q1, int q2, int k1, int v2) {
-
     this->qd = qd;
     this->kd = kd;
     this->vd = vd;
@@ -1146,8 +1158,8 @@ void MultiThreadSingleAttentionFloat16Op::Run() {
     Float16ToFloat32(this->vd, fvd.data(), (int)fvd.size());
     Float16ToFloat32(this->od, fod.data(), (int)fod.size());
 
-    MultiThreadSingleAttentionOp(
-        fqd.data(), fkd.data(), fvd.data(), this->maskd ? fmaskd.data() : nullptr, fod.data(), this->scale, this->q1, this->q2, this->k1, this->v2)
+    MultiThreadSingleAttentionOp(fqd.data(), fkd.data(), fvd.data(), this->maskd ? fmaskd.data() : nullptr, fod.data(), this->scale, this->q1,
+        this->q2, this->k1, this->v2)
         .Run();
 
     Float32ToFloat16(fod.data(), this->od, (int)fod.size());
@@ -1196,20 +1208,8 @@ void MultiThreadRMSNormFloatOp::Run() {
     }
 }
 
-MultiThreadInt4GroupLinearOp::MultiThreadInt4GroupLinearOp(float *inputData,
-                                                           uint8_t *weightData,
-                                                           float *biasData,
-                                                           float *outputData,
-                                                           uint16_t *mins,
-                                                           uint16_t *scales,
-                                                           int n,
-                                                           int m,
-                                                           int k,
-                                                           int st,
-                                                           int end,
-                                                           int group,
-                                                           int groupCnt) {
-
+MultiThreadInt4GroupLinearOp::MultiThreadInt4GroupLinearOp(float *inputData, uint8_t *weightData, float *biasData, float *outputData,
+    uint16_t *mins, uint16_t *scales, int n, int m, int k, int st, int end, int group, int groupCnt) {
     this->inputData = inputData;
     this->weightData = weightData;
     this->biasData = biasData;
@@ -1291,18 +1291,8 @@ void MultiThreadInt4GroupLinearOp::Run() {
     }
 }
 
-MultiThreadBase3GroupLinearOp::MultiThreadBase3GroupLinearOp(float *inputData,
-                                                             uint8_t *weightData,
-                                                             float *biasData,
-                                                             float *outputData,
-                                                             int n,
-                                                             int m,
-                                                             int k,
-                                                             int st,
-                                                             int end,
-                                                             int group,
-                                                             int groupCnt,
-                                                             uint16_t *halfScales) {
+MultiThreadBase3GroupLinearOp::MultiThreadBase3GroupLinearOp(float *inputData, uint8_t *weightData, float *biasData, float *outputData, int n,
+    int m, int k, int st, int end, int group, int groupCnt, uint16_t *halfScales) {
     this->inputData = inputData;
     this->weightData = weightData;
     this->biasData = biasData;
@@ -1318,7 +1308,6 @@ MultiThreadBase3GroupLinearOp::MultiThreadBase3GroupLinearOp(float *inputData,
 }
 
 void MultiThreadBase3GroupLinearOp::Run() {
-
     std::vector<uint8_t> base = {1, 3, 9, 27, 81};
     int bytesPerGroup = (this->groupCnt - 1) / 5 + 1;
 
@@ -1349,4 +1338,23 @@ MultiThreadFloat32ToBFloat16Op::MultiThreadFloat32ToBFloat16Op(float *input, uin
     this->len = len;
 }
 
-void MultiThreadFloat32ToBFloat16Op::Run() { Float32ToBFloat16(input, output, len); }
+void MultiThreadFloat32ToBFloat16Op::Run() {
+    Float32ToBFloat16(input, output, len);
+}
+
+MultiCudaDoLinearOp::MultiCudaDoLinearOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, Data *input, Data *weight, Data *bias, Data *output, int n,
+    int m, int k, int start, int len, uint8_t *lastOutput, int deviceId) {
+    this->oriCudaInput = oriCudaInput;
+    this->oriCpuInput = oriCpuInput;
+    this->input = input;
+    this->weight = weight;
+    this->bias = bias;
+    this->output = output;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->start = start;
+    this->len = len;
+    this->lastOutput = lastOutput;
+    this->deviceId = deviceId;
+}

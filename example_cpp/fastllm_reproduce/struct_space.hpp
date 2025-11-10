@@ -2,10 +2,8 @@
 
 #pragma once
 
-#include "common_class.h"
-#include "common_struct.h"
-#include "enum_space.h"
-#include "json11.hpp"
+#include <unicode/unistr.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -13,9 +11,13 @@
 #include <map>
 #include <set>
 #include <string>
-#include <unicode/unistr.h>
 #include <unordered_map>
 #include <vector>
+
+#include "common_class.h"
+#include "common_struct.h"
+#include "enum_space.h"
+#include "json11.hpp"
 
 struct SafeTensorItem {
     std::string tensorName;
@@ -145,7 +147,8 @@ struct MultiThreadGroupQuantizationOp : MultiThreadBaseOp {
     int group, groupCnt;
     int type;
 
-    MultiThreadGroupQuantizationOp(int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8, int type);
+    MultiThreadGroupQuantizationOp(
+        int st, int end, int m, int bit, LowBitConfig *configs, int group, int groupCnt, float *f, uint8_t *u8, int type);
     void Run() override;
 };
 
@@ -291,19 +294,8 @@ struct MultiThreadInt4GroupLinearOp : MultiThreadBaseOp {
     uint16_t *mins, *scales;
     int n, m, k, st, end, group, groupCnt;
 
-    MultiThreadInt4GroupLinearOp(float *inputData,
-                                 uint8_t *weightData,
-                                 float *biasData,
-                                 float *outputData,
-                                 uint16_t *mins,
-                                 uint16_t *scales,
-                                 int n,
-                                 int m,
-                                 int k,
-                                 int st,
-                                 int end,
-                                 int group,
-                                 int groupCnt);
+    MultiThreadInt4GroupLinearOp(float *inputData, uint8_t *weightData, float *biasData, float *outputData, uint16_t *mins, uint16_t *scales,
+        int n, int m, int k, int st, int end, int group, int groupCnt);
 
     void Run();
 };
@@ -315,18 +307,8 @@ struct MultiThreadBase3GroupLinearOp : MultiThreadBaseOp {
     int n, m, k, st, end, group, groupCnt;
     uint16_t *halfScales;
 
-    MultiThreadBase3GroupLinearOp(float *inputData,
-                                  uint8_t *weightData,
-                                  float *biasData,
-                                  float *outputData,
-                                  int n,
-                                  int m,
-                                  int k,
-                                  int st,
-                                  int end,
-                                  int group,
-                                  int groupCnt,
-                                  uint16_t *halfScales);
+    MultiThreadBase3GroupLinearOp(float *inputData, uint8_t *weightData, float *biasData, float *outputData, int n, int m, int k, int st,
+        int end, int group, int groupCnt, uint16_t *halfScales);
 
     void Run();
 };
@@ -337,5 +319,19 @@ struct MultiThreadFloat32ToBFloat16Op : MultiThreadBaseOp {
     int len;
 
     MultiThreadFloat32ToBFloat16Op(float *input, uint16_t *output, int len);
+    void Run();
+};
+
+struct MultiCudaDoLinearOp : MultiThreadBaseOp {
+    uint8_t *oriCudaInput, *oriCpuInput;
+    Data *input, *weight, *bias;
+    Data *output;
+    int n, m, k, start, len;
+    uint8_t *lastOutput;
+    int deviceId;
+
+    MultiCudaDoLinearOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, Data *input, Data *weight, Data *bias, Data *output, int n, int m, int k,
+        int start, int len, uint8_t *lastOutput, int deviceId);
+
     void Run();
 };
