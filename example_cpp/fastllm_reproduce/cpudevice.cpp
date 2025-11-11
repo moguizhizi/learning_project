@@ -7,6 +7,46 @@
 #include <cmath>
 #include <cstring>
 
+CpuDevice::CpuDevice() {
+    this->deviceType = "cpu";
+    this->ops["ToFloat16"] = (BaseOperator *)(new CpuToFloat16());
+    this->ops["ToFloat32"] = (BaseOperator *)(new CpuToFloat32());
+    this->ops["ConvertToFloat16"] = (BaseOperator *)(new CpuConvertToFloat16());
+    this->ops["ConvertToFloat32"] = (BaseOperator *)(new CpuConvertToFloat32());
+
+    this->ops["Attention"] = (BaseOperator *)(new CpuAttention());
+    this->ops["CopyKVCache"] = (BaseOperator *)(new CpuCopyKVCacheOp());
+    this->ops["Embedding"] = (BaseOperator *)(new CpuEmbedding());
+    this->ops["LayerNorm"] = (BaseOperator *)(new CpuLayerNormOp());
+    this->ops["RMSNorm"] = (BaseOperator *)(new CpuRMSNormOp());
+    this->ops["Linear"] = (BaseOperator *)(new CpuLinearOp());
+    this->ops["Conv2D"] = (BaseOperator *)(new CpuConv2DOp());
+    this->ops["Split"] = (BaseOperator *)(new CpuSplitOp());
+    this->ops["Repeat"] = (BaseOperator *)(new CpuRepeatOp());
+    this->ops["Cat"] = (BaseOperator *)(new CpuCatOp());
+    this->ops["CatDirect"] = (BaseOperator *)(new CpuCatDirectOp());
+    this->ops["MatMul"] = (BaseOperator *)(new CpuMatMulOp());
+    this->ops["MatMulTransB"] = (BaseOperator *)(new CpuMatMulTransBOp());
+    this->ops["SoftMax"] = (BaseOperator *)(new CpuSoftMaxOp());
+    this->ops["Normalize"] = (BaseOperator *)(new CpuNormalizeOp());
+    this->ops["Silu"] = (BaseOperator *)(new CpuSiluOp());
+    this->ops["TanH"] = (BaseOperator *)(new CpuTanHOp());
+    this->ops["Relu"] = (BaseOperator *)(new CpuReluOp());
+    this->ops["Sigmoid"] = (BaseOperator *)(new CpuSigmoidOp());
+    this->ops["Gelu"] = (BaseOperator *)(new CpuGeluOp());
+    this->ops["GeluNew"] = (BaseOperator *)(new CpuGeluNewOp());
+    this->ops["Swiglu"] = (BaseOperator *)(new CpuSwigluOp());
+    this->ops["Mul"] = (BaseOperator *)(new CpuMulOp());
+    this->ops["MulTo"] = (BaseOperator *)(new CpuMulToOp());
+    this->ops["Add"] = (BaseOperator *)(new CpuAddOp());
+    this->ops["AddTo"] = (BaseOperator *)(new CpuAddToOp());
+    this->ops["AttentionMask"] = (BaseOperator *)(new CpuAttentionMaskOp());
+    this->ops["AttentionExtendedMask"] = (BaseOperator *)(new CpuAttentionExtendedMaskOp());
+    this->ops["AlibiMask"] = (BaseOperator *)(new CpuAlibiMaskOp());
+    this->ops["TopK"] = (BaseOperator *)(new CpuTopKOp());
+    this->ops["Permute"] = (BaseOperator *)(new CpuPermuteOp());
+}
+
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
 
     if (datas.find("input") == datas.end()) {
