@@ -199,6 +199,26 @@ void DoCudaCatDirect(Data &input0, Data &input1, int axis) {
     }
 }
 
+void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int group, float scale, int maskType) {
+    output.Allocate();
+    if (q.dataType == DataType::FLOAT32) {
+        FastllmCudaAttention(q, k, v, mask, output, group, scale, maskType);
+    } else if (q.dataType == DataType::FLOAT16) {
+#ifdef CUDA_NO_TENSOR_CORE
+        Data q32, k32, v32, mask32, output32;
+        ToDataType(q, q32, DataType::FLOAT32);
+        ToDataType(k, k32, DataType::FLOAT32);
+        ToDataType(v, v32, DataType::FLOAT32);
+        ToDataType(output, output32, DataType::FLOAT32);
+        if (mask.dims.size() > 0) ToDataType(mask, mask32, DataType::FLOAT32);
+        FastllmCudaAttention(q32, k32, v32, mask32, output32, group, scale, maskType);
+        ToDataType(output32, output, DataType::FLOAT16);
+#else
+        FastllmCudaHalfAttention(q, k, v, mask, output, group, scale, maskType);
+#endif
+    }
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
