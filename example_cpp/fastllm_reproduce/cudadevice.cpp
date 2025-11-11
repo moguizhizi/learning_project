@@ -4,7 +4,34 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 
-CudaDevice::CudaDevice() {}
+CudaDevice::CudaDevice() {
+    this->deviceType = "cuda";
+    this->ops["ToFloat16"] = (BaseOperator *)(new CudaToFloat16());
+    this->ops["ToFloat32"] = (BaseOperator *)(new CudaToFloat32());
+    this->ops["ConvertToFloat16"] = (BaseOperator *)(new CudaConvertToFloat16());
+    this->ops["ConvertToFloat32"] = (BaseOperator *)(new CudaConvertToFloat32());
+
+    this->ops["Attention"] = (BaseOperator *)(new CudaAttention());
+    // this->ops["MergeAttention"] = (BaseOperator*)(new CudaMergeAttention());
+    this->ops["Embedding"] = (BaseOperator *)(new CudaEmbedding());
+    this->ops["Linear"] = (BaseOperator *)(new CudaLinearOp());
+    this->ops["Repeat"] = (BaseOperator *)(new CudaRepeatOp());
+    this->ops["MatMulTransB"] = (BaseOperator *)(new CudaMatMulTransBOp());
+    this->ops["Relu"] = (BaseOperator *)(new CudaReluOp());
+    this->ops["Mul"] = (BaseOperator *)(new CudaMulOp());
+    this->ops["AddTo"] = (BaseOperator *)(new CudaAddToOp());
+    this->ops["MulTo"] = (BaseOperator *)(new CudaMulToOp());
+    this->ops["AlibiMask"] = (BaseOperator *)(new CudaAlibiMaskOp());
+    this->ops["RotatePosition2D"] = (BaseOperator *)(new CudaRotatePosition2DOp());
+    this->ops["NearlyRotatePosition2D"] = (BaseOperator *)(new CudaNearlyRotatePosition2DOp());
+    this->ops["LlamaRotatePosition2D"] = (BaseOperator *)(new CudaLlamaRotatePosition2DOp());
+    this->ops["ApplyLognAttn"] = (BaseOperator *)(new CudaApplyLognAttnOp());
+
+    this->ops["SplitBatch"] = (BaseOperator *)(new CudaSplitBatchOp());
+    this->ops["CatBatch"] = (BaseOperator *)(new CudaCatBatchOp());
+    this->ops["MulBatch"] = (BaseOperator *)(new CudaMulBatchOp());
+    this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CudaMatMulTransBBatchOp());
+}
 
 bool CudaDevice::Malloc(void **ret, size_t size) {
     *ret = FastllmCudaMalloc(size);
