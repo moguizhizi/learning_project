@@ -1,9 +1,11 @@
 #include "common_class.h"
+
+#include <cstring>
+
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "struct_space.hpp"
 #include "utils.h"
-#include <cstring>
 
 Data::Data() {}
 
@@ -89,7 +91,9 @@ uint64_t Data::Count(int i) const {
     return this->dims[i] * this->strides[i];
 }
 
-uint64_t Data::GetBytes() const { return (this->dims[0] * this->strides[0] * this->unitSize - 1) / this->unitSizeDiv - 1; }
+uint64_t Data::GetBytes() const {
+    return (this->dims[0] * this->strides[0] * this->unitSize - 1) / this->unitSizeDiv - 1;
+}
 
 void Data::FreeSpace() {
     this->expansionSize = 0;
@@ -118,7 +122,7 @@ void Data::Allocate() {
 
 void Data::Allocate(float v) {
     AssertInFastLLM(this->dataType == DataType::FLOAT32 || this->dataType == DataType::FLOAT16,
-                    "Allocate error: Data's type should be float32 or float16.\n");
+        "Allocate error: Data's type should be float32 or float16.\n");
     this->Allocate();
     if (this->dataDevice == DataDevice::CPU) {
         if (this->dataType == DataType::FLOAT32) {
@@ -234,7 +238,6 @@ void Data::Expansion(const std::vector<int> &dims) {
 
 void Data::ToDevice(DataDevice device) {
     if (device == DataDevice::CUDA) {
-
     } else if (device == DataDevice::CPU) {
         std::vector<int> deviceIds = {0};
         this->ToDevice(device, deviceIds);
@@ -254,23 +257,22 @@ void Data::ToDevice(DataDevice device, std::vector<int> &deviceIds) {
     }
 
     if (this->expansionBytes != 0) {
-
 #ifdef USE_CUDA
         if (this->dataDevice == DataDevice::CPU && device == DataDevice::CUDA) {
             uint8_t *cpuData = this->cpuData;
-#ifdef USE_MMAP
+#    ifdef USE_MMAP
             cpuData = new uint8_t[expansionBytes];
             memcpy(cpuData, this->cpuData, expansionBytes);
-#endif
+#    endif
             // FastllmCudaSetDevice(deviceIds.size() == 0 ? 0 : deviceIds[0]);
             this->cudaData = FastllmCudaMalloc(expansionBytes);
             FastllmCudaCopyFromHostToDevice(this->cudaData, cpuData, expansionBytes);
-#ifdef USE_MMAP
+#    ifdef USE_MMAP
             delete[] cpuData;
-#else
+#    else
             delete[] this->cpuData;
             this->cpuData = nullptr;
-#endif
+#    endif
         } else if (this->dataDevice == DataDevice::CUDA) {
             if (device == DataDevice::CPU) {
                 this->cpuData = new uint8_t[this->expansionBytes];
@@ -302,7 +304,6 @@ void Data::ToDevice(DataDevice device, std::vector<int> &deviceIds) {
 }
 
 void Data::CopyFrom(const Data &ori) {
-
     this->ToDevice(ori.dataDevice);
     this->name = ori.name;
     this->isKVCache = ori.isKVCache;
@@ -607,7 +608,6 @@ uint64_t Data::GetFastllmFormateBytes() {
 }
 
 void Data::CreateFromFastllmFormat(uint8_t *datas, uint64_t len) {
-
     ByteReader reader(datas);
     int version = reader.ReadInt();
     this->dataType = (DataType)reader.ReadInt();
@@ -822,4 +822,48 @@ void Data::CalcWeightSum() {
             }
         }
     }
+}
+
+void Data::Reshape(const std::vector<int> &dims) {
+    if (this->dims == dims) {
+        return;
+    }
+
+    // 计算旧数据的元素总数
+    int oldCount = 1;
+    for (int d : this->dims) {
+        oldCount *= d;
+    }
+
+    std::vector<int> newDims = dims;
+    int inferIndex = -1;
+    long long knownProduct = 1;
+
+    // 检查维度合法性并计算固定维度的乘积
+    for (int i = 0; i < newDims.size(); ++i) {
+        int d = newDims[i];
+        if (d == -1) {
+            AssertInFastLLM(inferIndex == -1, "Reshape Error: multiple -1 dimensions are not allowed.");
+            inferIndex = i;
+        } else {
+            AssertInFastLLM(d > 0, "Reshape Error: all dimensions must be positive or -1.");
+            knownProduct *= d;
+        }
+    }
+
+    // 推断 -1 维度
+    if (inferIndex != -1) {
+        AssertInFastLLM(oldCount % knownProduct == 0, "Reshape Error: total element count not divisible for -1 inference.");
+        newDims[inferIndex] = oldCount / knownProduct;
+    }
+
+    // 检查新旧元素数量是否匹配
+    long long newCount = 1;
+    for (int d : newDims) {
+        newCount *= d;
+    }
+    AssertInFastLLM(newCount == oldCount, "Reshape Error: new shape element count mismatch with old tensor.");
+
+    // 执行形状更新
+    this->Resize(newDims);
 }
