@@ -1,10 +1,16 @@
 #include "fastllm.h"
-#include "file_utils.hpp"
-#include "qwen3.h"
-#include "utils.h"
+
 #include <algorithm>
 #include <cstring>
 #include <regex>
+
+#include "executor.h"
+#include "file_utils.hpp"
+#include "qwen3.h"
+#include "utils.h"
+
+Executor defaultExecutor;
+Executor *curExecutor = &defaultExecutor;
 
 static int threads = 4;
 static AliveThreadPool *fastllmAliveThreadPool = nullptr;
@@ -30,9 +36,14 @@ void AddDictRecursion(basellm *model, const std::string &prefix, const json11::J
     }
 }
 
-bool StringEndWith(const std::string &s, const std::string &end) { return s.size() >= end.size() && s.substr(s.size() - end.size()) == end; }
-bool StringStartWith(const std::string &s, const std::string &end) { return s.size() >= end.size() && s.substr(0, end.size()) == end; }
-void ParseDataType(std::string weightName, const std::vector<std::pair<std::string, std::string>> &dtypeRules, DataType &dataType, int &groupCnt) {
+bool StringEndWith(const std::string &s, const std::string &end) {
+    return s.size() >= end.size() && s.substr(s.size() - end.size()) == end;
+}
+bool StringStartWith(const std::string &s, const std::string &end) {
+    return s.size() >= end.size() && s.substr(0, end.size()) == end;
+}
+void ParseDataType(
+    std::string weightName, const std::vector<std::pair<std::string, std::string>> &dtypeRules, DataType &dataType, int &groupCnt) {
     std::string matchedType = "";
     for (int i = 0; i < dtypeRules.size(); i++) {
         std::regex pattern(dtypeRules[i].first);
@@ -150,9 +161,9 @@ void CheckAWQModel(const json11::Json &config, bool &isAwqModel, int &awqGroupCn
     if (!config["quantization_config"].is_null() && config["quantization_config"]["quant_method"] == "awq") {
         auto qconfig = config["quantization_config"];
 
-        AssertInFastLLM(qconfig["quant_method"] == "awq" && qconfig["bits"] == 4 && qconfig["version"] == "gemm" &&
-                            qconfig["zero_point"].bool_value(),
-                        "Config error: only 4bits AWQ with zero point and gemm version is supported.");
+        AssertInFastLLM(
+            qconfig["quant_method"] == "awq" && qconfig["bits"] == 4 && qconfig["version"] == "gemm" && qconfig["zero_point"].bool_value(),
+            "Config error: only 4bits AWQ with zero point and gemm version is supported.");
 
         isAwqModel = true;
         awqGroupCnt = qconfig["group_size"].int_value();
@@ -194,9 +205,10 @@ void SplitString(const std::string &str, const std::set<char> &chars, std::vecto
 }
 
 std::string Base64Decode(const std::string &encoded) {
-    static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                            "abcdefghijklmnopqrstuvwxyz"
-                                            "0123456789+/";
+    static const std::string base64_chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789+/";
     int in_len = encoded.size();
     int i = 0, j = 0, in_ = 0;
     char char_array_4[4], char_array_3[3];
@@ -206,30 +218,25 @@ std::string Base64Decode(const std::string &encoded) {
         char_array_4[i++] = encoded[in_];
         in_++;
         if (i == 4) {
-            for (i = 0; i < 4; i++)
-                char_array_4[i] = base64_chars.find(char_array_4[i]);
+            for (i = 0; i < 4; i++) char_array_4[i] = base64_chars.find(char_array_4[i]);
             char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
             char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
             char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-            for (i = 0; (i < 3); i++)
-                ret.push_back(char_array_3[i]);
+            for (i = 0; (i < 3); i++) ret.push_back(char_array_3[i]);
             i = 0;
         }
     }
 
     if (i) {
-        for (j = i; j < 4; j++)
-            char_array_4[j] = 0;
+        for (j = i; j < 4; j++) char_array_4[j] = 0;
 
-        for (j = 0; j < 4; j++)
-            char_array_4[j] = base64_chars.find(char_array_4[j]);
+        for (j = 0; j < 4; j++) char_array_4[j] = base64_chars.find(char_array_4[j]);
 
         char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
         char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
         char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
 
-        for (j = 0; (j < i - 1); j++)
-            ret.push_back(char_array_3[j]);
+        for (j = 0; (j < i - 1); j++) ret.push_back(char_array_3[j]);
     }
 
     return ret;
@@ -265,8 +272,7 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
             specialTokenMap[it["content"].string_value()] = it["id"].int_value();
         }
 
-        if (!specialTokenMap.empty())
-            model->weight.AddDict("tokenizer_has_special_tokens", "1");
+        if (!specialTokenMap.empty()) model->weight.AddDict("tokenizer_has_special_tokens", "1");
 
         model->weight.tokenizer.SetSpecialTokens(specialTokenMap);
 
@@ -287,8 +293,7 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
             specialTokenMap[it.second["content"].string_value()] = atoi(it.first.c_str());
         }
 
-        if (!specialTokenMap.empty())
-            model->weight.AddDict("tokenizer_has_special_tokens", "1");
+        if (!specialTokenMap.empty()) model->weight.AddDict("tokenizer_has_special_tokens", "1");
 
         model->weight.tokenizer.SetSpecialTokens(specialTokenMap);
         model->weight.AddDict("tokenizer_class", tokenizerClass);
@@ -317,10 +322,8 @@ void LoadLLMTokenizerFromHFToModel(const std::string &path, basellm *model) {
     }
 }
 
-void LoadLoRA(const std::string &loraPath,
-              std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
-              SafeTensors *&loraTensors,
-              float &loraScaling) {
+void LoadLoRA(const std::string &loraPath, std::map<std::string, std::pair<std::string, std::string>> &loraDicts, SafeTensors *&loraTensors,
+    float &loraScaling) {
     loraDicts.clear();
     loraTensors = nullptr;
     loraScaling = 1.0f;
@@ -336,7 +339,6 @@ void LoadLoRA(const std::string &loraPath,
         for (const auto &it : loraTensors->GetSortedItemNames()) {
             if (it.size() >= 31 && it.substr(0, 17) == "base_model.model." &&
                 (it.substr(it.size() - 14) == ".lora_A.weight" || it.substr(it.size() - 14) == ".lora_B.weight")) {
-
                 std::string originalName = it.substr(17, it.size() - 31) + ".weight";
 
                 if (it.substr(it.size() - 14) == ".lora_A.weight") {
@@ -408,13 +410,8 @@ std::vector<std::pair<std::string, std::string>> ParseDtypeRulesFromConfigFile(c
     return dtypeRules;
 }
 
-DataType ResolveAutoDataType(const std::string &weightName,
-                             const std::vector<std::pair<std::string, std::string>> &dtypeRules,
-                             DataType dataType,
-                             int curGroupCnt,
-                             DataType linearDataType,
-                             DataType oriDataType,
-                             const SafeTensorItem &tensor) {
+DataType ResolveAutoDataType(const std::string &weightName, const std::vector<std::pair<std::string, std::string>> &dtypeRules,
+    DataType dataType, int curGroupCnt, DataType linearDataType, DataType oriDataType, const SafeTensorItem &tensor) {
     // 判断是否是 AUTO_LINEAR 或 AUTO_CONV 类型，且有规则需要解析
     if ((dataType == DATA_AUTO_LINEAR || dataType == DATA_AUTO_CONV) && !dtypeRules.empty()) {
         // 尝试根据 dtypeRules 推断 dataType
@@ -439,13 +436,8 @@ DataType ResolveAutoDataType(const std::string &weightName,
     return dataType;
 }
 
-void ApplyLoRAWeight(const std::string &weightName,
-                     const std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
-                     SafeTensors *loraTensors,
-                     SafeTensorItem &tensor,
-                     DataType oriDataType,
-                     float loraScaling) {
-
+void ApplyLoRAWeight(const std::string &weightName, const std::map<std::string, std::pair<std::string, std::string>> &loraDicts,
+    SafeTensors *loraTensors, SafeTensorItem &tensor, DataType oriDataType, float loraScaling) {
     auto it = loraDicts.find(weightName);
     if (it == loraDicts.end()) {
         return; // 没有对应的 LoRA 权重，直接退出
@@ -517,10 +509,31 @@ void barrier() {
 #endif
 }
 
-bool GetCudaEmbedding() { return cudaEmbedding; }
+bool GetCudaEmbedding() {
+    return cudaEmbedding;
+}
 
-bool GetLowMemMode() { return lowMemMode; }
+bool GetLowMemMode() {
+    return lowMemMode;
+}
 
-AliveThreadPool *GetAlivePool() { return fastllmAliveThreadPool; }
+AliveThreadPool *GetAlivePool() {
+    return fastllmAliveThreadPool;
+}
 
-int GetThreads() { return threads; }
+int GetThreads() {
+    return threads;
+}
+
+void ToDataType(const Data &input, DataType dataType) {
+    if (input.dataType == dataType) {
+        return;
+    }
+    if (dataType == DataType::FLOAT32) {
+        curExecutor->Run("ToFloat32", {{"input", (Data *)&input}}, {}, {});
+    } else if (dataType == DataType::FLOAT16) {
+        curExecutor->Run("ToFloat16", {{"input", (Data *)&input}}, {}, {});
+    } else {
+        ErrorInFastLLM("ToDataType: Unsupport data type.\n");
+    }
+}
