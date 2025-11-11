@@ -27,6 +27,7 @@ void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int gr
 
 void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis);
 void DoCudaAttentionBatchReshape(Data **qs, Data **vs, Data **outputs, int batch);
+void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **outputs, int group, float scale, int batch);
 
 class CudaLinearOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
