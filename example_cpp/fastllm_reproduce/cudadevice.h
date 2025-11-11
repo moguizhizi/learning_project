@@ -22,6 +22,7 @@ void DoCudaSplitReshape(Data &input, int axis, int start, int end, Data &output)
 void DoCudaSplit(Data &input, int axis, int start, int end, Data &output);
 void DoCudaPermuteSelf(Data &input, const std::vector<int> &axis);
 void DoCudaCatDirect(Data &input0, Data &input1, int axis);
+void DoCudaAttentionReshape(Data &q, Data &v, Data &output);
 void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int group, float scale, int maskType);
 
 class CudaLinearOp : BaseOperator {

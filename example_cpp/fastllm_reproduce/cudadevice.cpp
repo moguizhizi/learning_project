@@ -53,12 +53,6 @@ bool CudaDevice::CopyDataToCPU(void *dst, void *src, size_t size) {
     return true;
 }
 
-void DoCudaAttentionReshape(Data &q, Data &v, Data &output) {
-    std::vector<int> dims = {q.dims[0], q.dims[1], v.dims[2]};
-    output.dataType = q.dataType;
-    output.Resize(dims);
-}
-
 void DoCudaLinearReshape(Data &input, Data &weight, Data &output) {
     weight.weightType = WeightType::LINEAR;
     std::vector<int> dims = input.dims;
@@ -197,6 +191,12 @@ void DoCudaCatDirect(Data &input0, Data &input1, int axis) {
         FastllmCudaMemcpy2DDeviceToDevice((uint8_t *)input0.cudaData + oldDims[axis] * inner * unitSize, input0Stride * unitSize,
             (uint8_t *)input1.cudaData, input1Stride * unitSize, input1.dims[axis] * inner * unitSize, outer);
     }
+}
+
+void DoCudaAttentionReshape(Data &q, Data &v, Data &output) {
+    std::vector<int> dims = {q.dims[0], q.dims[1], v.dims[2]};
+    output.dataType = q.dataType;
+    output.Resize(dims);
 }
 
 void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int group, float scale, int maskType) {
