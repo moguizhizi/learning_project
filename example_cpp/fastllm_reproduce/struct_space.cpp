@@ -1415,3 +1415,79 @@ MultiCudaDoMergeAttentionOp::MultiCudaDoMergeAttentionOp(uint8_t *oriCudaInput, 
     this->batch = batch;
     this->deviceId = deviceId;
 }
+
+void MultiCudaDoMergeAttentionOp::Run() {
+    FastllmCudaSetDevice(this->deviceId);
+    if (this->deviceId == 0) {
+        input->cudaData = oriCudaInput;
+    } else {
+        input->Allocate();
+        FastllmCudaCopyFromDeviceToDevice(input->cudaData, oriCudaInput, input->GetBytes());
+    }
+
+    if (this->batch > 1) {
+    } else {
+        int seqlen = input->dims[1];
+        int group = this->qNum / this->kvNum;
+        int maskType = 1;
+        int per = qkv->dims.back() / (group + 1 + 1);
+        int qdim = per * group;
+
+        DoCpuLinearReshape(*input, *weight0, *qkv);
+        DoCpuLinear(*input, *weight0, (bias0 == nullptr ? Data() : *bias0), *qkv);
+
+        DoCudaSplitReshape(*qkv, 1, 0, qdim, *q);
+        DoCudaSplit(*qkv, 1, 0, qdim, *q);
+
+        DoCudaSplitReshape(*qkv, 1, qdim, qdim + per, *k);
+        DoCudaSplit(*qkv, 1, qdim, qdim + per, *k);
+
+        DoCudaSplitReshape(*qkv, 1, qdim + per, qdim + per + per, *v);
+        DoCudaSplit(*qkv, 1, qdim + per, qdim + per + per, *v);
+
+        std::vector<int> newdims = {1, seqlen, -1, headDim};
+        q->Reshape(newdims);
+        k->Reshape(newdims);
+        v->Reshape(newdims);
+
+        FastllmCudaRotatePosition2D(*q, *positionIds, *sinData, *cosData, rotDim);
+        FastllmCudaRotatePosition2D(*k, *positionIds, *sinData, *cosData, rotDim);
+
+        Data *pastKey = keys[0];
+        Data *pastValue = values[0];
+
+        DoCudaPermuteSelf(*q, {0, 2, 1, 3});
+        DoCudaPermuteSelf(*k, {0, 2, 1, 3});
+        DoCudaPermuteSelf(*v, {0, 2, 1, 3});
+
+        newdims = {-1, seqlen, headDim};
+        q->Reshape(newdims);
+        k->Reshape(newdims);
+        v->Reshape(newdims);
+
+        DoCudaCatDirect(*pastKey, *k, 1);
+        DoCudaCatDirect(*pastValue, *v, 1);
+
+        DoCudaAttentionReshape(*q, *v, *qkv);
+        DoCudaAttention(*q, *k, *v, *masks[0], *qkv, group, attentionScale, maskType);
+
+        DoCudaPermuteSelf(*qkv, {1, 0, 2});
+        qkv->Reshape({seqlen, 1, -1});
+        DoCudaPermuteSelf(*qkv, {1, 0, 2});
+
+        DoCudaLinearReshape(*qkv, *weight1, *output);
+
+        if (deviceId == 0) {
+            output->isFake = true;
+            output->UpdateUnitSize();
+            output->cudaData = partOutput;
+            output->expansionSize = output->Count(0);
+            output->expansionBytes = (output->Count(0) * output->unitSize - 1) / output->unitSizeDiv + 1;
+        }
+
+        DoCudaLinear(*qkv, *weight1, bias1 == nullptr ? Data() : *bias1, *output);
+        if (deviceId != 0) {
+            FastllmCudaCopyFromDeviceToDevice(partOutput, output->cudaData, output->GetBytes());
+        }
+    }
+}
