@@ -24,7 +24,9 @@ void DoCudaPermuteSelf(Data &input, const std::vector<int> &axis);
 void DoCudaCatDirect(Data &input0, Data &input1, int axis);
 void DoCudaAttentionReshape(Data &q, Data &v, Data &output);
 void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int group, float scale, int maskType);
+
 void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis);
+void DoCudaAttentionBatchReshape(Data **qs, Data **vs, Data **outputs, int batch);
 
 class CudaLinearOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);

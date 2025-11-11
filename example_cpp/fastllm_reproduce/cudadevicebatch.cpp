@@ -222,3 +222,10 @@ void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis) {
 
     FastllmCudaMemcpy2DDeviceToDeviceBatch(dsts.data(), dpitchs.data(), srcs.data(), spitchs.data(), widths.data(), heights.data(), dsts.size());
 }
+
+void DoCudaAttentionBatchReshape(Data **qs, Data **vs, Data **outputs, int batch) {
+    for (int i = 0; i < batch; i++) {
+        outputs[i]->dataType = qs[i]->dataType;
+        outputs[i]->Resize({qs[i]->dims[0], qs[i]->dims[1], vs[i]->dims[2]});
+    }
+}
