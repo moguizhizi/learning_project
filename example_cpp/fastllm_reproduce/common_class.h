@@ -84,4 +84,5 @@ class Data {
     uint64_t GetFastllmFormateBytes();
     void CreateFromFastllmFormat(uint8_t *datas, uint64_t len);
     void CalcWeightSum();
+    void Reshape(const std::vector<int> &dims);
 };
