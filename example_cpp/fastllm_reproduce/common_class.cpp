@@ -867,3 +867,19 @@ void Data::Reshape(const std::vector<int> &dims) {
     // 执行形状更新
     this->Resize(newDims);
 }
+
+void Data::FakeFrom(const Data &ori, size_t offset) {
+    this->dataType = ori.dataType;
+    this->UpdateUnitSize();
+    this->isFake = true;
+    this->dataDevice = ori.dataDevice;
+    if (this->dataDevice == DataDevice::CPU) {
+        this->cpuData = ori.cpuData + offset;
+    } else if (this->dataDevice == DataDevice::CUDA) {
+#ifdef USE_CUDA
+        this->cudaData = (void *)((uint8_t *)ori.cudaData + offset);
+#else
+        ErrorInFastLLM("Error: cuda is not supported.\n");
+#endif
+    }
+}

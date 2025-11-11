@@ -85,4 +85,5 @@ class Data {
     void CreateFromFastllmFormat(uint8_t *datas, uint64_t len);
     void CalcWeightSum();
     void Reshape(const std::vector<int> &dims);
+    void FakeFrom(const Data &ori, size_t offset);
 };
