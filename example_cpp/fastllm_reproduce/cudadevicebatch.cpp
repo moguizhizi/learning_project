@@ -1,4 +1,5 @@
 #include "cudadevicebatch.h"
+
 #include "cudadevice.h"
 #include "device.h"
 #include "fastllm-cuda.cuh"
@@ -80,7 +81,7 @@ void CudaMatMulTransBBatchOp::Reshape(const std::string &opType, const DataDict 
 
     if (input0s[0]->dims.size() == 3 && input1s[0]->dims.size() == 3) {
         AssertInFastLLM(input0s[0]->dataType == DataType::FLOAT32 && input1s[0]->dataType == DataType::FLOAT32,
-                        "MatMul's input's type should be float32.\n");
+            "MatMul's input's type should be float32.\n");
         AssertInFastLLM(input0s[0]->dims[0] == input1s[0]->dims[0] && input0s[0]->dims[2] == input1s[0]->dims[2], "MatMul's shape error.\n");
         for (int i = 0; i < batch; i++) {
             outputs[i]->dataType = input0s[i]->dataType;
@@ -167,4 +168,57 @@ void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **
             }
         }
     }
+}
+
+void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis) {
+    std::vector<void *> dsts, srcs;
+    std::vector<size_t> dpitchs, spitchs, widths, heights;
+    dsts.resize(batch);
+    srcs.resize(batch);
+    dpitchs.resize(batch);
+    spitchs.resize(batch);
+    widths.resize(batch);
+    heights.resize(batch);
+
+    for (int b = 0; b < batch; b++) {
+        Data &input0 = *input0s[b];
+        Data &input1 = *input1s[b];
+
+        if (input0.dims.size() == 0) {
+            input0.Resize(input1.dims);
+            AssertInFastLLM(input0.expansionDims.size() == input1.dims.size() && input1.dims[axis] <= input0.expansionDims[axis],
+                "CatDirect Error: input0's expansion size is not enough.\n");
+            int outer = input1.Count(0) / input1.Count(axis);
+            int input0Stride = input0.Count(axis);
+            int input1Stride = input1.Count(axis);
+            int inner = input0.strides[axis];
+            int unitSize = input0.unitSize;
+
+            dsts[b] = (input0.cudaData);
+            dpitchs[b] = (input0Stride * unitSize);
+            srcs[b] = (input1.cudaData);
+            spitchs[b] = (input1Stride * unitSize);
+            widths[b] = (input1.dims[axis] * inner * unitSize);
+            heights[b] = (outer);
+            continue;
+        }
+
+        int oldAxisDims = input0.dims[axis];
+        input0.dims[axis] += input1.dims[axis];
+        int outer = input0.Count(0) / input0.Count(axis);
+        int input0Stride = input0.Count(axis);
+        int input1Stride = input1.Count(axis);
+
+        int inner = input0.strides[axis];
+        int unitSize = input0.unitSize;
+
+        dsts[b] = ((uint8_t *)input0.cudaData + oldAxisDims * inner * unitSize);
+        dpitchs[b] = (input0Stride * unitSize);
+        srcs[b] = (input1.cudaData);
+        spitchs[b] = (input1Stride * unitSize);
+        widths[b] = (input1.dims[axis] * inner * unitSize);
+        heights[b] = (outer);
+    }
+
+    FastllmCudaMemcpy2DDeviceToDeviceBatch(dsts.data(), dpitchs.data(), srcs.data(), spitchs.data(), widths.data(), heights.data(), dsts.size());
 }
