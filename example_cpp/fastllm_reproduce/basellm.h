@@ -66,4 +66,3 @@ class BaseDevice {
 
     std::map<std::string, BaseOperator *> ops;
 };
-class CpuDevice : BaseDevice {};

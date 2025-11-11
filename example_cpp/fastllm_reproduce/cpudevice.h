@@ -3,6 +3,11 @@
 #include "alivethreadpool.h"
 #include "device.h"
 
+class CpuDevice : BaseDevice {
+   public:
+    CpuDevice();
+};
+
 class CpuToFloat16 : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
