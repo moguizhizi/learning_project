@@ -1426,6 +1426,110 @@ void MultiCudaDoMergeAttentionOp::Run() {
     }
 
     if (this->batch > 1) {
+        int bsz = batch, seqlen = input->dims[1];
+        std::vector<Data *> vKeys, vValues, vMasks;
+        std::vector<Data> curKs, curVs, curQs;
+        Data curAttenOutput;
+        curKs.resize(bsz);
+        curVs.resize(bsz);
+        curQs.resize(bsz);
+        std::vector<Data *> pointersK, pointersV, pointersQ;
+        pointersK.resize(bsz);
+        pointersV.resize(bsz);
+        pointersQ.resize(bsz);
+        std::vector<Data *> qs, attns, contexts;
+        qs.resize(bsz);
+        attns.resize(bsz);
+        contexts.resize(bsz);
+        std::vector<Data> curContextLayer;
+        curContextLayer.resize(bsz);
+
+        vKeys.resize(bsz);
+        vValues.resize(bsz);
+        vMasks.resize(bsz);
+        for (int i = 0; i < bsz; i++) {
+            vKeys[i] = keys[i];
+            vValues[i] = values[i];
+            vMasks[i] = masks[i];
+        }
+        DoCudaLinearReshape(*input, *weight0, *qkv);
+        DoCudaLinear(*input, *weight0, bias0 == nullptr ? Data() : *bias0, *qkv);
+        int per = qkv->dims.back() / (qNum / kvNum + 2);
+        int qdim = per * (qNum / kvNum);
+        DoCudaSplitReshape(*qkv, -1, 0, qdim, *q);
+        DoCudaSplitReshape(*qkv, -1, qdim, qdim + per, *k);
+        DoCudaSplitReshape(*qkv, -1, qdim + per, qdim + per * 2, *v);
+        DoCudaSplit(*qkv, -1, 0, qdim, *q);
+        DoCudaSplit(*qkv, -1, qdim, qdim + per, *k);
+        DoCudaSplit(*qkv, -1, qdim + per, qdim + per * 2, *v);
+
+        std::vector<int> qkvSize = {1, seqlen, -1, headDim};
+        q->Reshape(qkvSize);
+        k->Reshape(qkvSize);
+        v->Reshape(qkvSize);
+
+        FastllmCudaLlamaRotatePosition2D(*q, *positionIds, *sinData, *cosData, rotDim);
+        FastllmCudaLlamaRotatePosition2D(*k, *positionIds, *sinData, *cosData, rotDim);
+
+        int total = 0;
+        q->Reshape({-1, q->dims[2], q->dims[3]});
+        k->Reshape({-1, k->dims[2], k->dims[3]});
+        v->Reshape({-1, v->dims[2], v->dims[3]});
+
+        std::vector<int> qdims = {q->dims[1], 1, q->dims[2]};
+        std::vector<uint64_t> qstrides = {(uint64_t)q->dims[2], (uint64_t)q->dims[2], 1};
+        std::vector<int> kdims = {k->dims[1], 1, k->dims[2]};
+        std::vector<uint64_t> kstrides = {(uint64_t)k->dims[2], (uint64_t)k->dims[2], 1};
+        std::vector<int> vdims = {v->dims[1], 1, v->dims[2]};
+        std::vector<uint64_t> vstrides = {(uint64_t)v->dims[2], (uint64_t)v->dims[2], 1};
+        for (int b = 0; b < bsz; b++) {
+            curQs[b].dims = qdims;
+            curQs[b].strides = qstrides;
+            curQs[b].FakeFrom(*q, b * q->strides[0] * q->unitSize);
+            curKs[b].dims = kdims;
+            curKs[b].strides = kstrides;
+            curKs[b].FakeFrom(*k, b * k->strides[0] * k->unitSize);
+            curVs[b].dims = vdims;
+            curVs[b].strides = vstrides;
+            curVs[b].FakeFrom(*v, b * v->strides[0] * v->unitSize);
+        }
+
+        for (int b = 0; b < bsz; b++) {
+            pointersK[b] = (&curKs[b]);
+            pointersV[b] = (&curVs[b]);
+        }
+
+        DoCudaCatDirectBatch(vKeys.data(), pointersK.data(), bsz, 1);
+        DoCudaCatDirectBatch(vValues.data(), pointersV.data(), bsz, 1);
+
+        int embed_dim = weight1->dims[1];
+        Data &attenOutput = *qkv;
+        attenOutput.ToDevice(q->dataDevice);
+        attenOutput.Resize({1, bsz, embed_dim});
+        attenOutput.Allocate();
+        for (int b = 0; b < bsz; b++) {
+            qs[b] = (&curQs[b]);
+            curContextLayer[b].FakeFrom(attenOutput, b * embed_dim * attenOutput.unitSize);
+            contexts[b] = (&curContextLayer[b]);
+        }
+
+        DoCudaAttentionBatchReshape(qs.data(), vValues.data(), contexts.data(), bsz);
+        DoCudaAttentionBatch(
+            qs.data(), vKeys.data(), vValues.data(), vMasks.data(), contexts.data(), qs[0]->dims[0] / values[0]->dims[0], attentionScale, bsz);
+
+        DoCudaLinearReshape(*qkv, *weight1, *output);
+        if (deviceId == 0) {
+            output->isFake = true;
+            output->UpdateUnitSize();
+            output->cudaData = partOutput;
+            output->expansionSize = output->Count(0);
+            output->expansionBytes = (output->Count(0) * output->unitSize - 1) / output->unitSizeDiv + 1;
+        }
+        DoCudaLinear(*qkv, *weight1, bias1 == nullptr ? Data() : *bias1, *output);
+        if (deviceId != 0) {
+            FastllmCudaCopyFromDeviceToDevice(partOutput, output->cudaData, output->GetBytes());
+        }
+
     } else {
         int seqlen = input->dims[1];
         int group = this->qNum / this->kvNum;
