@@ -136,3 +136,29 @@ void MultiCudaMergeAttention::Reshape(const std::string &opType, const DataDict 
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void MultiCudaMergeAttention::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight0 = *(datas.find("weight0")->second);
+    Data &bias0 = *(datas.find("bias0")->second);
+    Data &weight1 = *(datas.find("weight1")->second);
+    Data &bias1 = *(datas.find("bias1")->second);
+    Data &positionIds = *(datas.find("positionIds")->second);
+    Data &sinData = *(datas.find("sinData")->second);
+    Data &cosData = *(datas.find("cosData")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &qkv = *(datas.find("qkv")->second);
+    Data &q = *(datas.find("q")->second);
+    Data &k = *(datas.find("k")->second);
+    Data &v = *(datas.find("v")->second);
+    int qNum = intParams.find("qNum")->second;
+    int kvNum = intParams.find("kvNum")->second;
+    int headDim = intParams.find("headDim")->second;
+    int rotDim = intParams.find("rotDim")->second;
+    float attentionScale = floatParams.find("attentionScale")->second;
+    Data **keys = (Data **)(datas.find("keys")->second);
+    Data **values = (Data **)(datas.find("values")->second);
+    Data **masks = (Data **)(datas.find("masks")->second);
+
+    int batch = intParams.find("keys___batch")->second;
+}
