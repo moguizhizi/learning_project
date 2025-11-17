@@ -219,6 +219,13 @@ void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int gr
     }
 }
 
+void DoCudaSwigluReshape(Data &input, Data &output) {
+    std::vector<int> dims = input.dims;
+    dims[dims.size() - 1] /= 2;
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
