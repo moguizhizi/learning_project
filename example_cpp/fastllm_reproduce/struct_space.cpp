@@ -1615,3 +1615,33 @@ MultiCudaDoMergeMLPOp::MultiCudaDoMergeMLPOp(uint8_t *oriCudaInput, uint8_t *ori
     this->output = output;
     this->deviceId = deviceId;
 }
+
+void MultiCudaDoMergeMLPOp::Run() {
+    FastllmCudaSetDevice(this->deviceId);
+    if (deviceId == 0) {
+        input->cudaData = oriCudaInput;
+    } else {
+        input->Allocate();
+        FastllmCudaCopyFromDeviceToDevice(input->cudaData, oriCudaInput, input->GetBytes());
+    }
+
+    DoCudaLinearReshape(*input, *weight0, *w3);
+    DoCudaLinear(*input, *weight0, bias0 ? *bias0 : Data(), *w3);
+
+    DoCudaSwigluReshape(*w3, *w1);
+    DoCudaSwiglu(*w3, *w1);
+
+    DoCudaLinearReshape(*w1, *weight1, *output);
+    DoCudaLinearReshape(*w1, *weight1, *output);
+    if (deviceId == 0) {
+        output->isFake = true;
+        output->UpdateUnitSize();
+        output->cudaData = partOutput;
+        output->expansionSize = output->Count(0);
+        output->expansionBytes = (output->Count(0) * output->unitSize - 1) / output->unitSizeDiv + 1;
+    }
+    DoCudaLinear(*w1, *weight1, bias1 == nullptr ? Data() : *bias1, *output);
+    if (deviceId != 0) {
+        FastllmCudaCopyFromDeviceToDevice(partOutput, output->cudaData, output->GetBytes());
+    }
+}
