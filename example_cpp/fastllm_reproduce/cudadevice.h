@@ -26,6 +26,7 @@ void DoCudaAttentionReshape(Data &q, Data &v, Data &output);
 void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int group, float scale, int maskType);
 
 void DoCudaSwigluReshape(Data &input, Data &output);
+void DoCudaSwiglu(Data &input, Data &output);
 
 void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis);
 void DoCudaAttentionBatchReshape(Data **qs, Data **vs, Data **outputs, int batch);

@@ -226,6 +226,11 @@ void DoCudaSwigluReshape(Data &input, Data &output) {
     output.Resize(dims);
 }
 
+void DoCudaSwiglu(Data &input, Data &output) {
+    output.Allocate();
+    FastllmCudaSwiglu(input, output);
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
