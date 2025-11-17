@@ -2,6 +2,7 @@
 
 #include "fastllm-cuda.cuh"
 #include "fastllm-multicuda.cuh"
+#include "file_utils.hpp"
 
 MultiCudaDevice::MultiCudaDevice(CudaDevice *cudaDevice) {
     this->cudaDevice = cudaDevice;
@@ -125,6 +126,26 @@ void MultiCudaLinearOp::Run(const std::string &opType, const DataDict &datas, co
         pool->Wait(i);
         delete ops[i];
     }
+}
+
+void MultiCudaMLPOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &weight0 = *(datas.find("weight0")->second);
+    Data &weight1 = *(datas.find("weight1")->second);
+
+    AssertInFastLLM(weight0.dims.size() == 2 && weight1.dims.size() == 2, "MLP's weight's shape's size should be 2.\n");
+    AssertInFastLLM(input.dims.back() == weight0.dims[1], "MLP's weight's shape error.\n");
+    AssertInFastLLM(weight0.dims[0] / 2 == weight1.dims[1], "MLP's weight's shape error.\n");
+    AssertInFastLLM(weight0.dataType == weight1.dataType, "MLP's weight's data type error.\n");
+
+    weight0.weightType = WeightType::LINEAR;
+    weight1.weightType = WeightType::LINEAR;
+    std::vector<int> dims = input.dims;
+    dims.back() = weight1.dims[0];
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
 }
 
 void MultiCudaMergeAttention::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
