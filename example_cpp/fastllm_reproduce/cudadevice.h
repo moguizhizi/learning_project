@@ -28,11 +28,12 @@ void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int gr
 void DoCudaSwigluReshape(Data &input, Data &output);
 void DoCudaSwiglu(Data &input, Data &output);
 
+void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
+    int topk, int needNorm, float sharedScale, float routeScale);
+
 void DoCudaCatDirectBatch(Data **input0s, Data **input1s, int batch, int axis);
 void DoCudaAttentionBatchReshape(Data **qs, Data **vs, Data **outputs, int batch);
 void DoCudaAttentionBatch(Data **qs, Data **ks, Data **vs, Data **masks, Data **outputs, int group, float scale, int batch);
-
-
 
 class CudaLinearOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);

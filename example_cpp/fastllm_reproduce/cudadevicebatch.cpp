@@ -3,6 +3,7 @@
 #include "cudadevice.h"
 #include "device.h"
 #include "fastllm-cuda.cuh"
+#include "fastllm.h"
 #include "file_utils.hpp"
 
 void CudaCatBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
