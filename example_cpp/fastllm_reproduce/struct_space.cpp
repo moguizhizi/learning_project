@@ -1645,3 +1645,38 @@ void MultiCudaDoMergeMLPOp::Run() {
         FastllmCudaCopyFromDeviceToDevice(partOutput, output->cudaData, output->GetBytes());
     }
 }
+
+MultiCudaCpuDoMergeMLPOp::MultiCudaCpuDoMergeMLPOp(uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data *weight0, Data *bias0,
+    Data *weight1, Data *bias1, Data *w1, Data *w2, Data *w3, Data *output, int deviceId) {
+    this->oriCpuInput = oriCpuInput;
+    this->partOutput = partOutput;
+
+    this->input = input;
+    this->weight0 = weight0;
+    this->bias0 = bias0;
+    this->weight1 = weight1;
+    this->bias1 = bias1;
+
+    this->w1 = w1;
+    this->w2 = w2;
+    this->w3 = w3;
+
+    this->output = output;
+    this->deviceId = deviceId;
+}
+
+void MultiCudaCpuDoMergeMLPOp::Run() {
+    input->Allocate();
+    memcpy(input->cpuData, oriCpuInput, input->GetBytes());
+
+    DoCpuLinearReshape(*input, *weight0, *w3);
+    DoCpuLinear(*input, *weight0, bias0 == nullptr ? Data() : *bias0, *w3);
+
+    DoCpuSwigluReshape(*w3, *w1);
+    DoCpuSwiglu(*w3, *w1);
+
+    DoCpuLinearReshape(*w1, *weight1, *output);
+    DoCpuLinear(*w1, *weight1, bias1 == nullptr ? Data() : *bias1, *output);
+
+    FastllmCudaCopyFromHostToDevice(partOutput, output->cpuData, output->GetBytes());
+}
