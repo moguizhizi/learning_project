@@ -231,6 +231,96 @@ void DoCudaSwiglu(Data &input, Data &output) {
     FastllmCudaSwiglu(input, output);
 }
 
+void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
+    int topk, int needNorm, float sharedScale, float routeScale) {
+    output.Allocate();
+
+    int batch = input.dims[0];
+    float *cpuRouterLogits = (float *)logits.cpuData;
+    int m = logits.dims.back();
+
+    Data &bias = gateBias;
+
+    if (batch == 1) {
+        // --------------------- Step 1: 准备 router logits 数据 ---------------------
+        float *curLogits = cpuRouterLogits;
+        std::vector<std::pair<float, int>> scoreExperts;
+        scoreExperts.reserve(m);
+        for (int i = 0; i < m; i++) {
+            scoreExperts.emplace_back(std::make_pair(-curLogits[i], i));
+        }
+
+        // --------------------- Step 2: 如果 bias 存在，则减去偏置 ------------------
+        if (bias.dims.size() > 0) {
+            ToDataType(bias, DataType::FLOAT32);
+            bias.ToDevice(DataDevice::CPU);
+            float *cpuBias = (float *)bias.cpuData;
+
+            for (int i = 0; i < m; i++) {
+                scoreExperts[i].first -= cpuBias[i];
+            }
+        }
+
+        // --------------------- Step 3: 找 Top-K 专家 ---------------------
+        std::partial_sort(scoreExperts.begin(), scoreExperts.begin() + topk, scoreExperts.end());
+
+        // --------------------- Step 4: 计算 Top-K logits 之和（用于归一化） --------
+        float weightSum = 0.0;
+        for (int i = 0; i < topk; i++) {
+            weightSum += curLogits[scoreExperts[i].second];
+        }
+
+        if (!needNorm) {
+            weightSum = 1.0;
+        }
+
+        // --------------------- Step 5: 生成专家执行列表 (expertIndex, weight) ------
+        std::vector<std::pair<int, float>> routedExperts;
+        routedExperts.reserve(topk + 1);
+
+        for (int i = 0; i < topk; i++) {
+            int expertIndex = scoreExperts[i].second;
+            float weight = (curLogits[expertIndex] / weightSum) * routeScale;
+
+            // +1 因为 0 预留 shared expert
+            routedExperts.emplace_back(std::make_pair(expertIndex + 1, weight));
+        }
+
+        // 最后一个永远是共享专家 shareExpert
+        routedExperts.back() = {0, sharedScale};
+
+        for (int i = 0; i < routedExperts.size(); i++) {
+            int expertIndex = routedExperts[i].first;
+            int expertWeight = routedExperts[i].second;
+
+            // 没有权重 → 该专家无效
+            if (weights[2 * expertIndex] == nullptr) {
+                continue;
+            }
+
+            // Expert MLP Forward: Linear → SwiGLU → Linear
+            DoCudaLinearReshape(input, *weights[2 * expertIndex], w3);
+            DoCudaLinear(input, *weights[2 * expertIndex], Data(), w3);
+
+            DoCudaSwigluReshape(w3, w1);
+            DoCudaSwiglu(w3, w1);
+
+            DoCudaLinearReshape(w1, *weights[2 * expertIndex + 1], w2);
+            DoCudaLinear(w1, *weights[2 * expertIndex + 1], Data(), w2);
+
+            // --------------------- Step 7: 加权合并输出 ---------------------
+            if (i == 0) {
+                output.dataType = w2.dataType;
+                output.Resize(w2.dims);
+                FastllmCudaMul(w2, expertWeight, output);
+            } else {
+                FastllmCudaAddTo(output, w2, expertWeight);
+            }
+        }
+    } else {
+    }
+}
+
 void CudaLinearOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
