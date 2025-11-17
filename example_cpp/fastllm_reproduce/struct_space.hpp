@@ -368,3 +368,16 @@ struct MultiCudaDoMergeMLPOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiCudaCpuDoMergeMLPOp : MultiThreadBaseOp {
+    uint8_t *oriCpuInput, *partOutput;
+    Data *input, *weight0, *bias0, *weight1, *bias1;
+    Data *w1, *w2, *w3;
+    Data *output;
+    int deviceId;
+
+    MultiCudaCpuDoMergeMLPOp(uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data *weight0, Data *bias0, Data *weight1, Data *bias1,
+        Data *w1, Data *w2, Data *w3, Data *output, int deviceId);
+
+    void Run();
+};
