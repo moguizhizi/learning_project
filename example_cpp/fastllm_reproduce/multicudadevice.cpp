@@ -161,4 +161,124 @@ void MultiCudaMergeAttention::Run(const std::string &opType, const DataDict &dat
     Data **masks = (Data **)(datas.find("masks")->second);
 
     int batch = intParams.find("keys___batch")->second;
+
+    output.Allocate();
+    int group = qNum / kvNum;
+    int vDim = weight1.dims[0] / qNum;
+    std::vector<int> devices;
+    std::map<int, int> ratios;
+    FastllmGetMulticudaDeviceAndRatio(devices, ratios, true);
+    std::vector<int> points = FastllmMultiCudaGetSplitPoints(devices, ratios, kvNum, 1);
+    DivisionScheme divisionScheme, divisionSchemeO;
+    for (int i = 0; i < devices.size(); i++) {
+        int st = points[i], end = points[i + 1];
+        int deviceId = devices[i];
+        int qgap = qNum * headDim, qkgap = (qNum + kvNum) * headDim;
+        divisionScheme[deviceId].push_back(std::make_pair(st * group * headDim, end * group * headDim));
+        divisionScheme[deviceId].push_back(std::make_pair(qgap + st * headDim, qgap + end * headDim));
+        divisionScheme[deviceId].push_back(std::make_pair(qkgap + st * headDim, qkgap + end * headDim));
+
+        divisionSchemeO[deviceId].push_back(std::make_pair(st * group * vDim, end * group * vDim));
+    }
+    SplitMultiCudaWeight(weight0, bias0, devices, divisionScheme, 0);
+    SplitMultiCudaWeight(weight1, bias1, devices, divisionSchemeO, 1);
+    CopyToMultiDevices(qkv, devices, false);
+    CopyToMultiDevices(q, devices, false);
+    CopyToMultiDevices(k, devices, false);
+    CopyToMultiDevices(v, devices, false);
+    CopyToMultiDevices(positionIds, devices, true);
+    CopyToMultiDevices(sinData, devices, true);
+    CopyToMultiDevices(cosData, devices, true);
+    for (int i = 0; i < batch; i++) {
+        CopyToMultiDevices(*keys[i], devices, true);
+        CopyToMultiDevices(*values[i], devices, true);
+        if (masks[i] != nullptr) {
+            CopyToMultiDevices(*masks[i], devices, true);
+        }
+    }
+    std::map<int, std::vector<Data *> > curKeys, curValues, curMasks;
+    for (int device : devices) {
+        for (int i = 0; i < batch; i++) {
+            curKeys[device].push_back(keys[i]->multiDeviceDatas[device]);
+            curValues[device].push_back(values[i]->multiDeviceDatas[device]);
+            curMasks[device].push_back(masks[i] == nullptr ? nullptr : masks[i]->multiDeviceDatas[device]);
+        }
+    }
+
+    Data &curInput = *(datas.find("curInput")->second);
+    Data &curOutput = *(datas.find("curOutput")->second);
+
+    CopyToMultiDevices(input, devices, false);
+    curOutput.dataDevice = input.dataDevice;
+    CopyToMultiDevices(curOutput, devices, false);
+    std::vector<uint8_t> cpuInput;
+    cpuInput.resize(input.GetBytes());
+    FastllmCudaSetDevice(0);
+    FastllmCudaCopyFromDeviceToHost(cpuInput.data(), input.cudaData, input.GetBytes());
+    uint8_t *partOutput = (uint8_t *)FastllmCudaMalloc(output.GetBytes() * devices.size());
+    auto *pool = GetAlivePool();
+    std::vector<MultiThreadBaseOp *> ops;
+
+    for (int i = 0; i < devices.size(); i++) {
+        int device = devices[i];
+        FastllmCudaSetDevice(device);
+        int bsz = batch, seqlen = input.dims[1];
+        if (bsz > 1) {
+            seqlen = 1;
+        }
+
+        int unitLen = 128;
+        for (int i = 0; i < bsz; i++) {
+            Data &pastKey = *keys[i]->multiDeviceDatas[device];
+            Data &pastValue = *values[i]->multiDeviceDatas[device];
+            while ((pastKey.dims.size() == 0 && (pastKey.expansionDims.size() == 0 || seqlen > pastKey.expansionDims[1])) ||
+                   (pastKey.dims.size() > 0 && pastKey.dims[1] + seqlen > pastKey.expansionDims[1])) {
+                std::vector<int> newDims;
+                if (pastKey.Count(0) == 0 || pastKey.dims.size() == 0) {
+                    newDims = std::vector<int>{kvNum, ((seqlen - 1) / unitLen + 1) * unitLen, headDim};
+                } else {
+                    newDims = pastKey.dims;
+                    newDims[1] += ((seqlen - 1) / unitLen + 1) * unitLen;
+                }
+                pastKey.Expansion(newDims);
+            }
+            while ((pastValue.dims.size() == 0 && (pastValue.expansionDims.size() == 0 || seqlen > pastValue.expansionDims[1])) ||
+                   (pastValue.dims.size() > 0 && pastValue.dims[1] + seqlen > pastValue.expansionDims[1])) {
+                std::vector<int> newDims;
+                if (pastValue.Count(0) == 0 || pastValue.dims.size() == 0) {
+                    newDims = std::vector<int>{kvNum, ((seqlen - 1) / unitLen + 1) * unitLen, headDim};
+                } else {
+                    newDims = pastValue.dims;
+                    newDims[1] += ((seqlen - 1) / unitLen + 1) * unitLen;
+                }
+                pastValue.Expansion(newDims);
+            }
+        }
+    }
+    FastllmCudaSetDevice(0);
+
+    for (int i = 0; i < devices.size(); i++) {
+        auto device = devices[i];
+        ops.push_back(new MultiCudaDoMergeAttentionOp((uint8_t *)input.cudaData, (uint8_t *)cpuInput.data(), partOutput + output.GetBytes() * i,
+            input.multiDeviceDatas[device], weight0.multiDeviceDatas[device], bias0.multiDeviceDatas[device], weight1.multiDeviceDatas[device],
+            bias1.multiDeviceDatas[device], qkv.multiDeviceDatas[device], q.multiDeviceDatas[device], k.multiDeviceDatas[device],
+            v.multiDeviceDatas[device], qNum, kvNum, headDim, rotDim, attentionScale, positionIds.multiDeviceDatas[device],
+            sinData.multiDeviceDatas[device], cosData.multiDeviceDatas[device], curKeys[device].data(), curValues[device].data(),
+            curMasks[device].data(), curOutput.multiDeviceDatas[device], batch, device));
+    }
+    for (int i = 0; i < devices.size(); i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < devices.size(); i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
+    FastllmReduce((uint8_t *)output.cudaData, partOutput, output.Count(0), devices.size(), output.dataType);
+    FastllmCudaFree(partOutput);
+    for (int i = 0; i < batch; i++) {
+        keys[i]->dims = keys[i]->multiDeviceDatas[devices[0]]->dims;
+        keys[i]->expansionDims = keys[i]->multiDeviceDatas[devices[0]]->expansionDims;
+        values[i]->dims = values[i]->multiDeviceDatas[devices[0]]->dims;
+        values[i]->expansionDims = values[i]->multiDeviceDatas[devices[0]]->expansionDims;
+    }
 }
