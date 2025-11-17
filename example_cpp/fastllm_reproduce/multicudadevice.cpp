@@ -236,16 +236,17 @@ void MultiCudaMLPOp::Run(const std::string &opType, const DataDict &datas, const
     auto temp = pool->curActivateThreadInterval;
     pool->curActivateThreadInterval = std::make_pair(ops.size(), pool->threads.size());
     for (int i = 0; i < devices.size(); i++) {
-        int deviceId = devices[i];
+        int device = devices[i];
 
         std::string specialId;
         int mallocType = 0;
-        SwitchDeviceAndGetInfos(deviceId, specialId, mallocType);
+        SwitchDeviceAndGetInfos(device, specialId, mallocType);
         if (specialId == "cpu") {
-            ops.push_back(new MultiCudaCpuDoMergeMLPOp((uint8_t *)input.cudaData, oriCpuInput, partOutput + output.GetBytes() * i, curInput,
-                weight0.multiDeviceDatas[deviceId], bias0.multiDeviceDatas[deviceId], weight1.multiDeviceDatas[deviceId],
-                bias1.multiDeviceDatas[deviceId], w1.multiDeviceDatas[deviceId], w2.multiDeviceDatas[deviceId], w3.multiDeviceDatas[deviceId],
-                curOutput, deviceId));
+            MultiCudaCpuDoMergeMLPOp((uint8_t *)cpuInput.data(), partOutput + output.GetBytes() * i, input.multiDeviceDatas[device],
+                weight0.multiDeviceDatas[device], bias0.multiDeviceDatas[device], weight1.multiDeviceDatas[device],
+                bias1.multiDeviceDatas[device], w1.multiDeviceDatas[device], w2.multiDeviceDatas[device], w3.multiDeviceDatas[device],
+                curOutput->multiDeviceDatas[device], device)
+                .Run();
         }
     }
 
