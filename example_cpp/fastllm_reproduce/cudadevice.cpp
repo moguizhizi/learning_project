@@ -813,3 +813,27 @@ void CudaMatMulOp::Reshape(const std::string &opType, const DataDict &datas, con
     output.dataType = input0.dataType;
     output.Resize(dims);
 }
+
+void CudaMatMulOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+    Data &output = *(datas.find("output")->second);
+
+    output.Allocate();
+
+    float alpha = floatParams.find("alpha") != floatParams.end() ? floatParams.find("alpha")->second : 1.0f;
+    int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : 1;
+    int input0Spatial = input0.Count(input0.dims.size() - 2) * group;
+    int input1Spatial = input1.Count(input1.dims.size() - 2);
+    int input0Stride = input0.strides[input0.dims.size() - 2];
+    int input1Stride = input1.strides[input1.dims.size() - 2];
+    int n = input0.dims[input0.dims.size() - 2] * group;
+    int m = input0.dims.back();
+    int k = input1.dims[input1.dims.size() - 1];
+    int batch0 = input0.Count(0) / input0Spatial;
+    int batch1 = input1.Count(0) / input1Spatial;
+
+    int outputSpatial = output.Count(output.dims.size() - 2) * group;
+    FastllmCudaBatchMatMul(
+        input0, input1, output, input0Spatial, input1Spatial, outputSpatial, input0Stride, input1Stride, batch1, n, m, k, alpha);
+}
