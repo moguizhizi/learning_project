@@ -291,7 +291,7 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
 
         for (int i = 0; i < routedExperts.size(); i++) {
             int expertIndex = routedExperts[i].first;
-            int expertWeight = routedExperts[i].second;
+            float expertWeight = routedExperts[i].second;
 
             // 没有权重 → 该专家无效
             if (weights[2 * expertIndex] == nullptr) {
