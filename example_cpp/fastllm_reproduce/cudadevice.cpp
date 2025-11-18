@@ -731,3 +731,17 @@ void CudaLayerNormOp::Run(const std::string &opType, const DataDict &datas, cons
 bool CudaRMSNormOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     return true;
 }
+
+void CudaRMSNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight = *(datas.find("weight")->second);
+    Data &output = *(datas.find("output")->second);
+
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "RMSNorm error: datatype should be float32 or float16.");
+
+    output.Allocate();
+
+    float eps = floatParams.find("eps") != floatParams.end() ? floatParams.find("eps")->second : 1e-5;
+    FastllmCudaRMSNorm(input, weight, output, eps);
+}
