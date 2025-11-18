@@ -837,3 +837,16 @@ void CudaMatMulOp::Run(const std::string &opType, const DataDict &datas, const F
     FastllmCudaBatchMatMul(
         input0, input1, output, input0Spatial, input1Spatial, outputSpatial, input0Stride, input1Stride, batch1, n, m, k, alpha);
 }
+
+bool CudaSoftMaxOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int inner = input.Count(axis + 1);
+    if (inner != 1) {
+        return false;
+    }
+    return true;
+}
