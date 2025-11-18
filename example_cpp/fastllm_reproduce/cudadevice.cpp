@@ -4,7 +4,8 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 
-constexpr float EPSILON = 1e-9f; // For numerical safety
+constexpr float EPSILON = 1e-9f;     // For numerical safety
+constexpr int SharedExpertIndex = 0; // Reserved expert ID
 
 CudaDevice::CudaDevice() {
     this->deviceType = "cuda";
