@@ -3,6 +3,7 @@
 #include "basellm.h"
 #include "cpudevice.h"
 #include "device.h"
+#include "struct_space.hpp"
 
 class CudaDevice : BaseDevice {
    public:
@@ -30,6 +31,7 @@ void DoCudaSwiglu(Data &input, Data &output);
 
 std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, const float *bias, int m);
 std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
+std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
     int topk, int needNorm, float sharedScale, float routeScale);
 

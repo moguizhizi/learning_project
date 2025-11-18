@@ -381,3 +381,8 @@ struct MultiCudaCpuDoMergeMLPOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct ExpertRoute {
+    int expertIndex;
+    float weight;
+};
