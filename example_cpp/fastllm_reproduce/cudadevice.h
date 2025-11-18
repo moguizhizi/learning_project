@@ -29,6 +29,7 @@ void DoCudaSwigluReshape(Data &input, Data &output);
 void DoCudaSwiglu(Data &input, Data &output);
 
 std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, const float *bias, int m);
+std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
     int topk, int needNorm, float sharedScale, float routeScale);
 
