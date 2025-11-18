@@ -1743,10 +1743,30 @@ void MultiCudaDoMergeMOEOp::ComputeMoE() {
     DoCudaMergeMOE(*input, *output, *gateBias, *logits, *w1, *w2, *w3, deviceWeights.data(), nullptr, topk, needNorm, sharedScale, routeScale);
 }
 
+void MultiCudaDoMergeMOEOp::FinalizeOutputBuffer() {
+    if (deviceId == 0) {
+        // On device 0 we assume output should point to external partOutput buffer (no copy)
+        output->isFake = true;
+        output->UpdateUnitSize();
+        output->cudaData = partOutput;
+        output->expansionSize = output->Count(0);
+        output->expansionBytes = (output->expansionSize * output->unitSize - 1) / output->unitSizeDiv + 1;
+        return;
+    }
+
+    // For other devices: copy device output back to shared partOutput region
+    size_t bytes = output->GetBytes();
+    FastllmCudaCopyFromDeviceToDevice(partOutput, output->cudaData, bytes);
+}
+
 void MultiCudaDoMergeMOEOp::Run() {
     FastllmCudaSetDevice(this->deviceId);
 
     PrepareInputBuffer();
 
     MapWeightsForDevice();
+
+    ComputeMoE();
+
+    FinalizeOutputBuffer();
 }
