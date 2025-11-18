@@ -1,5 +1,7 @@
 #include "cudadevice.h"
 
+#include <numeric>
+
 #include "fastllm-cuda.cuh"
 #include "fastllm.h"
 #include "file_utils.hpp"
@@ -286,6 +288,21 @@ std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::
     }
 
     return routes;
+}
+
+std::vector<ExpertRoute> RouteMoE(const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale) {
+    auto scores = ComputeRouterScores(logits, bias, m);
+    auto selectedExperts = SelectTopExperts(scores, topk);
+    auto routedExperts = NormalizeExpertWeights(logits, selectedExperts, routeScale, needNorm);
+
+    if (sharedScale != nullptr) {
+        routedExperts.push_back({SharedExpertIndex, *sharedScale});
+    } else {
+        float shareWeight = std::accumulate(routedExperts.begin(), routedExperts.end(), 0.0f, [](float acc, ExpertRoute &r) { return acc + r.weight; });
+        routedExperts.push_back({SharedExpertIndex, shareWeight});
+    }
+
+    return routedExperts;
 }
 
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
