@@ -231,6 +231,21 @@ void DoCudaSwiglu(Data &input, Data &output) {
     FastllmCudaSwiglu(input, output);
 }
 
+/**
+ * @brief Select top-k experts based on router logits (optionally with bias).
+ */
+std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, const float *bias, int m) {
+    std::vector<std::pair<float, int>> routerScores;
+    routerScores.reserve(m);
+    for (int i = 0; i < m; i++) {
+        float score = -logits[i];
+        if (bias) score -= bias[i];
+        routerScores.emplace_back(score, i);
+    }
+
+    return routerScores;
+}
+
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
     int topk, int needNorm, float sharedScale, float routeScale) {
     output.Allocate();
