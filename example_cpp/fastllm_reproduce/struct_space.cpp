@@ -1680,3 +1680,36 @@ void MultiCudaCpuDoMergeMLPOp::Run() {
 
     FastllmCudaCopyFromHostToDevice(partOutput, output->cpuData, output->GetBytes());
 }
+
+MultiCudaDoMergeMOEOp::MultiCudaDoMergeMOEOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data **weights,
+    Data *logits, Data *gateBias, Data *w1, Data *w2, Data *w3, int wBatch, int topk, int needNorm, float routeScale, float sharedScale,
+    Data *output, int deviceId) {
+    // ---------- Data Buffers ----------
+    this->oriCudaInput = oriCudaInput;
+    this->oriCpuInput = oriCpuInput;
+    this->partOutput = partOutput;
+
+    // ---------- Model Data ----------
+    this->input = input;
+    this->weights = weights;
+    this->logits = logits;
+    this->gateBias = gateBias;
+
+    // ---------- Workspace ----------
+    this->w1 = w1;
+    this->w2 = w2;
+    this->w3 = w3;
+
+    // ---------- Routing & Execution Params ----------
+    this->wBatch = wBatch;
+    this->topk = topk;
+    this->needNorm = needNorm;
+    this->routeScale = routeScale;
+    this->sharedScale = sharedScale;
+
+    // ---------- Output ----------
+    this->output = output;
+
+    // ---------- Device ----------
+    this->deviceId = deviceId;
+}

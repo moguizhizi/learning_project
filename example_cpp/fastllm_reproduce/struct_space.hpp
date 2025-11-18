@@ -386,3 +386,21 @@ struct ExpertRoute {
     int expertIndex;
     float weight;
 };
+
+struct MultiCudaDoMergeMOEOp : MultiThreadBaseOp {
+    uint8_t *oriCudaInput, *oriCpuInput, *partOutput;
+    Data *input;
+    Data **weights;
+    Data *logits, *gateBias;
+    Data *w1, *w2, *w3;
+    int wBatch, topk, needNorm;
+    float routeScale, sharedScale;
+    Data *output;
+    int deviceId;
+
+    MultiCudaDoMergeMOEOp(uint8_t *oriCudaInput, uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data **weights, Data *logits,
+        Data *gateBias, Data *w1, Data *w2, Data *w3, int wBatch, int topk, int needNorm, float routeScale, float sharedScale, Data *output,
+        int deviceId);
+
+    void Run();
+};
