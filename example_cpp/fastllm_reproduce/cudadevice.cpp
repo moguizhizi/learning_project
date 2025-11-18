@@ -335,6 +335,9 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
         DoCudaSplitReshape(input, 0, b, b + 1, curInput);
         DoCudaSplit(input, 0, b, b + 1, curInput);
 
+        curOutput.Resize(curInput.dims);
+        curOutput.Allocate(0.0f);
+
         bool first = true;
         for (ExpertRoute expert : routedExperts) {
             int expertIndex = expert.expertIndex;
@@ -354,9 +357,6 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
 
             DoCudaLinearReshape(w1, *weights[2 * expertIndex + 1], w2);
             DoCudaLinear(w1, *weights[2 * expertIndex + 1], Data(), w2);
-
-            curOutput.Resize(curInput.dims);
-            curOutput.Allocate(0.0f);
 
             FastllmCudaAddTo(curOutput, w2, expertWeight);
             FastllmCudaCopyFromDeviceToDevice(
