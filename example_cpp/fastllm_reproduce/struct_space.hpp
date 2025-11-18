@@ -403,7 +403,7 @@ struct MultiCudaDoMergeMOEOp : MultiThreadBaseOp {
         int deviceId);
 
     void PrepareInputBuffer();
-    void MapWeightsForDevice();
+    std::vector<Data *> MapWeightsForDevice();
     void ComputeMoE();
     void FinalizeOutputBuffer();
     void Run();

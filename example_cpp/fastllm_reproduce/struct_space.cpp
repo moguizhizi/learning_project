@@ -1723,6 +1723,23 @@ void MultiCudaDoMergeMOEOp::PrepareInputBuffer() {
     }
 }
 
+std::vector<Data *> MultiCudaDoMergeMOEOp::MapWeightsForDevice() {
+    std::vector<Data *> deviceWeight;
+    deviceWeight.resize(static_cast<size_t>(this->wBatch), nullptr);
+
+    for (int i = 0; i < this->wBatch; i++) {
+        if (this->weights == nullptr) {
+            deviceWeight[i] = nullptr;
+        } else if (this->weights[i] == nullptr) {
+            deviceWeight[i] = nullptr;
+        } else {
+            deviceWeight[i] = this->weights[i]->multiDeviceDatas[this->deviceId];
+        }
+    }
+
+    return deviceWeight;
+}
+
 void MultiCudaDoMergeMOEOp::Run() {
     FastllmCudaSetDevice(this->deviceId);
 }
