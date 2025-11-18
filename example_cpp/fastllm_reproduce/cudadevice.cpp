@@ -714,3 +714,16 @@ bool CudaLayerNormOp::CanRun(const std::string &opType, const DataDict &datas, c
     int inner = input.strides[axis];
     return inner == 1;
 }
+
+void CudaLayerNormOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &gamma = *(datas.find("gamma")->second);
+    Data &beta = *(datas.find("beta")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    output.Allocate();
+    FastllmCudaLayerNorm(input, gamma, beta, output, axis);
+}
