@@ -262,6 +262,28 @@ std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScor
     return selectedExperts;
 }
 
+/**
+ * @brief Normalize routing weights for selected experts.
+ */
+std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm) {
+    float sum = 0.0f;
+    if (needNorm) {
+        for (int i : selectedExperts) {
+            sum += logits[i];
+        }
+    } else {
+        sum = 1.0f;
+    }
+
+    std::vector<ExpertRoute> routes;
+    routes.reserve(selectedExperts.size() + 1);
+    for (int i : selectedExperts) {
+        routes.push_back({i + 1, logits[i] / sum * routeScale});
+    }
+
+    return routes;
+}
+
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
     int topk, int needNorm, float sharedScale, float routeScale) {
     output.Allocate();
