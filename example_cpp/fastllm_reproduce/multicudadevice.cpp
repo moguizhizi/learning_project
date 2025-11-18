@@ -417,3 +417,15 @@ void MultiCudaMergeAttention::Run(const std::string &opType, const DataDict &dat
         values[i]->expansionDims = values[i]->multiDeviceDatas[devices[0]]->expansionDims;
     }
 }
+
+void DeviceGetInfos(int deviceId, std::string &specialId, int &mallocType) {
+    static std::map<int, std::string> specialDeviceIds = {{99999, "cpu"}};
+    specialId = "";
+    if (specialDeviceIds.find(deviceId) != specialDeviceIds.end()) {
+        specialId = specialDeviceIds[deviceId];
+    }
+    mallocType = 1;
+    if (specialId == "cpu") {
+        mallocType = 0;
+    }
+}

@@ -45,3 +45,5 @@ class MultiCudaMergeAttention : CudaMergeAttention {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+void DeviceGetInfos(int deviceId, std::string &specialId, int &mallocType);
