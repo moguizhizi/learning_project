@@ -727,3 +727,7 @@ void CudaLayerNormOp::Run(const std::string &opType, const DataDict &datas, cons
     output.Allocate();
     FastllmCudaLayerNorm(input, gamma, beta, output, axis);
 }
+
+bool CudaRMSNormOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    return true;
+}
