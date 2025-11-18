@@ -4,6 +4,8 @@
 #include "fastllm.h"
 #include "file_utils.hpp"
 
+constexpr float EPSILON = 1e-9f; // For numerical safety
+
 CudaDevice::CudaDevice() {
     this->deviceType = "cuda";
     this->ops["ToFloat16"] = (BaseOperator *)(new CudaToFloat16());
@@ -271,6 +273,7 @@ std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::
         for (int i : selectedExperts) {
             sum += logits[i];
         }
+        sum = std::max(sum, EPSILON);
     } else {
         sum = 1.0f;
     }
