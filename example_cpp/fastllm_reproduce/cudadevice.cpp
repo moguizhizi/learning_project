@@ -298,7 +298,8 @@ std::vector<ExpertRoute> RouteMoE(const float *logits, const float *bias, int m,
     if (sharedScale != nullptr) {
         routedExperts.push_back({SharedExpertIndex, *sharedScale});
     } else {
-        float shareWeight = std::accumulate(routedExperts.begin(), routedExperts.end(), 0.0f, [](float acc, ExpertRoute &r) { return acc + r.weight; });
+        float shareWeight =
+            std::accumulate(routedExperts.begin(), routedExperts.end(), 0.0f, [](float acc, ExpertRoute &r) { return acc + r.weight; });
         routedExperts.push_back({SharedExpertIndex, shareWeight});
     }
 
@@ -316,56 +317,14 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
     Data &bias = gateBias;
 
     if (batch == 1) {
-        // --------------------- Step 1: 准备 router logits 数据 ---------------------
         float *curLogits = cpuRouterLogits;
-        std::vector<std::pair<float, int>> scoreExperts;
-        scoreExperts.reserve(m);
-        for (int i = 0; i < m; i++) {
-            scoreExperts.emplace_back(std::make_pair(-curLogits[i], i));
-        }
+        auto routedExperts =
+            RouteMoE(curLogits, bias.dims.size() > 0 ? (float *)bias.cpuData : nullptr, m, topk, routeScale, needNorm, &sharedScale);
 
-        // --------------------- Step 2: 如果 bias 存在，则减去偏置 ------------------
-        if (bias.dims.size() > 0) {
-            ToDataType(bias, DataType::FLOAT32);
-            bias.ToDevice(DataDevice::CPU);
-            float *cpuBias = (float *)bias.cpuData;
-
-            for (int i = 0; i < m; i++) {
-                scoreExperts[i].first -= cpuBias[i];
-            }
-        }
-
-        // --------------------- Step 3: 找 Top-K 专家 ---------------------
-        std::partial_sort(scoreExperts.begin(), scoreExperts.begin() + topk, scoreExperts.end());
-
-        // --------------------- Step 4: 计算 Top-K logits 之和（用于归一化） --------
-        float weightSum = 0.0;
-        for (int i = 0; i < topk; i++) {
-            weightSum += curLogits[scoreExperts[i].second];
-        }
-
-        if (!needNorm) {
-            weightSum = 1.0;
-        }
-
-        // --------------------- Step 5: 生成专家执行列表 (expertIndex, weight) ------
-        std::vector<std::pair<int, float>> routedExperts;
-        routedExperts.reserve(topk + 1);
-
-        for (int i = 0; i < topk; i++) {
-            int expertIndex = scoreExperts[i].second;
-            float weight = (curLogits[expertIndex] / weightSum) * routeScale;
-
-            // +1 因为 0 预留 shared expert
-            routedExperts.emplace_back(std::make_pair(expertIndex + 1, weight));
-        }
-
-        // 最后一个永远是共享专家 shareExpert
-        routedExperts.back() = {0, sharedScale};
-
-        for (int i = 0; i < routedExperts.size(); i++) {
-            int expertIndex = routedExperts[i].first;
-            float expertWeight = routedExperts[i].second;
+        bool first = true;
+        for (ExpertRoute expert : routedExperts) {
+            int expertIndex = expert.expertIndex;
+            float expertWeight = expert.weight;
 
             // 没有权重 → 该专家无效
             if (weights[2 * expertIndex] == nullptr) {
@@ -382,11 +341,11 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
             DoCudaLinearReshape(w1, *weights[2 * expertIndex + 1], w2);
             DoCudaLinear(w1, *weights[2 * expertIndex + 1], Data(), w2);
 
-            // --------------------- Step 7: 加权合并输出 ---------------------
-            if (i == 0) {
+            if (first) {
                 output.dataType = w2.dataType;
                 output.Resize(w2.dims);
                 FastllmCudaMul(w2, expertWeight, output);
+                first = false;
             } else {
                 FastllmCudaAddTo(output, w2, expertWeight);
             }
