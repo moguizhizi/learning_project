@@ -318,8 +318,15 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
 
     if (batch == 1) {
         float *curLogits = cpuRouterLogits;
-        auto routedExperts =
-            RouteMoE(curLogits, bias.dims.size() > 0 ? (float *)bias.cpuData : nullptr, m, topk, routeScale, needNorm, &sharedScale);
+
+        float *cpuData = nullptr;
+        if (bias.dims.size() > 0) {
+            ToDataType(bias, DataType::FLOAT32);
+            bias.ToDevice(DataDevice::CPU);
+            cpuData = (float *)bias.cpuData;
+        }
+
+        auto routedExperts = RouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
 
         bool first = true;
         for (ExpertRoute expert : routedExperts) {
