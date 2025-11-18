@@ -165,3 +165,7 @@ class CudaRMSNormOp : BaseOperator {
 class CudaCatOp : CpuCatOp {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaCatDirectOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
