@@ -1770,3 +1770,29 @@ void MultiCudaDoMergeMOEOp::Run() {
 
     FinalizeOutputBuffer();
 }
+
+MultiCudaCpuDoMergeMOEOp::MultiCudaCpuDoMergeMOEOp(uint8_t *oriCpuInput, uint8_t *partOutput, Data *input, Data **weights, Data *logits,
+    Data *gateBias, Data *w1, Data *w2, Data *w3, int wBatch, int topk, int needNorm, float routeScale, float sharedScale, Data *output,
+    int deviceId) {
+    this->oriCpuInput = oriCpuInput;
+    this->partOutput = partOutput;
+    this->input = input;
+
+    this->weights = weights;
+    this->logits = logits;
+    this->gateBias = gateBias;
+
+    this->w1 = w1;
+    this->w2 = w2;
+    this->w3 = w3;
+
+    this->wBatch = wBatch;
+    this->topk = topk;
+    this->needNorm = needNorm;
+
+    this->routeScale = routeScale;
+    this->sharedScale = sharedScale;
+
+    this->output = output;
+    this->deviceId = deviceId;
+}
