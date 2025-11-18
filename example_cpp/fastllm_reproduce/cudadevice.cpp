@@ -250,16 +250,16 @@ std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, cons
  * @brief Partially sort and pick top-k expert indices.
  */
 std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk) {
-    std::vector<int> selectedIndex;
-    selectedIndex.reserve(topk);
+    std::vector<int> selectedExperts;
+    selectedExperts.reserve(topk);
 
     std::partial_sort(routerScores.begin(), routerScores.begin() + topk, routerScores.end());
 
     for (auto &router : routerScores) {
-        selectedIndex.push_back(router.second);
+        selectedExperts.push_back(router.second);
     }
 
-    return selectedIndex;
+    return selectedExperts;
 }
 
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
