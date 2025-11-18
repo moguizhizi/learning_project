@@ -1713,3 +1713,16 @@ MultiCudaDoMergeMOEOp::MultiCudaDoMergeMOEOp(uint8_t *oriCudaInput, uint8_t *ori
     // ---------- Device ----------
     this->deviceId = deviceId;
 }
+
+void MultiCudaDoMergeMOEOp::PrepareInputBuffer() {
+    if (this->deviceId == 0) {
+        input->cudaData = this->oriCudaInput;
+    } else {
+        input->Allocate();
+        FastllmCudaCopyFromHostToDevice(input->cudaData, this->oriCpuInput, input->GetBytes());
+    }
+}
+
+void MultiCudaDoMergeMOEOp::Run() {
+    FastllmCudaSetDevice(this->deviceId);
+}
