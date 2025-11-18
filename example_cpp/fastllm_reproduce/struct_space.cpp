@@ -1796,3 +1796,66 @@ MultiCudaCpuDoMergeMOEOp::MultiCudaCpuDoMergeMOEOp(uint8_t *oriCpuInput, uint8_t
     this->output = output;
     this->deviceId = deviceId;
 }
+
+void MultiCudaCpuDoMergeMOEOp::Run() {
+    int batch = input->dims[0];
+    int m = logits->dims.back();
+    float *cpuRouterLogits = (float *)input->cpuData;
+    Data &bias = *gateBias;
+    Data curInput, curOutput;
+    curInput.ToDevice(DataDevice::CPU);
+    curInput.dataType = input->dataType;
+
+    curOutput.ToDevice(DataDevice::CPU);
+
+    float *cpuData = nullptr;
+    if (bias.dims.size() > 0) {
+        ToDataType(bias, DataType::FLOAT32);
+        bias.ToDevice(DataDevice::CPU);
+        cpuData = (float *)bias.cpuData;
+    }
+
+    for (int b = 0; b < batch; b++) {
+        float *curLogits = cpuRouterLogits + b * m;
+
+        auto routedExperts = RouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
+
+        curInput.Resize({1, input->dims.back()});
+        curInput.Allocate();
+        memcpy(curInput.cpuData, (uint8_t *)input->cpuData + b * curInput.GetBytes(), curInput.GetBytes());
+
+        curOutput.Resize(curInput.dims);
+        curOutput.Allocate(0.0f);
+
+        bool first = true;
+        for (ExpertRoute expert : routedExperts) {
+            int expertIndex = expert.expertIndex;
+            float expertWeight = expert.weight;
+
+            // 没有权重 → 该专家无效
+            if (weights[2 * expertIndex] == nullptr) {
+                continue;
+            }
+
+            // Expert MLP Forward: Linear → SwiGLU → Linear
+            DoCudaLinearReshape(curInput, *weights[2 * expertIndex], *w3);
+            DoCudaLinear(curInput, *weights[2 * expertIndex], Data(), *w3);
+
+            DoCudaSwigluReshape(*w3, *w1);
+            DoCudaSwiglu(*w3, *w1);
+
+            DoCudaLinearReshape(*w1, *weights[2 * expertIndex + 1], *w2);
+            DoCudaLinear(*w1, *weights[2 * expertIndex + 1], Data(), *w2);
+
+            for (int i = 0; i < curOutput.Count(0); i++) {
+                float cpuOutput = *((float *)curOutput.cpuData);
+                cpuOutput = cpuOutput + ((float *)(w2->cpuData))[i];
+                *((float *)curOutput.cpuData) = cpuOutput;
+            }
+        }
+
+        memcpy((uint8_t *)output->cpuData + b * curOutput.GetBytes(), curOutput.cpuData, curOutput.GetBytes());
+    }
+
+    FastllmCudaCopyFromHostToDevice(partOutput, output->cpuData, output->GetBytes());
+}
