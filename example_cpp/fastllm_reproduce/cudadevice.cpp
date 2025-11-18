@@ -315,18 +315,25 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
     int m = logits.dims.back();
 
     Data &bias = gateBias;
+    Data curInput, curOutput;
+    curInput.ToDevice(input.dataDevice);
+    curOutput.ToDevice(output.dataDevice);
+    curOutput.dataType = output.dataType;
 
-    if (batch == 1) {
-        float *curLogits = cpuRouterLogits;
+    float *cpuData = nullptr;
+    if (bias.dims.size() > 0) {
+        ToDataType(bias, DataType::FLOAT32);
+        bias.ToDevice(DataDevice::CPU);
+        cpuData = (float *)bias.cpuData;
+    }
 
-        float *cpuData = nullptr;
-        if (bias.dims.size() > 0) {
-            ToDataType(bias, DataType::FLOAT32);
-            bias.ToDevice(DataDevice::CPU);
-            cpuData = (float *)bias.cpuData;
-        }
+    for (int b = 0; b < batch; b++) {
+        float *curLogits = cpuRouterLogits + b * m;
 
         auto routedExperts = RouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
+
+        DoCudaSplitReshape(input, 0, b, b + 1, curInput);
+        DoCudaSplit(input, 0, b, b + 1, curInput);
 
         bool first = true;
         for (ExpertRoute expert : routedExperts) {
@@ -339,8 +346,8 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
             }
 
             // Expert MLP Forward: Linear → SwiGLU → Linear
-            DoCudaLinearReshape(input, *weights[2 * expertIndex], w3);
-            DoCudaLinear(input, *weights[2 * expertIndex], Data(), w3);
+            DoCudaLinearReshape(curInput, *weights[2 * expertIndex], w3);
+            DoCudaLinear(curInput, *weights[2 * expertIndex], Data(), w3);
 
             DoCudaSwigluReshape(w3, w1);
             DoCudaSwiglu(w3, w1);
@@ -348,16 +355,13 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
             DoCudaLinearReshape(w1, *weights[2 * expertIndex + 1], w2);
             DoCudaLinear(w1, *weights[2 * expertIndex + 1], Data(), w2);
 
-            if (first) {
-                output.dataType = w2.dataType;
-                output.Resize(w2.dims);
-                FastllmCudaMul(w2, expertWeight, output);
-                first = false;
-            } else {
-                FastllmCudaAddTo(output, w2, expertWeight);
-            }
+            curOutput.Resize(curInput.dims);
+            curOutput.Allocate(0.0f);
+
+            FastllmCudaAddTo(curOutput, w2, expertWeight);
+            FastllmCudaCopyFromDeviceToDevice(
+                (uint8_t *)output.cudaData + b * curOutput.GetBytes(), (uint8_t *)curOutput.cudaData, curOutput.GetBytes());
         }
-    } else {
     }
 }
 
