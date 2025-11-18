@@ -1723,23 +1723,30 @@ void MultiCudaDoMergeMOEOp::PrepareInputBuffer() {
     }
 }
 
-std::vector<Data *> MultiCudaDoMergeMOEOp::MapWeightsForDevice() {
-    std::vector<Data *> deviceWeight;
-    deviceWeight.resize(static_cast<size_t>(this->wBatch), nullptr);
+void MultiCudaDoMergeMOEOp::MapWeightsForDevice() {
+    this->deviceWeights.clear();
+    deviceWeights.resize(static_cast<size_t>(this->wBatch), nullptr);
 
     for (int i = 0; i < this->wBatch; i++) {
         if (this->weights == nullptr) {
-            deviceWeight[i] = nullptr;
+            deviceWeights[i] = nullptr;
         } else if (this->weights[i] == nullptr) {
-            deviceWeight[i] = nullptr;
+            deviceWeights[i] = nullptr;
         } else {
-            deviceWeight[i] = this->weights[i]->multiDeviceDatas[this->deviceId];
+            deviceWeights[i] = this->weights[i]->multiDeviceDatas[this->deviceId];
         }
     }
+}
 
-    return deviceWeight;
+void MultiCudaDoMergeMOEOp::ComputeMoE() {
+    output->Resize(input->dims);
+    DoCudaMergeMOE(*input, *output, *gateBias, *logits, *w1, *w2, *w3, deviceWeights.data(), nullptr, topk, needNorm, sharedScale, routeScale);
 }
 
 void MultiCudaDoMergeMOEOp::Run() {
     FastllmCudaSetDevice(this->deviceId);
+
+    PrepareInputBuffer();
+
+    MapWeightsForDevice();
 }
