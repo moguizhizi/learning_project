@@ -778,3 +778,11 @@ void CudaCatOp::Run(const std::string &opType, const DataDict &datas, const Floa
     FastllmCudaMemcpy2DDeviceToDevice((uint8_t *)output.cudaData + input0.dims[axis] * inner * unitSize, outputStride * unitSize,
         (uint8_t *)input1.cudaData, input1Stride * unitSize, input1.dims[axis] * inner * unitSize, outer);
 }
+
+void CudaCatDirectOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input0 = *(datas.find("input0")->second);
+    Data &input1 = *(datas.find("input1")->second);
+
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    DoCudaCatDirect(input0, input1, axis);
+}
