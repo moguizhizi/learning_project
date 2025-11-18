@@ -705,3 +705,12 @@ void CudaAlibiMaskOp::Run(const std::string &opType, const DataDict &datas, cons
     float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
     FastllmCudaAlibiMask(input, mask, maskValue);
 }
+
+bool CudaLayerNormOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int inner = input.strides[axis];
+    return inner == 1;
+}
