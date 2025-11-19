@@ -1001,3 +1001,25 @@ void CudaMergeMLA::Reshape(const std::string &opType, const DataDict &datas, con
     output.dataType = qNope.dataType;
     output.Resize(qNope.dims);
 }
+
+void CudaCatDirectBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **input0s = (Data **)(datas.find("input0")->second);
+    Data **input1s = (Data **)(datas.find("input1")->second);
+    int batch = intParams.find("input0___batch")->second;
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    AssertInFastLLM((input0s[0]->dataType == DataType::FLOAT32 && input1s[0]->dataType == DataType::FLOAT32) ||
+                        (input0s[0]->dataType == DataType::FLOAT16 && input1s[0]->dataType == DataType::FLOAT16),
+        "Cat's input's type should be float32 or float16.\n");
+    AssertInFastLLM(input0s[0]->dataDevice == input1s[0]->dataDevice, "CatDirect error: inputs should use same device.\n");
+    AssertInFastLLM(
+        input0s[0]->dims.size() == 0 || input0s[0]->dims.size() == input1s[0]->dims.size(), "Cat Error: input's shape's size should be same.\n");
+    int dimsLen = input1s[0]->dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    for (int i = 0; i < dimsLen && i < input0s[0]->dims.size(); i++) {
+        if (i != axis) {
+            AssertInFastLLM(input0s[0]->dims[i] == input1s[0]->dims[i], "Cat Error: input's shape doesn't match.");
+        }
+    }
+
+    DoCudaCatDirectBatch(input0s, input1s, batch, axis);
+}
