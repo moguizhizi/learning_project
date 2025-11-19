@@ -3132,6 +3132,21 @@ void FastllmCudaFinishOutput(Data &output, void *data) {
     }
 }
 
+bool FastllmCudaSilu(const Data &input, Data &output) {
+    int len = input.Count(0);
+    float *cudaInput = (float *)FastllmCudaPrepareInput(input);
+    float *cudaOutput = (float *)FastllmCudaPrepareOutput(output);
+    int threadPerBlock = std::min(1024, len);
+    if (input.dataType == DataType::FLOAT32) {
+        FastllmSiluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len);
+    } else if (input.dataType == DataType::FLOAT16) {
+        FastllmSiluKernel<<<(len - 1) / threadPerBlock + 1, threadPerBlock>>>((half *)cudaInput, (half *)cudaOutput, len);
+    }
+    FastllmCudaFinishInput(input, cudaInput);
+    FastllmCudaFinishOutput(output, cudaOutput);
+    return true;
+}
+
 bool FastllmCudaGelu(const Data &input, Data &output) {
     int len = input.Count(0);
     float *cudaInput = (float *)FastllmCudaPrepareInput(input);

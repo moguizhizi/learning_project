@@ -100,6 +100,7 @@ void *FastllmCudaPrepareInput(const Data &input);
 void FastllmCudaFinishInput(const Data &input, void *data);
 void *FastllmCudaPrepareOutput(Data &output);
 void FastllmCudaFinishOutput(Data &output, void *data);
+bool FastllmCudaSilu(const Data &input, Data &output);
 bool FastllmCudaGelu(const Data &input, Data &output);
 bool FastllmCudaGeluNew(const Data &input, Data &output);
 bool FastllmFloatToHalf(void *a, void *b, int len);
