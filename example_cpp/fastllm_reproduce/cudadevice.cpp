@@ -264,7 +264,7 @@ void DoCudaSwiglu(Data &input, Data &output) {
 /**
  * @brief Select top-k experts based on router logits (optionally with bias).
  */
-std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, const float *bias, int m) {
+std::vector<std::pair<float, int>> CudaComputeRouterScores(const float *logits, const float *bias, int m) {
     std::vector<std::pair<float, int>> routerScores;
     routerScores.reserve(m);
     for (int i = 0; i < m; i++) {
@@ -279,7 +279,7 @@ std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, cons
 /**
  * @brief Partially sort and pick top-k expert indices.
  */
-std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk) {
+std::vector<int> CudaSelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk) {
     std::vector<int> selectedExperts;
     selectedExperts.reserve(topk);
 
@@ -295,7 +295,8 @@ std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScor
 /**
  * @brief Normalize routing weights for selected experts.
  */
-std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm) {
+std::vector<ExpertRoute> CudaNormalizeExpertWeights(
+    const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm) {
     float sum = 0.0f;
     if (needNorm) {
         for (int i : selectedExperts) {
@@ -315,10 +316,11 @@ std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::
     return routes;
 }
 
-std::vector<ExpertRoute> RouteMoE(const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale) {
-    auto scores = ComputeRouterScores(logits, bias, m);
-    auto selectedExperts = SelectTopExperts(scores, topk);
-    auto routedExperts = NormalizeExpertWeights(logits, selectedExperts, routeScale, needNorm);
+std::vector<ExpertRoute> CudaRouteMoE(
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale) {
+    auto scores = CudaComputeRouterScores(logits, bias, m);
+    auto selectedExperts = CudaSelectTopExperts(scores, topk);
+    auto routedExperts = CudaNormalizeExpertWeights(logits, selectedExperts, routeScale, needNorm);
 
     if (sharedScale != nullptr) {
         routedExperts.push_back({SharedExpertIndex, *sharedScale});
@@ -355,7 +357,7 @@ void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Dat
     for (int b = 0; b < batch; b++) {
         float *curLogits = cpuRouterLogits + b * m;
 
-        auto routedExperts = RouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
+        auto routedExperts = CudaRouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
 
         DoCudaSplitReshape(input, 0, b, b + 1, curInput);
         DoCudaSplit(input, 0, b, b + 1, curInput);

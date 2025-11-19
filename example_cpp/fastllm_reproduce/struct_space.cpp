@@ -1818,7 +1818,7 @@ void MultiCudaCpuDoMergeMOEOp::Run() {
     for (int b = 0; b < batch; b++) {
         float *curLogits = cpuRouterLogits + b * m;
 
-        auto routedExperts = RouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
+        auto routedExperts = CudaRouteMoE(curLogits, cpuData, m, topk, routeScale, needNorm, &sharedScale);
 
         curInput.Resize({1, input->dims.back()});
         curInput.Allocate();
