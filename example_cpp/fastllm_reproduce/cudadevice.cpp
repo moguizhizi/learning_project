@@ -880,3 +880,12 @@ void CudaGeluNewOp::Run(const std::string &opType, const DataDict &datas, const 
     AssertInFastLLM(input.dataType == DataType::FLOAT32, "GeluNew error: Data's type should be float32.\n");
     FastllmCudaGeluNew(input, output);
 }
+
+void CudaSiluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Silu error: Data's type should be float32 or float16.\n");
+    FastllmCudaSilu(input, output);
+}
