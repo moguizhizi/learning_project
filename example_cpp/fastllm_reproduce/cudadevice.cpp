@@ -1108,14 +1108,14 @@ void CudaMatMulBatchOp::Reshape(const std::string &opType, const DataDict &datas
             outputs[i]->Resize({input0s[i]->dims[0], input0s[i]->dims[1], input1s[i]->dims[2]});
         }
     } else {
-        fastllm::BaseOperator *op = (fastllm::BaseOperator *)(new CudaMatMulOp());
-        DataDict tempDatas = datas;
-        for (int i = 0; i < batch; i++) {
-            tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
-            tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
-            tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
-            op->Reshape("MatMulTransB", tempDatas, floatParams, intParams);
-        }
-        delete op;
+        // BaseOperator *op = (BaseOperator *)(new CudaMatMulOp());
+        // DataDict tempDatas = datas;
+        // for (int i = 0; i < batch; i++) {
+        //     tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+        //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+        //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+        //     op->Reshape("MatMulTransB", tempDatas, floatParams, intParams);
+        // }
+        // delete op;
     }
 }
