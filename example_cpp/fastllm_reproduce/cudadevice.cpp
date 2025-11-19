@@ -966,3 +966,12 @@ void CudaPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, co
     AssertInFastLLM(axis.size() == input.dims.size(), "Permute error: axis's size should be equal to data's shape's size.");
     DoCudaPermuteSelf(input, axis);
 }
+
+void CudaRepeatPenaltyOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &penalty = *(datas.find("penalty")->second);
+    Data &penaltyScale = *(datas.find("penaltyScale")->second);
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 && penalty.dataType == DataType::FLOAT32 && penaltyScale.dataType == DataType::FLOAT32,
+        "Repeat Penalty error: Data's type should be float32.\n");
+    FastllmCudaRepeatPenalty(input, penalty, penaltyScale);
+}

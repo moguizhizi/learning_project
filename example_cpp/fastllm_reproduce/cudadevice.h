@@ -214,3 +214,7 @@ class CudaTopKOp : BaseOperator {
 class CudaPermuteSelfOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaRepeatPenaltyOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
