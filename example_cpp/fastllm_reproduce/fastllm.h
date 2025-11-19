@@ -95,3 +95,4 @@ int GetThreads();
 
 void CatBatch(std::vector<Data *> &input, int axis, Data &outputs);
 void Split(const Data &input, int axis, int start, int end, Data &output);
+void MatMulTransB(const Data &input0, const Data &input1, Data &output, float alpha = 1.0, int group = 1);

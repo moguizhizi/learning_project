@@ -546,3 +546,8 @@ void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
 void Split(const Data &input, int axis, int start, int end, Data &output) {
     curExecutor->Run("Split", {{"input", (Data *)&input}, {"output", &output}}, {}, {{"axis", axis}, {"start", start}, {"end", end}});
 }
+
+void MatMulTransB(const Data &input0, const Data &input1, Data &output, float alpha, int group) {
+    curExecutor->Run(
+        "MatMulTransB", {{"input0", (Data *)&input0}, {"input1", (Data *)&input1}, {"output", &output}}, {{"alpha", alpha}}, {{"group", group}});
+}
