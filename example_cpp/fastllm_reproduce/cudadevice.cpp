@@ -921,3 +921,18 @@ void CudaAttentionMaskOp::Run(const std::string &opType, const DataDict &datas, 
     float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
     FastllmCudaAttentionMask(input, mask, maskValue);
 }
+
+void CudaTopKOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : 1;
+
+    AssertInFastLLM(input.dataType == DataType::FLOAT32, "TopK error: Data's type should be float32.\n");
+
+    int dimsLen = input.dims.size();
+    std::vector<int> dims = input.dims;
+    dims[dimsLen - 1] = topk * 2;
+
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
