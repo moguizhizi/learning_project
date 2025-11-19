@@ -914,3 +914,10 @@ void CudaAddOp::Run(const std::string &opType, const DataDict &datas, const Floa
         input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Mul error: Data's type should be float32 or float16.\n");
     FastllmCudaAdd(input, v, output);
 }
+
+void CudaAttentionMaskOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &mask = *(datas.find("mask")->second);
+    float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
+    FastllmCudaAttentionMask(input, mask, maskValue);
+}
