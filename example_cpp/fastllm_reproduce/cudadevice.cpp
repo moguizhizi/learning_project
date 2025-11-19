@@ -850,3 +850,16 @@ bool CudaSoftMaxOp::CanRun(const std::string &opType, const DataDict &datas, con
     }
     return true;
 }
+
+void CudaSoftMaxOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+        "Softmax error: Data's type should be float32 or float16.\n");
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    FastllmCudaSoftmax(input, output, axis);
+}
