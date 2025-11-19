@@ -218,3 +218,7 @@ class CudaPermuteSelfOp : BaseOperator {
 class CudaRepeatPenaltyOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaMergeMOE : CpuMergeMOE {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};

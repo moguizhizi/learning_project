@@ -975,3 +975,21 @@ void CudaRepeatPenaltyOp::Run(const std::string &opType, const DataDict &datas, 
         "Repeat Penalty error: Data's type should be float32.\n");
     FastllmCudaRepeatPenalty(input, penalty, penaltyScale);
 }
+
+void CudaMergeMOE::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &gateBias = *(datas.find("gateBias")->second);
+    Data &logits = *(datas.find("logits")->second);
+    Data &w1 = *(datas.find("w1")->second);
+    Data &w2 = *(datas.find("w2")->second);
+    Data &w3 = *(datas.find("w3")->second);
+    Data **weights = (Data **)(datas.find("weights")->second);
+    Data **biass = (Data **)(datas.find("biass")->second);
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : 1;
+    int needNorm = intParams.find("needNorm") != intParams.end() ? intParams.find("needNorm")->second : 0;
+    float sharedScale = floatParams.find("sharedScale") != floatParams.end() ? floatParams.find("sharedScale")->second : 1.0f;
+    float routeScale = floatParams.find("routeScale") != floatParams.end() ? floatParams.find("routeScale")->second : 1.0f;
+
+    DoCudaMergeMOE(input, output, gateBias, logits, w1, w2, w3, weights, biass, topk, needNorm, sharedScale, routeScale);
+}
