@@ -1081,3 +1081,14 @@ void CudaAttentionBatchOp::Run(const std::string &opType, const DataDict &datas,
 
     DoCudaAttentionBatch(qs, ks, vs, masks, outputs, group, scale, batch);
 }
+
+void CudaSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int batch = intParams.find("input___batch")->second;
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    for (int i = 0; i < batch; i++) {
+        outputs[i]->Allocate();
+    }
+    FastllmCudaSoftmaxBatch(inputs, outputs, axis, batch);
+}
