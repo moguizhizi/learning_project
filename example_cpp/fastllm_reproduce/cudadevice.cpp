@@ -1068,3 +1068,16 @@ void CudaAttentionBatchOp::Reshape(const std::string &opType, const DataDict &da
         q.dataType == DataType::FLOAT32 || q.dataType == DataType::FLOAT16, "Attention's input's type should be float32 or float16.\n");
     DoCudaAttentionBatchReshape(qs, vs, outputs, batch);
 }
+
+void CudaAttentionBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int batch = intParams.find("q___batch")->second;
+    Data **qs = (Data **)(datas.find("q")->second);
+    Data **ks = (Data **)(datas.find("k")->second);
+    Data **vs = (Data **)(datas.find("v")->second);
+    Data **masks = (Data **)(datas.find("mask")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    int group = intParams.find("group")->second;
+    float scale = floatParams.find("scale")->second;
+
+    DoCudaAttentionBatch(qs, ks, vs, masks, outputs, group, scale, batch);
+}
