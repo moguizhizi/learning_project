@@ -952,3 +952,17 @@ void CudaTopKOp::Run(const std::string &opType, const DataDict &datas, const Flo
     int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : -1;
     FastllmCudaTopK(input, output, topk);
 }
+
+void CudaPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &axisData = *(datas.find("axis")->second);
+    std::vector<int> axis;
+    for (int i = 0; i < axisData.Count(0); i++) {
+        axis.push_back(((int32_t *)axisData.cpuData)[i]);
+    }
+
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Permute error: datatype should be float32 or float16.");
+    AssertInFastLLM(axis.size() == input.dims.size(), "Permute error: axis's size should be equal to data's shape's size.");
+    DoCudaPermuteSelf(input, axis);
+}
