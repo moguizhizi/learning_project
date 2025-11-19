@@ -542,3 +542,7 @@ void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
     curExecutor->Run(
         "CatBatch", {{"input", (Data *)input.data()}, {"output", (Data *)&outputs}}, {}, {{"axis", axis}, {"input___batch", (int)input.size()}});
 }
+
+void Split(const Data &input, int axis, int start, int end, Data &output) {
+    curExecutor->Run("Split", {{"input", (Data *)&input}, {"output", &output}}, {}, {{"axis", axis}, {"start", start}, {"end", end}});
+}
