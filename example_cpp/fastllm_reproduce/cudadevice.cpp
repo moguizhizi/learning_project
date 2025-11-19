@@ -895,3 +895,11 @@ void CudaSwigluOp::Reshape(const std::string &opType, const DataDict &datas, con
     Data &output = *(datas.find("output")->second);
     DoCudaSwigluReshape(input, output);
 }
+
+void CudaSwigluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Swiglu error: Data's type should be float32 or float16.\n");
+    DoCudaSwiglu(input, output);
+}
