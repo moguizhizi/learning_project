@@ -936,3 +936,11 @@ void CudaTopKOp::Reshape(const std::string &opType, const DataDict &datas, const
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+bool CudaTopKOp::CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : 1;
+    if (topk > 50) {
+        return false;
+    }
+    return true;
+}
