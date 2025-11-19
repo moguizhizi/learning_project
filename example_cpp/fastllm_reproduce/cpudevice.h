@@ -29,7 +29,7 @@ class CpuConvertToFloat32 : BaseOperator {
 class CpuAttention : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 
-  protected:
+   protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
@@ -57,7 +57,7 @@ class CpuConv2DOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     bool CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 
-  protected:
+   protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
@@ -65,7 +65,7 @@ class CpuLinearOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
     bool CanRun(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 
-  protected:
+   protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
@@ -78,18 +78,8 @@ void Int8LinearPart(
     float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k, int st, int end);
 
 // float的input, int4g的weight, 直接计算得到float的output
-void Int4GroupLinearPart(float *inputData,
-                         uint8_t *weightData,
-                         float *biasData,
-                         float *outputData,
-                         LowBitConfig *configs,
-                         int n,
-                         int m,
-                         int k,
-                         int st,
-                         int end,
-                         int group,
-                         int groupCnt);
+void Int4GroupLinearPart(float *inputData, uint8_t *weightData, float *biasData, float *outputData, LowBitConfig *configs, int n, int m, int k,
+    int st, int end, int group, int groupCnt);
 
 // float的input, int4的weight, 直接计算得到float的output
 void Int4LinearPart(
@@ -105,36 +95,15 @@ struct MultiThreadLinearInt4Op : MultiThreadBaseOp {
     LowBitConfig *config;
     int *inputSums;
 
-    MultiThreadLinearInt4Op(uint8_t *a,
-                            uint8_t *b,
-                            int32_t *c,
-                            int n,
-                            int m,
-                            int k,
-                            int kstride,
-                            int *weightSums,
-                            int *weightZeros,
-                            float *scales,
-                            float *bias,
-                            LowBitConfig *config,
-                            int *inputSums);
+    MultiThreadLinearInt4Op(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int kstride, int *weightSums, int *weightZeros,
+        float *scales, float *bias, LowBitConfig *config, int *inputSums);
 
     void Run();
 };
 
 // a = [n, m], b = [k, m], c = aT(b') = [n, k]
-void MultiplyInt4MultiThread(uint8_t *a,
-                             uint8_t *b,
-                             int32_t *c,
-                             int n,
-                             int m,
-                             int k,
-                             int *weightSums,
-                             int *weightZeros,
-                             float *scales,
-                             float *bias,
-                             std::vector<LowBitConfig> &configs,
-                             int threadNum);
+void MultiplyInt4MultiThread(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int *weightSums, int *weightZeros, float *scales,
+    float *bias, std::vector<LowBitConfig> &configs, int threadNum);
 
 void GetArrayMinMax(float *a, int len, float &minValue, float &maxValue);
 
@@ -148,32 +117,14 @@ struct MultiThreadOnlineQuantizationOp : MultiThreadBaseOp {
     float *inputSums, *iscales, *izeros;
     int permuteType;
 
-    MultiThreadOnlineQuantizationOp(float *input,
-                                    uint8_t *output,
-                                    LowBitConfig *configs,
-                                    int n,
-                                    int m,
-                                    int group,
-                                    int groupCnt,
-                                    float *inputSums,
-                                    float *iscales,
-                                    float *izeros,
-                                    int permuteType);
+    MultiThreadOnlineQuantizationOp(float *input, uint8_t *output, LowBitConfig *configs, int n, int m, int group, int groupCnt,
+        float *inputSums, float *iscales, float *izeros, int permuteType);
 
     void Run();
 };
 
-void OnlineQuantization(float *inputData,
-                        std::vector<uint8_t> &uinput,
-                        std::vector<LowBitConfig> &inputConfigs,
-                        int n,
-                        int m,
-                        int group,
-                        int groupCnt,
-                        std::vector<float> &inputSums,
-                        std::vector<float> &iscales,
-                        std::vector<float> &izeros,
-                        int permuteType);
+void OnlineQuantization(float *inputData, std::vector<uint8_t> &uinput, std::vector<LowBitConfig> &inputConfigs, int n, int m, int group,
+    int groupCnt, std::vector<float> &inputSums, std::vector<float> &iscales, std::vector<float> &izeros, int permuteType);
 
 struct MultiThreadLinearInt4NoZeroOp : MultiThreadBaseOp {
     uint8_t *a, *b;
@@ -184,43 +135,15 @@ struct MultiThreadLinearInt4NoZeroOp : MultiThreadBaseOp {
     LowBitConfig *config;
     float *inputSums;
 
-    MultiThreadLinearInt4NoZeroOp(uint8_t *a,
-                                  uint8_t *b,
-                                  int32_t *c,
-                                  int n,
-                                  int m,
-                                  int k,
-                                  int kstride,
-                                  int *weightSums,
-                                  float *weightMins,
-                                  float *scales,
-                                  float *bias,
-                                  LowBitConfig *config,
-                                  float *inputSums);
+    MultiThreadLinearInt4NoZeroOp(uint8_t *a, uint8_t *b, int32_t *c, int n, int m, int k, int kstride, int *weightSums, float *weightMins,
+        float *scales, float *bias, LowBitConfig *config, float *inputSums);
 
     void Run();
 };
 
-void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a,
-                                        uint8_t *b,
-                                        float *c,
-                                        int n,
-                                        int m,
-                                        int k,
-                                        int *weightSums,
-                                        float *weightMins,
-                                        float *scales,
-                                        float *bias,
-                                        std::vector<float> &inputSums,
-                                        std::vector<float> &iscales,
-                                        std::vector<float> &izeros,
-                                        std::vector<LowBitConfig> &configs,
-                                        int startTid,
-                                        int threadNum,
-                                        int group,
-                                        int groupCnt,
-                                        std::vector<MultiThreadBaseOp *> &ops,
-                                        AliveThreadPool *pool);
+void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a, uint8_t *b, float *c, int n, int m, int k, int *weightSums, float *weightMins, float *scales,
+    float *bias, std::vector<float> &inputSums, std::vector<float> &iscales, std::vector<float> &izeros, std::vector<LowBitConfig> &configs,
+    int startTid, int threadNum, int group, int groupCnt, std::vector<MultiThreadBaseOp *> &ops, AliveThreadPool *pool);
 
 class CpuSplitOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
@@ -236,7 +159,8 @@ struct MultiThreadSliceOp : MultiThreadBaseOp {
     void Run();
 };
 
-static void RunMultiThreadSlice(uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool);
+static void RunMultiThreadSlice(
+    uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool);
 
 class CpuRepeatOp : BaseOperator {
     void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
@@ -249,7 +173,7 @@ class CpuCatOp : BaseOperator {
 };
 
 class CpuCatDirectOp : BaseOperator {
-  protected:
+   protected:
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
@@ -260,20 +184,8 @@ struct MultiThreadMatMulSingleOp : MultiThreadBaseOp {
     float alpha;
     int st, end;
 
-    MultiThreadMatMulSingleOp(float *input0Base,
-                              float *input1Base,
-                              float *outputBase,
-                              int input0Spatial,
-                              int input1Spatial,
-                              int outputSpatial,
-                              int input0Stride,
-                              int input1Stride,
-                              int n,
-                              int m,
-                              int k,
-                              float alpha,
-                              int st,
-                              int end);
+    MultiThreadMatMulSingleOp(float *input0Base, float *input1Base, float *outputBase, int input0Spatial, int input1Spatial, int outputSpatial,
+        int input0Stride, int input1Stride, int n, int m, int k, float alpha, int st, int end);
 
     void Run();
 };
@@ -285,20 +197,8 @@ struct MultiThreadMatMulFloat16SingleOp : MultiThreadBaseOp {
     float alpha;
     int st, end;
 
-    MultiThreadMatMulFloat16SingleOp(uint16_t *input0Base,
-                                     uint16_t *input1Base,
-                                     uint16_t *outputBase,
-                                     int input0Spatial,
-                                     int input1Spatial,
-                                     int outputSpatial,
-                                     int input0Stride,
-                                     int input1Stride,
-                                     int n,
-                                     int m,
-                                     int k,
-                                     float alpha,
-                                     int st,
-                                     int end);
+    MultiThreadMatMulFloat16SingleOp(uint16_t *input0Base, uint16_t *input1Base, uint16_t *outputBase, int input0Spatial, int input1Spatial,
+        int outputSpatial, int input0Stride, int input1Stride, int n, int m, int k, float alpha, int st, int end);
 
     void Run();
 };
@@ -310,20 +210,8 @@ struct MultiThreadMatMulTransBSingleOp : MultiThreadBaseOp {
     float alpha;
     int st, end;
 
-    MultiThreadMatMulTransBSingleOp(float *input0Base,
-                                    float *input1Base,
-                                    float *outputBase,
-                                    int input0Spatial,
-                                    int input1Spatial,
-                                    int outputSpatial,
-                                    int input0Stride,
-                                    int input1Stride,
-                                    int n,
-                                    int m,
-                                    int k,
-                                    float alpha,
-                                    int st,
-                                    int end);
+    MultiThreadMatMulTransBSingleOp(float *input0Base, float *input1Base, float *outputBase, int input0Spatial, int input1Spatial,
+        int outputSpatial, int input0Stride, int input1Stride, int n, int m, int k, float alpha, int st, int end);
     void Run();
 };
 
@@ -333,20 +221,8 @@ struct MultiThreadMatMulTransBFloat16SingleOp : MultiThreadBaseOp {
     int input0Stride, input1Stride, n, m, k;
     float alpha;
     int st, end;
-    MultiThreadMatMulTransBFloat16SingleOp(uint16_t *input0Base,
-                                           uint16_t *input1Base,
-                                           uint16_t *outputBase,
-                                           int input0Spatial,
-                                           int input1Spatial,
-                                           int outputSpatial,
-                                           int input0Stride,
-                                           int input1Stride,
-                                           int n,
-                                           int m,
-                                           int k,
-                                           float alpha,
-                                           int st,
-                                           int end);
+    MultiThreadMatMulTransBFloat16SingleOp(uint16_t *input0Base, uint16_t *input1Base, uint16_t *outputBase, int input0Spatial,
+        int input1Spatial, int outputSpatial, int input0Stride, int input1Stride, int n, int m, int k, float alpha, int st, int end);
     void Run();
 };
 
@@ -470,6 +346,11 @@ class CpuPermuteOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
+class CpuMergeMOE : BaseOperator {
+   protected:
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 
 void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
@@ -506,4 +387,5 @@ struct MultiThreadGeluOp : MultiThreadBaseOp {
 
 void GeluMultiThread(float *input, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
 void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
-void SwigluMultiThreadFloat16(uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
+void SwigluMultiThreadFloat16(
+    uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
