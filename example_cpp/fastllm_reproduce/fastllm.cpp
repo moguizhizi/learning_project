@@ -559,3 +559,7 @@ void AddTo(Data &input0, const Data &input1, float alpha) {
 void Mul(const Data &input, float v, Data &output) {
     curExecutor->Run("Mul", {{"input", (Data *)&input}, {"output", &output}}, {{"v", v}}, {});
 }
+
+void AttentionMask(Data &input, const Data &mask, float maskValue) {
+    curExecutor->Run("AttentionMask", {{"input", &input}, {"mask", (Data *)&mask}}, {{"maskValue", maskValue}}, {});
+}
