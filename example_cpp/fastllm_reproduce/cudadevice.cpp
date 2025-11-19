@@ -1151,3 +1151,12 @@ void CudaSplitOp::Reshape(const std::string &opType, const DataDict &datas, cons
     int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : 0;
     DoCudaSplitReshape(input, axis, start, end, output);
 }
+
+void CudaSplitOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int start = intParams.find("start") != intParams.end() ? intParams.find("start")->second : 0;
+    int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : 0;
+    DoCudaSplit(input, axis, start, end, output);
+}
