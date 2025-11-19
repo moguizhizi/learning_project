@@ -1160,3 +1160,7 @@ void CudaSplitOp::Run(const std::string &opType, const DataDict &datas, const Fl
     int end = intParams.find("end") != intParams.end() ? intParams.find("end")->second : 0;
     DoCudaSplit(input, axis, start, end, output);
 }
+
+void CudaCopyKVCacheOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    return;
+}
