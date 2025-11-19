@@ -1235,3 +1235,98 @@ void CudaMergeAttention::Reshape(const std::string &opType, const DataDict &data
     output.dataType = input.dataType;
     output.Resize(dims);
 }
+
+void CudaMergeAttention::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight0 = *(datas.find("weight0")->second);
+    Data &bias0 = *(datas.find("bias0")->second);
+    Data &weight1 = *(datas.find("weight1")->second);
+    Data &bias1 = *(datas.find("bias1")->second);
+    Data &positionIds = *(datas.find("positionIds")->second);
+    Data &sinData = *(datas.find("sinData")->second);
+    Data &cosData = *(datas.find("cosData")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &qkv = *(datas.find("qkv")->second);
+    Data &q = *(datas.find("q")->second);
+    Data &k = *(datas.find("k")->second);
+    Data &v = *(datas.find("v")->second);
+    int qNum = intParams.find("qNum")->second;
+    int kvNum = intParams.find("kvNum")->second;
+    int headDim = intParams.find("headDim")->second;
+    int rotDim = intParams.find("rotDim")->second;
+    float attentionScale = floatParams.find("attentionScale")->second;
+    Data **keys = (Data **)(datas.find("keys")->second);
+    Data **values = (Data **)(datas.find("values")->second);
+    Data **masks = (Data **)(datas.find("masks")->second);
+    output.Allocate();
+
+    int bsz = input.dims[0], seqlen = input.dims[1];
+    DoCudaLinearReshape(input, weight0, qkv);
+    DoCudaLinear(input, weight0, bias0, qkv);
+
+    int per = qkv.dims.back() / (qNum / kvNum + 2);
+    int qdim = per * (qNum / kvNum);
+
+    DoCudaSplitReshape(qkv, -1, 0, qdim, q);
+    DoCudaSplitReshape(qkv, -1, qdim, qdim + per, k);
+    DoCudaSplitReshape(qkv, -1, qdim + per, qdim + per * 2, v);
+    DoCudaSplit(qkv, -1, 0, qdim, q);
+    DoCudaSplit(qkv, -1, qdim, qdim + per, k);
+    DoCudaSplit(qkv, -1, qdim + per, qdim + per * 2, v);
+
+    std::vector<int> qkvSize = {bsz, seqlen, -1, headDim};
+    q.Reshape(qkvSize);
+    k.Reshape(qkvSize);
+    v.Reshape(qkvSize);
+
+    FastllmCudaLlamaRotatePosition2D(q, positionIds, sinData, cosData, rotDim);
+    FastllmCudaLlamaRotatePosition2D(k, positionIds, sinData, cosData, rotDim);
+
+    DoCudaPermuteSelf(q, {0, 2, 1, 3});
+    DoCudaPermuteSelf(k, {0, 2, 1, 3});
+    DoCudaPermuteSelf(v, {0, 2, 1, 3});
+
+    qkvSize = {-1, seqlen, headDim};
+    q.Reshape(qkvSize);
+    k.Reshape(qkvSize);
+    v.Reshape(qkvSize);
+
+    int unitLen = 128;
+    Data &pastKey = *keys[0];
+    Data &pastValue = *values[0];
+    while ((pastKey.dims.size() == 0 && (pastKey.expansionDims.size() == 0 || seqlen > pastKey.expansionDims[1])) ||
+           (pastKey.dims.size() > 0 && pastKey.dims[1] + seqlen > pastKey.expansionDims[1])) {
+        std::vector<int> newDims;
+        if (pastKey.Count(0) == 0 || pastKey.dims.size() == 0) {
+            newDims = std::vector<int>{kvNum, ((seqlen - 1) / unitLen + 1) * unitLen, headDim};
+        } else {
+            newDims = pastKey.dims;
+            newDims[1] += ((seqlen - 1) / unitLen + 1) * unitLen;
+        }
+        pastKey.Expansion(newDims);
+    }
+    while ((pastValue.dims.size() == 0 && (pastValue.expansionDims.size() == 0 || seqlen > pastValue.expansionDims[1])) ||
+           (pastValue.dims.size() > 0 && pastValue.dims[1] + seqlen > pastValue.expansionDims[1])) {
+        std::vector<int> newDims;
+        if (pastValue.Count(0) == 0 || pastValue.dims.size() == 0) {
+            newDims = std::vector<int>{kvNum, ((seqlen - 1) / unitLen + 1) * unitLen, headDim};
+        } else {
+            newDims = pastValue.dims;
+            newDims[1] += ((seqlen - 1) / unitLen + 1) * unitLen;
+        }
+        pastValue.Expansion(newDims);
+    }
+
+    DoCudaCatDirect(pastKey, k, 1);
+    DoCudaCatDirect(pastValue, v, 1);
+
+    DoCudaAttentionReshape(q, pastValue, qkv);
+    DoCudaAttention(q, pastKey, pastValue, *masks[0], qkv, q.dims[0] / pastKey.dims[0], attentionScale, 0);
+
+    DoCudaPermuteSelf(qkv, {1, 0, 2});
+    qkv.Reshape({seqlen, bsz, -1});
+    DoCudaPermuteSelf(qkv, {1, 0, 2});
+
+    DoCudaLinearReshape(qkv, weight1, output);
+    DoCudaLinear(qkv, weight1, bias1, output);
+}
