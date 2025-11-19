@@ -1225,3 +1225,13 @@ void CudaCopyKVCacheOp::Run(const std::string &opType, const DataDict &datas, co
         newCache.strides[0] * unitSize, (uint8_t *)oldCache.cudaData + oldBsStart * oldCache.strides[0] * unitSize,
         oldCache.strides[0] * unitSize, oldCache.dims[1] * oldCache.dims[2] * unitSize, bs);
 }
+
+void CudaMergeAttention::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &weight1 = *(datas.find("weight1")->second);
+    Data &output = *(datas.find("output")->second);
+    std::vector<int> dims = input.dims;
+    dims.back() = weight1.dims[0];
+    output.dataType = input.dataType;
+    output.Resize(dims);
+}
