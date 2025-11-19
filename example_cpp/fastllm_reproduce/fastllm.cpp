@@ -572,3 +572,8 @@ void MatMul(const Data &input0, const Data &input1, Data &output, float alpha, i
     curExecutor->Run(
         "MatMul", {{"input0", (Data *)&input0}, {"input1", (Data *)&input1}, {"output", &output}}, {{"alpha", alpha}}, {{"group", group}});
 }
+
+void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
+    curExecutor->Run(
+        "CatBatch", {{"input", (Data *)input.data()}, {"output", (Data *)&outputs}}, {}, {{"axis", axis}, {"input___batch", (int)input.size()}});
+}
