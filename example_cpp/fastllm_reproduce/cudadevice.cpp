@@ -889,3 +889,9 @@ void CudaSiluOp::Run(const std::string &opType, const DataDict &datas, const Flo
         input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Silu error: Data's type should be float32 or float16.\n");
     FastllmCudaSilu(input, output);
 }
+
+void CudaSwigluOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    DoCudaSwigluReshape(input, output);
+}
