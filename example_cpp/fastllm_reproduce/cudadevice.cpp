@@ -944,3 +944,11 @@ bool CudaTopKOp::CanRun(const std::string &opType, const DataDict &datas, const 
     }
     return true;
 }
+
+void CudaTopKOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : -1;
+    FastllmCudaTopK(input, output, topk);
+}
