@@ -2,12 +2,16 @@
 
 #include <cmath>
 #include <cstring>
+#include <numeric>
 
 #include "basellm.h"
 #include "computeutils.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "utils.h"
+
+constexpr float EPSILON = 1e-9f;     // For numerical safety
+constexpr int SharedExpertIndex = 0; // Reserved expert ID
 
 CpuDevice::CpuDevice() {
     this->deviceType = "cpu";
@@ -3144,4 +3148,76 @@ void SwigluMultiThreadFloat16(
         pool->Wait(i);
         delete ops[i];
     }
+}
+
+/**
+ * @brief Select top-k experts based on router logits (optionally with bias).
+ */
+std::vector<std::pair<float, int>> CpuComputeRouterScores(const float *logits, const float *bias, int m) {
+    std::vector<std::pair<float, int>> routerScores;
+    routerScores.reserve(m);
+    for (int i = 0; i < m; i++) {
+        float score = -logits[i];
+        if (bias) score -= bias[i];
+        routerScores.emplace_back(score, i);
+    }
+
+    return routerScores;
+}
+
+/**
+ * @brief Partially sort and pick top-k expert indices.
+ */
+std::vector<int> CpuSelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk) {
+    std::vector<int> selectedExperts;
+    selectedExperts.reserve(topk);
+
+    std::partial_sort(routerScores.begin(), routerScores.begin() + topk, routerScores.end());
+
+    for (auto &router : routerScores) {
+        selectedExperts.push_back(router.second);
+    }
+
+    return selectedExperts;
+}
+
+/**
+ * @brief Normalize routing weights for selected experts.
+ */
+std::vector<ExpertRoute> CudaNormalizeExpertWeights(
+    const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm) {
+    float sum = 0.0f;
+    if (needNorm) {
+        for (int i : selectedExperts) {
+            sum += logits[i];
+        }
+        sum = std::max(sum, EPSILON);
+    } else {
+        sum = 1.0f;
+    }
+
+    std::vector<ExpertRoute> routes;
+    routes.reserve(selectedExperts.size() + 1);
+    for (int i : selectedExperts) {
+        routes.push_back({i + 1, logits[i] / sum * routeScale});
+    }
+
+    return routes;
+}
+
+std::vector<ExpertRoute> CpuRouteMoE(
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale) {
+    auto scores = CpuComputeRouterScores(logits, bias, m);
+    auto selectedExperts = CpuSelectTopExperts(scores, topk);
+    auto routedExperts = CpuNormalizeExpertWeights(logits, selectedExperts, routeScale, needNorm);
+
+    if (sharedScale != nullptr) {
+        routedExperts.push_back({SharedExpertIndex, *sharedScale});
+    } else {
+        float shareWeight =
+            std::accumulate(routedExperts.begin(), routedExperts.end(), 0.0f, [](float acc, ExpertRoute &r) { return acc + r.weight; });
+        routedExperts.push_back({SharedExpertIndex, shareWeight});
+    }
+
+    return routedExperts;
 }

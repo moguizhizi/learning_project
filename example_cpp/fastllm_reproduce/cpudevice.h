@@ -2,6 +2,7 @@
 
 #include "alivethreadpool.h"
 #include "device.h"
+#include "struct_space.hpp"
 
 class CpuDevice : BaseDevice {
    public:
@@ -389,3 +390,10 @@ void GeluMultiThread(float *input, int len, float *output, int n, int inputStrid
 void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
 void SwigluMultiThreadFloat16(
     uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
+
+std::vector<std::pair<float, int>> CpuComputeRouterScores(const float *logits, const float *bias, int m);
+std::vector<int> CpuSelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
+std::vector<ExpertRoute> CpuNormalizeExpertWeights(
+    const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
+std::vector<ExpertRoute> CpuRouteMoE(
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale);
