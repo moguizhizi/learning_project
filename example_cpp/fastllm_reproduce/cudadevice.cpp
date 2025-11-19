@@ -19,23 +19,46 @@ CudaDevice::CudaDevice() {
     this->ops["Attention"] = (BaseOperator *)(new CudaAttention());
     // this->ops["MergeAttention"] = (BaseOperator*)(new CudaMergeAttention());
     this->ops["Embedding"] = (BaseOperator *)(new CudaEmbedding());
+    this->ops["LayerNorm"] = (BaseOperator *)(new CudaLayerNormOp());
+    this->ops["RMSNorm"] = (BaseOperator *)(new CudaRMSNormOp());
     this->ops["Linear"] = (BaseOperator *)(new CudaLinearOp());
+    this->ops["Conv2D"] = (BaseOperator *)(new CudaConv2DOp());
     this->ops["Repeat"] = (BaseOperator *)(new CudaRepeatOp());
+    this->ops["Cat"] = (BaseOperator *)(new CudaCatOp());
+    this->ops["CatDirect"] = (BaseOperator *)(new CudaCatDirectOp());
+    this->ops["MatMul"] = (BaseOperator *)(new CudaMatMulOp());
     this->ops["MatMulTransB"] = (BaseOperator *)(new CudaMatMulTransBOp());
+    this->ops["SoftMax"] = (BaseOperator *)(new CudaSoftMaxOp());
     this->ops["Relu"] = (BaseOperator *)(new CudaReluOp());
+    this->ops["Gelu"] = (BaseOperator *)(new CudaGeluOp());
+    this->ops["GeluNew"] = (BaseOperator *)(new CudaGeluNewOp());
+    this->ops["Silu"] = (BaseOperator *)(new CudaSiluOp());
+    this->ops["Swiglu"] = (BaseOperator *)(new CudaSwigluOp());
+    this->ops["Add"] = (BaseOperator *)(new CudaAddOp());
     this->ops["Mul"] = (BaseOperator *)(new CudaMulOp());
     this->ops["AddTo"] = (BaseOperator *)(new CudaAddToOp());
     this->ops["MulTo"] = (BaseOperator *)(new CudaMulToOp());
+    this->ops["AttentionMask"] = (BaseOperator *)(new CudaAttentionMaskOp());
     this->ops["AlibiMask"] = (BaseOperator *)(new CudaAlibiMaskOp());
+    this->ops["TopK"] = (BaseOperator *)(new CudaTopKOp());
+    this->ops["PermuteSelf"] = (BaseOperator *)(new CudaPermuteSelfOp());
     this->ops["RotatePosition2D"] = (BaseOperator *)(new CudaRotatePosition2DOp());
     this->ops["NearlyRotatePosition2D"] = (BaseOperator *)(new CudaNearlyRotatePosition2DOp());
     this->ops["LlamaRotatePosition2D"] = (BaseOperator *)(new CudaLlamaRotatePosition2DOp());
+    this->ops["RepeatPenalty"] = (BaseOperator *)(new CudaRepeatPenaltyOp());
     this->ops["ApplyLognAttn"] = (BaseOperator *)(new CudaApplyLognAttnOp());
+    this->ops["MergeMOE"] = (BaseOperator *)(new CudaMergeMOE());
+    this->ops["MergeMLA"] = (BaseOperator *)(new CudaMergeMLA());
 
     this->ops["SplitBatch"] = (BaseOperator *)(new CudaSplitBatchOp());
     this->ops["CatBatch"] = (BaseOperator *)(new CudaCatBatchOp());
     this->ops["MulBatch"] = (BaseOperator *)(new CudaMulBatchOp());
+    this->ops["MatMulBatch"] = (BaseOperator *)(new CudaMatMulBatchOp());
     this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CudaMatMulTransBBatchOp());
+    this->ops["SoftMaxBatch"] = (BaseOperator *)(new CudaSoftmaxBatchOp());
+    this->ops["CatDirectBatch"] = (BaseOperator *)(new CudaCatDirectBatchOp());
+    this->ops["AppendKVCachebatch"] = (BaseOperator *)(new CudaAppendKVCacheBatchOp());
+    this->ops["AttentionBatch"] = (BaseOperator *)(new CudaAttentionBatchOp());
 }
 
 bool CudaDevice::Malloc(void **ret, size_t size) {
