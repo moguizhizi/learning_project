@@ -1092,3 +1092,30 @@ void CudaSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, c
     }
     FastllmCudaSoftmaxBatch(inputs, outputs, axis, batch);
 }
+
+void CudaMatMulBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int batch = intParams.find("input0___batch")->second;
+    Data **input0s = ((Data **)datas.find("input0")->second);
+    Data **input1s = ((Data **)datas.find("input1")->second);
+    Data **outputs = ((Data **)datas.find("output")->second);
+
+    if (input0s[0]->dims.size() == 3 && input1s[0]->dims.size() == 3) {
+        AssertInFastLLM(input0s[0]->dataType == DataType::FLOAT32 && input1s[0]->dataType == DataType::FLOAT32,
+            "MatMul's input's type should be float32.\n");
+        AssertInFastLLM(input0s[0]->dims[0] == input1s[0]->dims[0] && input0s[0]->dims[2] == input1s[0]->dims[1], "MatMul's shape error.\n");
+        for (int i = 0; i < batch; i++) {
+            outputs[i]->dataType = input0s[i]->dataType;
+            outputs[i]->Resize({input0s[i]->dims[0], input0s[i]->dims[1], input1s[i]->dims[2]});
+        }
+    } else {
+        fastllm::BaseOperator *op = (fastllm::BaseOperator *)(new CudaMatMulOp());
+        DataDict tempDatas = datas;
+        for (int i = 0; i < batch; i++) {
+            tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+            tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+            tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+            op->Reshape("MatMulTransB", tempDatas, floatParams, intParams);
+        }
+        delete op;
+    }
+}
