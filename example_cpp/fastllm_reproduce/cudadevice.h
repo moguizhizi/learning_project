@@ -231,3 +231,7 @@ class CudaMergeMLA : BaseOperator {
 class CudaCatDirectBatchOp : BaseBatchOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
+
+class CudaAppendKVCacheBatchOp : BaseBatchOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};

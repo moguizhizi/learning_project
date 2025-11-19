@@ -1023,3 +1023,28 @@ void CudaCatDirectBatchOp::Run(const std::string &opType, const DataDict &datas,
 
     DoCudaCatDirectBatch(input0s, input1s, batch, axis);
 }
+
+void CudaAppendKVCacheBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int batch = intParams.find("caches___batch")->second;
+    Data **caches = (Data **)(datas.find("caches")->second);
+    Data &input = *(datas.find("input")->second);
+    std::vector<void *> dsts, srcs;
+    std::vector<size_t> dpitchs, spitchs, widths, heights;
+
+    int heads = input.dims[1], dims = input.dims[2] * input.unitSize;
+    for (int i = 0; i < batch; i++) {
+        std::vector<int> cacheDims = caches[i]->dims;
+        uint8_t *cur = (uint8_t *)input.cudaData + i * heads * dims;
+
+        dsts.push_back((uint8_t *)caches[i]->cudaData + cacheDims[1] * dims);
+        dpitchs.push_back(caches[i]->Count(1) * caches[i]->unitSize);
+        srcs.push_back(cur);
+        spitchs.push_back(dims);
+        widths.push_back(dims);
+        heights.push_back(heads);
+
+        cacheDims[1]++;
+        caches[i]->Resize(cacheDims);
+    }
+    FastllmCudaMemcpy2DDeviceToDeviceBatch(dsts.data(), dpitchs.data(), srcs.data(), spitchs.data(), widths.data(), heights.data(), dsts.size());
+}
