@@ -29,10 +29,12 @@ void DoCudaAttention(Data &q, Data &k, Data &v, Data &mask, Data &output, int gr
 void DoCudaSwigluReshape(Data &input, Data &output);
 void DoCudaSwiglu(Data &input, Data &output);
 
-std::vector<std::pair<float, int>> ComputeRouterScores(const float *logits, const float *bias, int m);
-std::vector<int> SelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
-std::vector<ExpertRoute> NormalizeExpertWeights(const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
-std::vector<ExpertRoute> RouteMoE(const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale);
+std::vector<std::pair<float, int>> CudaComputeRouterScores(const float *logits, const float *bias, int m);
+std::vector<int> CudaSelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
+std::vector<ExpertRoute> CudaNormalizeExpertWeights(
+    const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
+std::vector<ExpertRoute> CudaRouteMoE(
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale);
 void DoCudaMergeMOE(Data &input, Data &output, Data &gateBias, Data &logits, Data &w1, Data &w2, Data &w3, Data **weights, Data **biass,
     int topk, int needNorm, float sharedScale, float routeScale);
 
