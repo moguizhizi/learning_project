@@ -563,3 +563,7 @@ void Mul(const Data &input, float v, Data &output) {
 void AttentionMask(Data &input, const Data &mask, float maskValue) {
     curExecutor->Run("AttentionMask", {{"input", &input}, {"mask", (Data *)&mask}}, {{"maskValue", maskValue}}, {});
 }
+
+void Softmax(const Data &input, Data &output, int axis) {
+    curExecutor->Run("SoftMax", {{"input", (Data *)&input}, {"output", &output}}, {}, {{"axis", axis}});
+}
