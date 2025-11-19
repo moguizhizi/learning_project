@@ -1164,3 +1164,20 @@ void CudaSplitOp::Run(const std::string &opType, const DataDict &datas, const Fl
 void CudaCopyKVCacheOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     return;
 }
+
+void CudaCopyKVCacheOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &oldCache = *(datas.find("oldCache")->second);
+    Data &newCache = *(datas.find("newCache")->second);
+
+    int oldBsStart = intParams.find("oldBsStart") != intParams.end() ? intParams.find("oldBsStart")->second : -1;
+    int newBsStart = intParams.find("newBsStart") != intParams.end() ? intParams.find("newBsStart")->second : -1;
+    int bs = intParams.find("bs") != intParams.end() ? intParams.find("bs")->second : -1;
+    int offset = intParams.find("offset") != intParams.end() ? intParams.find("offset")->second : -1;
+
+    int unitSize = oldCache.unitSize;
+
+    FastllmCudaMemcpy2DDeviceToDevice(
+        (uint8_t *)newCache.cudaData + newBsStart * newCache.strides[0] * unitSize + offset * newCache.strides[1] * unitSize,
+        newCache.strides[0] * unitSize, (uint8_t *)oldCache.cudaData + oldBsStart * oldCache.strides[0] * unitSize,
+        oldCache.strides[0] * unitSize, oldCache.dims[1] * oldCache.dims[2] * unitSize, bs);
+}
