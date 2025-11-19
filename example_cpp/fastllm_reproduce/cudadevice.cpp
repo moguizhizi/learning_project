@@ -18,11 +18,13 @@ CudaDevice::CudaDevice() {
 
     this->ops["Attention"] = (BaseOperator *)(new CudaAttention());
     // this->ops["MergeAttention"] = (BaseOperator*)(new CudaMergeAttention());
+    this->ops["CopyKVCache"] = (BaseOperator *)(new CudaCopyKVCacheOp());
     this->ops["Embedding"] = (BaseOperator *)(new CudaEmbedding());
     this->ops["LayerNorm"] = (BaseOperator *)(new CudaLayerNormOp());
     this->ops["RMSNorm"] = (BaseOperator *)(new CudaRMSNormOp());
     this->ops["Linear"] = (BaseOperator *)(new CudaLinearOp());
     this->ops["Conv2D"] = (BaseOperator *)(new CudaConv2DOp());
+    this->ops["Split"] = (BaseOperator *)(new CudaSplitOp());
     this->ops["Repeat"] = (BaseOperator *)(new CudaRepeatOp());
     this->ops["Cat"] = (BaseOperator *)(new CudaCatOp());
     this->ops["CatDirect"] = (BaseOperator *)(new CudaCatDirectOp());
