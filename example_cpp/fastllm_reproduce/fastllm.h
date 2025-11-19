@@ -107,3 +107,5 @@ bool GetLowMemMode();
 AliveThreadPool *GetAlivePool();
 
 int GetThreads();
+
+void CatBatch(std::vector<Data *> &input, int axis, Data &outputs);

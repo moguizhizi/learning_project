@@ -537,3 +537,8 @@ void ToDataType(const Data &input, DataType dataType) {
         ErrorInFastLLM("ToDataType: Unsupport data type.\n");
     }
 }
+
+void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
+    curExecutor->Run(
+        "CatBatch", {{"input", (Data *)input.data()}, {"output", (Data *)&outputs}}, {}, {{"axis", axis}, {"input___batch", (int)input.size()}});
+}
