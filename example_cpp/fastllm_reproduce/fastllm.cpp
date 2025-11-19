@@ -551,3 +551,7 @@ void MatMulTransB(const Data &input0, const Data &input1, Data &output, float al
     curExecutor->Run(
         "MatMulTransB", {{"input0", (Data *)&input0}, {"input1", (Data *)&input1}, {"output", &output}}, {{"alpha", alpha}}, {{"group", group}});
 }
+
+void AddTo(Data &input0, const Data &input1, float alpha) {
+    curExecutor->Run("AddTo", {{"input0", &input0}, {"input1", (Data *)&input1}}, {{"alpha", alpha}}, {});
+}
