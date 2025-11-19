@@ -993,3 +993,11 @@ void CudaMergeMOE::Run(const std::string &opType, const DataDict &datas, const F
 
     DoCudaMergeMOE(input, output, gateBias, logits, w1, w2, w3, weights, biass, topk, needNorm, sharedScale, routeScale);
 }
+
+void CudaMergeMLA::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &qNope = *(datas.find("qNope")->second);
+    Data &output = *(datas.find("output")->second);
+    // int b = qNope.dims[0], s = q_nope.dims[1], h = q_nope.dims[2], d = q_nope.dims[3], c = qNope.dims.back();
+    output.dataType = qNope.dataType;
+    output.Resize(qNope.dims);
+}
