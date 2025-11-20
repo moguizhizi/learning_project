@@ -626,31 +626,57 @@ MultiThreadBase3GroupQuantizationOp::MultiThreadBase3GroupQuantizationOp(
 }
 
 void MultiThreadBase3GroupQuantizationOp::Run() {
-    std::vector<uint8_t> base = {1, 3, 9, 27, 81};
-    int bytesPerGroup = (this->groupCnt - 1) / 5 + 1;
+    static const uint8_t base[5] = {1, 3, 9, 27, 81}; // 常量数组，放静态区
+    const int bytesPerGroup = (this->groupCnt - 1) / 5 + 1;
+
     for (int i = this->st; i < this->end; i++) {
+        const float *rowPtr = f32 + i * m;
+        uint8_t *dstRow = u8 + i * this->group * bytesPerGroup;
+
         for (int g = 0; g < this->group; g++) {
-            uint8_t *cur = this->u8 + i * this->group * bytesPerGroup + g * bytesPerGroup;
+            uint8_t *cur = dstRow + g * bytesPerGroup;
+            memset(cur, 0, bytesPerGroup);
 
-            int groupStart = g * this->groupCnt;
-            int groupEnd = std::min((g + 1) * this->groupCnt, this->m);
+            int groupStart = g * groupCnt;
+            int groupEnd = std::min((g + 1) * groupCnt, m);
+            int groupLen = groupEnd - groupStart;
 
-            float minValue = 1e9, maxValue = -1e9, mean = 0.0;
-            for (int j = groupStart; j < groupEnd; j++) {
-                minValue = std::min(minValue, f32[i * m + j]);
-                maxValue = std::max(maxValue, f32[i * m + j]);
-                mean += fabs(f32[i * m + j]);
+            // ----------- 计算 mean (abs)、min、max -----------
+            float minValue = FLT_MAX;
+            float maxValue = -FLT_MAX;
+            float meanSum = 0.0f;
+
+            const float *p = rowPtr + groupStart;
+
+            // 手工展开消除分支，提高吞吐
+            for (int j = 0; j < groupLen; j++) {
+                float v = p[j];
+                minValue = (v < minValue ? v : minValue);
+                maxValue = (v > maxValue ? v : maxValue);
+                meanSum += (v >= 0 ? v : -v); // faster abs()
             }
-            mean = std::max(1e-5f, mean / (groupEnd - groupStart));
 
-            float scale = mean;
+            float scale = meanSum / std::max(1, groupLen);
+            scale = std::max(scale, 1e-5f);
             halfScales[i * group + g] = float_to_half(scale);
 
-            memcpy(cur, cur + bytesPerGroup, 0);
-            for (int j = groupStart; j < groupEnd; j++) {
-                float now = f32[i * m + j];
-                uint8_t curV = (now > -scale * 0.5) + (now > scale * 0.5);
-                cur[(j - groupStart) / 5] += curV * base[(j - groupStart) % 5];
+            // ----------- 量化 & pack ----------
+            const float neg_th = -scale * 0.5f;
+            const float pos_th = scale * 0.5f;
+
+            int offset = 0;
+
+            for (int j = 0; j < groupLen; j++) {
+                float v = p[j];
+
+                // 0/1/2 三值
+                uint8_t q = (v > neg_th) + (v > pos_th);
+
+                // j % 5 快速路径
+                cur[offset] += q * base[j % 5];
+
+                // j % 5 == 4 则 offset++
+                if ((j % 5) == 4) offset++;
             }
         }
     }
