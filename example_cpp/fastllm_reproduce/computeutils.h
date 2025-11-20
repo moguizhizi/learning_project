@@ -274,3 +274,6 @@ void RunLinearFloat16Int8(uint16_t *inputData,
                           AliveThreadPool *pool,
                           int startTid,
                           int threadNum);
+void LaunchLinearInt8Int8(uint8_t *a, uint8_t *b, float *c, int n, int m, int k, int *weightSums, int *weightZeros, float *scales, float *bias,
+    float *inputSums, float *iscales, float *izeros, std::vector<MultiThreadBaseOp *> &ops, AliveThreadPool *pool, int startTid,
+    int threadNum);
