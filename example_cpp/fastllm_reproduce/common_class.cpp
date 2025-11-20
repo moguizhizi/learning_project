@@ -434,7 +434,7 @@ void Data::CreateFromOriData(
 
         memcpy(this->cpuData, uDatas.data(), bytes);
     } else if ((oriDataType == DataType::FLOAT32 || oriDataType == DataType::BFLOAT16) && this->dataType == DataType::INT2_GROUP) {
-        int bit = 4;
+        int bit = 2;
         int type = 1;
         int k = this->dims[0], m = this->dims[1], group = (m - 1) / groupCnt + 1;
         if (groupCnt == -1) {
