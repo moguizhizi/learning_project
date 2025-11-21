@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "computeutils.h"
+#include "cpudevice.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "struct_space.hpp"
@@ -881,5 +883,104 @@ void Data::FakeFrom(const Data &ori, size_t offset) {
 #else
         ErrorInFastLLM("Error: cuda is not supported.\n");
 #endif
+    }
+}
+
+MoEQuantizedExecutor::MoEQuantizedExecutor(Data **weights) {
+    this->weights_ = weights;
+}
+void MoEQuantizedExecutor::prepareBuffer(size_t n, size_t m, size_t group) {
+    this->globalInput_.resize(n * m);
+    this->globalScales_.resize(n * group);
+    this->globalZeros_.resize(n * group);
+    this->globalLowBitConfigs_.resize(n * group);
+    this->globalSums_.resize(n * group);
+}
+
+void MoEQuantizedExecutor::ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts) {
+    this->middles_.clear();
+    this->results.clear();
+
+    this->middles_.resize(routedExperts.size());
+    this->results.resize(routedExperts.size());
+
+    for (int i = 0; i < routedExperts.size(); i++) {
+        int expertIndex = routedExperts[i].expertIndex;
+        Data &weight = *(weights_[expertIndex]);
+        this->middles_[i].resize(weight.dims[0]);
+        this->results[i].resize(weight.dims[0]);
+    }
+}
+
+void MoEQuantizedExecutor::ExecuteForOuterIndex(
+    int o, float *floatInput, int n, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
+    int groupCnt = weights_[2]->groupCnt;
+    int group = (m - 1) / groupCnt + 1;
+    int n = 1;
+    float *curInput = floatInput + o * m;
+
+    prepareBuffer(n, m, group);
+
+    OnlineQuantization(
+        curInput, globalInput_, globalLowBitConfigs_, 1, m, group, groupCnt, globalSums_, globalScales_, globalZeros_, permuteType);
+
+    std::vector<MultiThreadBaseOp *> ops;
+    auto *pool = GetAlivePool();
+    int thread_nums = pool->threads.size();
+    ops.resize(thread_nums);
+
+    for (auto it = routedExperts.begin(); it != routedExperts.end();) {
+        auto beginIt = it;
+        auto endIt = it;
+        const ExpertRoute &expert = *it;
+        const Data &expertWeight = *(weights_[2 * expert.expertIndex]);
+        const int k = expertWeight.dims[0];
+
+        int selSum = 1;
+        int tempSelSum = selSum;
+        for (auto jt = std::next(it); jt != routedExperts.end(); jt++) {
+            const ExpertRoute &nextExpert = *jt;
+            const Data &nextExpertWeight = *(weights_[2 * nextExpert.expertIndex]);
+            const int curk = nextExpertWeight.dims[0];
+
+            const int remainder = curk % k;
+            if (remainder != 0) {
+                break;
+            }
+
+            int tempSelSum = tempSelSum + curk / k;
+            if (thread_nums % tempSelSum == 0) {
+                selSum = tempSelSum;
+                endIt = jt;
+            }
+        }
+
+        const int base = thread_nums / selSum;
+        int threadSt = 0;
+
+        for (auto jt = beginIt; jt != std::next(endIt); jt++) {
+            const ExpertRoute &expert = *jt;
+            Data &expertWeight = *(weights_[2 * expert.expertIndex]);
+            const int curk = expertWeight.dims[0];
+            int curThread = (curk / k) * base;
+            const int index = jt - routedExperts.begin();
+            std::vector<float> middle = this->middles_[index];
+
+            expertWeight.CalcWeightSum();
+
+            if (expertWeight.dataType == DataType::INT8) {
+                LaunchLinearInt8Int8(globalInput_.data(), expertWeight.cpuData, middle.data(), n, m, curk, expertWeight.weightSum.data(),
+                    expertWeight.zeros.data(), expertWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(),
+                    globalZeros_.data(), ops, pool, threadSt, curThread);
+            } else {
+                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), expertWeight.cpuData, middle.data(), n, m, curk,
+                    expertWeight.weightSum.data(), expertWeight.mins.data(), expertWeight.scales.data(), nullptr, globalSums_, globalScales_,
+                    globalZeros_, globalLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
+            }
+
+            threadSt += curThread;
+        }
+
+        it = std::next(endIt);
     }
 }

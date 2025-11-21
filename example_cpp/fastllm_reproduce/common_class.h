@@ -87,3 +87,23 @@ class Data {
     void Reshape(const std::vector<int> &dims);
     void FakeFrom(const Data &ori, size_t offset);
 };
+
+class MoEQuantizedExecutor {
+    Data **weights_;
+    MoEQuantizedExecutor(Data **weights);
+
+   private:
+    std::vector<float> globalScales_;
+    std::vector<float> globalZeros_;
+    std::vector<uint8_t> globalInput_;
+    std::vector<LowBitConfig> globalLowBitConfigs_;
+    std::vector<float> globalSums_;
+    std::vector<std::vector<float>> middles_;
+
+   public:
+    std::vector<std::vector<float>> results;
+
+    void prepareBuffer(size_t n, size_t m, size_t group);
+    void ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts);
+    void ExecuteForOuterIndex(int o, float *floatInput, int n, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType);
+};
