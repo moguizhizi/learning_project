@@ -964,7 +964,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             const int curk = expertWeight.dims[0];
             int curThread = (curk / k) * base;
             const int index = jt - routedExperts.begin();
-            std::vector<float> middle = this->middles_[index];
+            std::vector<float> &middle = this->middles_[index];
 
             expertWeight.CalcWeightSum();
 
@@ -985,6 +985,8 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             pool->Wait(j);
             delete ops[j];
         }
+
+        
 
         it = std::next(endIt);
     }
