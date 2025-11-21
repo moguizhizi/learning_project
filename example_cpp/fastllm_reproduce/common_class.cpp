@@ -981,6 +981,11 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             threadSt += curThread;
         }
 
+        for (int j = 0; j < ops.size(); j++) {
+            pool->Wait(j);
+            delete ops[j];
+        }
+
         it = std::next(endIt);
     }
 }
