@@ -891,17 +891,17 @@ MoEQuantizedExecutor::MoEQuantizedExecutor(Data **weights) {
 }
 
 void MoEQuantizedExecutor::prepareBuffer(size_t n, size_t m, size_t group) {
-    this->globalInput_.clear();
-    this->globalScales_.clear();
-    this->globalZeros_.clear();
-    this->globalLowBitConfigs_.clear();
-    this->globalSums_.clear();
+    this->quantizedInput_.clear();
+    this->quantizedScales_.clear();
+    this->quantizedZeros_.clear();
+    this->quantizedLowBitConfigs_.clear();
+    this->quantizedSums_.clear();
 
-    this->globalInput_.resize(n * m);
-    this->globalScales_.resize(n * group);
-    this->globalZeros_.resize(n * group);
-    this->globalLowBitConfigs_.resize(n * group);
-    this->globalSums_.resize(n * group);
+    this->quantizedInput_.resize(n * m);
+    this->quantizedScales_.resize(n * group);
+    this->quantizedZeros_.resize(n * group);
+    this->quantizedLowBitConfigs_.resize(n * group);
+    this->quantizedSums_.resize(n * group);
 }
 
 void MoEQuantizedExecutor::ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts) {
@@ -928,8 +928,8 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
     prepareBuffer(n, m, group);
 
-    OnlineQuantization(
-        curInput, globalInput_, globalLowBitConfigs_, 1, m, group, groupCnt, globalSums_, globalScales_, globalZeros_, permuteType);
+    OnlineQuantization(curInput, quantizedInput_, quantizedLowBitConfigs_, 1, m, group, groupCnt, quantizedSums_, quantizedScales_,
+        quantizedZeros_, permuteType);
 
     ensureMiddleAndResultBuffers(routedExperts);
 
@@ -979,13 +979,13 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             n = 1;
             if (upWeight.dataType == DataType::INT8) {
-                LaunchLinearInt8Int8(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
-                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(), globalZeros_.data(), ops,
-                    pool, threadSt, curThread);
+                LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
+                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
+                    quantizedZeros_.data(), ops, pool, threadSt, curThread);
             } else {
-                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
-                    upWeight.mins.data(), upWeight.scales.data(), nullptr, globalSums_, globalScales_, globalZeros_, globalLowBitConfigs_,
-                    threadSt, curThread, group, groupCnt, ops, pool);
+                MultiplyInt4GroupMultiThreadLaunch(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
+                    upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
+                    quantizedZeros_, quantizedLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
             }
 
             threadSt += curThread;

@@ -93,11 +93,11 @@ class MoEQuantizedExecutor {
     MoEQuantizedExecutor(Data **weights);
 
    private:
-    std::vector<float> globalScales_;
-    std::vector<float> globalZeros_;
-    std::vector<uint8_t> globalInput_;
-    std::vector<LowBitConfig> globalLowBitConfigs_;
-    std::vector<float> globalSums_;
+    std::vector<float> quantizedScales_;
+    std::vector<float> quantizedZeros_;
+    std::vector<uint8_t> quantizedInput_;
+    std::vector<LowBitConfig> quantizedLowBitConfigs_;
+    std::vector<float> quantizedSums_;
     std::vector<std::vector<float>> middles_;
 
    public:
