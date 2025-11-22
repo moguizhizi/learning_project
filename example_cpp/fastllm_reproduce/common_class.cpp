@@ -975,6 +975,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             expertWeight.CalcWeightSum();
 
+            n = 1;
             if (expertWeight.dataType == DataType::INT8) {
                 LaunchLinearInt8Int8(globalInput_.data(), expertWeight.cpuData, middle.data(), n, m, curk, expertWeight.weightSum.data(),
                     expertWeight.zeros.data(), expertWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(),
@@ -1001,7 +1002,9 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             std::vector<float> &middle = this->middles_[index];
             int mid = curk / 2;
 
+            n = 1;
             new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk);
+
             new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, int n, int m, group, int groupCnt,
                 float *inputSums, float *iscales, float *izeros, permuteType);
         }
