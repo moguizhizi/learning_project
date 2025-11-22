@@ -927,7 +927,7 @@ void MoEQuantizedExecutor::ensureQuantBuffersSize(size_t idx, size_t n, size_t m
         vec[idx].resize(size); // 保证内层 vector 大小为 size
     };
 
-    ensure(quantizedMiddleInput_, n * mid);
+    ensure(quantizedMiddleInputs_, n * mid);
     ensure(quantizedMiddleScales_, n * group);
     ensure(quantizedMiddleZeros_, n * group);
     ensure(quantizedMiddleLowBitConfigs_, n * group);
@@ -1041,7 +1041,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             ensureQuantBuffersSize(expertIdx, n, mid, group);
 
             // 获取缓冲区引用，便于阅读
-            auto &qInput = quantizedMiddleInput_[expertIdx];
+            auto &qInput = quantizedMiddleInputs_[expertIdx];
             auto &qScales = quantizedMiddleScales_[expertIdx];
             auto &qZeros = quantizedMiddleZeros_[expertIdx];
             auto &qConfigs = quantizedMiddleLowBitConfigs_[expertIdx];
@@ -1053,6 +1053,43 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             // ====== 推入线程池 ======
             pool->PushOp(expertIdx, multiOps);
+        }
+
+        for (int j = 0; j < ops.size(); j++) {
+            pool->Wait(j);
+            delete ops[j];
+        }
+
+        for (auto jt = beginIt; jt != std::next(endIt); jt++) {
+            const ExpertRoute &expert = *jt;
+            Data &downWeight = *(weights_[2 * expert.expertIndex + 1]);
+            const int curk = downWeight.dims[0];
+            int curThread = (curk / k) * base;
+            const int index = jt - routedExperts.begin();
+            std::vector<float> &result = this->results[index];
+            std::vector<uint8_t> &quantizedMiddleInput = quantizedMiddleInputs_[index];
+            std::vector<float> &quantizedMiddleSum = quantizedMiddleSums_[index];
+            std::vector<float> &quantizedMiddleScale = quantizedMiddleScales_[index];
+            std::vector<float> &quantizedMiddleZero = quantizedMiddleZeros_[index];
+            std::vector<LowBitConfig> &quantizedMiddleLowBitConfig = quantizedMiddleLowBitConfigs_[index];
+
+            const int groupCnt = downWeight.groupCnt;
+            const int group = (curk + groupCnt - 1) / groupCnt;
+
+            downWeight.CalcWeightSum();
+
+            n = 1;
+            if (downWeight.dataType == DataType::INT8) {
+                LaunchLinearInt8Int8(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk, downWeight.weightSum.data(),
+                    downWeight.zeros.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum.data(), quantizedMiddleScale.data(),
+                    quantizedMiddleZero.data(), ops, pool, threadSt, curThread);
+            } else {
+                MultiplyInt4GroupMultiThreadLaunch(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk,
+                    downWeight.weightSum.data(), downWeight.mins.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum,
+                    quantizedMiddleScale, quantizedMiddleZero, quantizedMiddleLowBitConfig, threadSt, curThread, group, groupCnt, ops, pool);
+            }
+
+            threadSt += curThread;
         }
 
         for (int j = 0; j < ops.size(); j++) {
