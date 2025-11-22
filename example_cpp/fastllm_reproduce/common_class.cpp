@@ -931,6 +931,8 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
     OnlineQuantization(
         curInput, globalInput_, globalLowBitConfigs_, 1, m, group, groupCnt, globalSums_, globalScales_, globalZeros_, permuteType);
 
+    ensureMiddleAndResultBuffers(routedExperts);
+
     std::vector<MultiThreadBaseOp *> ops;
     auto *pool = GetAlivePool();
     int thread_nums = pool->threads.size();
@@ -978,12 +980,12 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             n = 1;
             if (upWeight.dataType == DataType::INT8) {
                 LaunchLinearInt8Int8(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
-                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(),
-                    globalZeros_.data(), ops, pool, threadSt, curThread);
+                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(), globalZeros_.data(), ops,
+                    pool, threadSt, curThread);
             } else {
-                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
-                    upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, globalSums_, globalScales_,
-                    globalZeros_, globalLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
+                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
+                    upWeight.mins.data(), upWeight.scales.data(), nullptr, globalSums_, globalScales_, globalZeros_, globalLowBitConfigs_,
+                    threadSt, curThread, group, groupCnt, ops, pool);
             }
 
             threadSt += curThread;
@@ -1005,8 +1007,12 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             n = 1;
             new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk);
 
-            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, n, mid, group, int groupCnt,
-                float *inputSums, float *iscales, float *izeros, permuteType);
+            Data &downWeight = *(weights_[2 * expert.expertIndex + 1]);
+            groupCnt = downWeight.groupCnt;
+            group = (mid - 1) / groupCnt + 1;
+
+            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, n, mid, group, groupCnt, float *inputSums,
+                float *iscales, float *izeros, permuteType);
         }
 
         it = std::next(endIt);
