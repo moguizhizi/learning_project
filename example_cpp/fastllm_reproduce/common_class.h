@@ -110,5 +110,6 @@ class MoEQuantizedExecutor {
 
     void prepareBuffer(size_t n, size_t m, size_t group);
     void ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts);
+    void ensureQuantBuffersSize(size_t idx, size_t n, size_t mid, size_t group);
     void ExecuteForOuterIndex(int o, float *floatInput, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType);
 };

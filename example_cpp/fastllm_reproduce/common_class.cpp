@@ -919,6 +919,21 @@ void MoEQuantizedExecutor::ensureMiddleAndResultBuffers(const std::vector<Expert
     }
 }
 
+void MoEQuantizedExecutor::ensureQuantBuffersSize(size_t idx, size_t n, size_t mid, size_t group) {
+    auto ensure = [&](auto &vec, size_t size) {
+        if (idx >= vec.size()) {
+            vec.resize(idx + 1); // 保证外层 vector 有 idx
+        }
+        vec[idx].resize(size); // 保证内层 vector 大小为 size
+    };
+
+    ensure(quantizedMiddleInput_, n * mid);
+    ensure(quantizedMiddleScales_, n * group);
+    ensure(quantizedMiddleZeros_, n * group);
+    ensure(quantizedMiddleLowBitConfigs_, n * group);
+    ensure(quantizedMiddleSums_, n * group);
+}
+
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
     int o, float *floatInput, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
     int groupCnt = weights_[2]->groupCnt;
@@ -996,40 +1011,48 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             delete ops[j];
         }
 
-        for (auto jt = beginIt; jt != std::next(endIt); jt++) {
+        for (auto jt = beginIt; jt != std::next(endIt); ++jt) {
+            const size_t expertIdx = jt - beginIt;
             const ExpertRoute &expert = *jt;
-            Data &upWeight = *(weights_[2 * expert.expertIndex]);
+
+            // ====== 获取权重 ======
+            Data &upWeight = *weights_[2 * expert.expertIndex];
+            Data &downWeight = *weights_[2 * expert.expertIndex + 1];
+
             const int curk = upWeight.dims[0];
-            const int index = jt - routedExperts.begin();
-            std::vector<float> &middle = this->middles_[index];
-            int mid = curk / 2;
+            const int mid = curk / 2;
+            const int n = 1;
 
-            n = 1;
-            ops[jt - beginIt] = new MultiThreadMultiOps();
-            ((MultiThreadMultiOps *)ops[jt - beginIt])
-                ->ops.push_back(new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk));
-            Data &downWeight = *(weights_[2 * expert.expertIndex + 1]);
-            groupCnt = downWeight.groupCnt;
-            group = (mid - 1) / groupCnt + 1;
+            // ====== 获取 middle buffer ======
+            std::vector<float> &middle = this->middles_[expertIdx];
 
-            quantizedMiddleScales_[index].clear();
-            quantizedMiddleZeros_[index].clear();
-            quantizedMiddleInput_[index].clear();
-            quantizedMiddleLowBitConfigs_[index].clear();
-            quantizedMiddleSums_[index].clear();
+            // ====== 创建本 expert 的多算子对象 ======
+            auto *multiOps = new MultiThreadMultiOps();
+            ops[expertIdx] = multiOps;
 
-            quantizedMiddleScales_[index].resize(n * group);
-            quantizedMiddleZeros_[index].resize(n * group);
-            quantizedMiddleInput_[index].resize(n * mid);
-            quantizedMiddleLowBitConfigs_[index].resize(n * group);
-            quantizedMiddleSums_[index].resize(n * group);
+            // ====== 添加 Swiglu ======
+            multiOps->ops.push_back(new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk));
 
-            ((MultiThreadMultiOps *)ops[jt - beginIt])
-                ->ops.push_back(new MultiThreadOnlineQuantizationOp(middle.data(), quantizedMiddleInput_[index].data(),
-                    quantizedMiddleLowBitConfigs_[index].data(), n, mid, group, groupCnt, quantizedMiddleSums_[index].data(),
-                    quantizedMiddleScales_[index].data(), quantizedMiddleZeros_[index].data(), permuteType));
+            // ====== 计算量化参数大小 ======
+            const int groupCnt = downWeight.groupCnt;
+            const int group = (mid + groupCnt - 1) / groupCnt; // 等价于 ceil(mid / groupCnt)
 
-            pool->PushOp(jt - beginIt, ops[jt - beginIt]);
+            // ====== 确保量化缓冲区存在 ======
+            ensureQuantBuffersSize(expertIdx, n, mid, group);
+
+            // 获取缓冲区引用，便于阅读
+            auto &qInput = quantizedMiddleInput_[expertIdx];
+            auto &qScales = quantizedMiddleScales_[expertIdx];
+            auto &qZeros = quantizedMiddleZeros_[expertIdx];
+            auto &qConfigs = quantizedMiddleLowBitConfigs_[expertIdx];
+            auto &qSums = quantizedMiddleSums_[expertIdx];
+
+            // ====== 添加 OnlineQuantization OP ======
+            multiOps->ops.push_back(new MultiThreadOnlineQuantizationOp(middle.data(), qInput.data(), qConfigs.data(), n, mid, group, groupCnt,
+                qSums.data(), qScales.data(), qZeros.data(), permuteType));
+
+            // ====== 推入线程池 ======
+            pool->PushOp(expertIdx, multiOps);
         }
 
         it = std::next(endIt);
