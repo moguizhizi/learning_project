@@ -889,7 +889,14 @@ void Data::FakeFrom(const Data &ori, size_t offset) {
 MoEQuantizedExecutor::MoEQuantizedExecutor(Data **weights) {
     this->weights_ = weights;
 }
+
 void MoEQuantizedExecutor::prepareBuffer(size_t n, size_t m, size_t group) {
+    this->globalInput_.clear();
+    this->globalScales_.clear();
+    this->globalZeros_.clear();
+    this->globalLowBitConfigs_.clear();
+    this->globalSums_.clear();
+
     this->globalInput_.resize(n * m);
     this->globalScales_.resize(n * group);
     this->globalZeros_.resize(n * group);
@@ -986,7 +993,18 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             delete ops[j];
         }
 
-        
+        for (auto jt = beginIt; jt != std::next(endIt); jt++) {
+            const ExpertRoute &expert = *jt;
+            Data &expertWeight = *(weights_[2 * expert.expertIndex]);
+            const int curk = expertWeight.dims[0];
+            const int index = jt - routedExperts.begin();
+            std::vector<float> &middle = this->middles_[index];
+            int mid = curk / 2;
+
+            new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk);
+            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, int n, int m, group, int groupCnt,
+                float *inputSums, float *iscales, float *izeros, permuteType);
+        }
 
         it = std::next(endIt);
     }
