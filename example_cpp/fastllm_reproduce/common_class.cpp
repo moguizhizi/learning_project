@@ -935,7 +935,7 @@ void MoEQuantizedExecutor::ensureQuantBuffersSize(size_t idx, size_t n, size_t m
 }
 
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
-    int o, float *floatInput, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
+    int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
     int groupCnt = weights_[2]->groupCnt;
     int group = (m - 1) / groupCnt + 1;
     int n = 1;
@@ -958,7 +958,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
         auto endIt = it;
         const ExpertRoute &expert = *it;
         const Data &expertWeight = *(weights_[2 * expert.expertIndex]);
-        const int k = expertWeight.dims[0];
+        const int expertK = expertWeight.dims[0];
 
         int selSum = 1;
         int tempSelSum = selSum;
@@ -967,12 +967,12 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             const Data &nextExpertWeight = *(weights_[2 * nextExpert.expertIndex]);
             const int curk = nextExpertWeight.dims[0];
 
-            const int remainder = curk % k;
+            const int remainder = curk % expertK;
             if (remainder != 0) {
                 break;
             }
 
-            int tempSelSum = tempSelSum + curk / k;
+            int tempSelSum = tempSelSum + curk / expertK;
             if (thread_nums % tempSelSum == 0) {
                 selSum = tempSelSum;
                 endIt = jt;
@@ -986,7 +986,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             const ExpertRoute &expert = *jt;
             Data &upWeight = *(weights_[2 * expert.expertIndex]);
             const int curk = upWeight.dims[0];
-            int curThread = (curk / k) * base;
+            int curThread = (curk / expertK) * base;
             const int index = jt - routedExperts.begin();
             std::vector<float> &middle = this->middles_[index];
 
@@ -1064,7 +1064,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             const ExpertRoute &expert = *jt;
             Data &downWeight = *(weights_[2 * expert.expertIndex + 1]);
             const int curk = downWeight.dims[0];
-            int curThread = (curk / k) * base;
+            int curThread = (curk / expertK) * base;
             const int index = jt - routedExperts.begin();
             std::vector<float> &result = this->results[index];
             std::vector<uint8_t> &quantizedMiddleInput = quantizedMiddleInputs_[index];
