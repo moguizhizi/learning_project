@@ -1004,6 +1004,10 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             std::vector<float> &middle = this->middles_[index];
             int mid = curk / 2;
 
+            ops[jt - beginIt] = new MultiThreadMultiOps();
+            ((fastllm::MultiThreadMultiOps *)ops[l - st])
+                ->ops.push_back(new fastllm::MultiThreadSwigluOp(outputData, mid, mid, outputData, 1, spatial, spatial));
+
             n = 1;
             new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk);
 
@@ -1011,8 +1015,21 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             groupCnt = downWeight.groupCnt;
             group = (mid - 1) / groupCnt + 1;
 
-            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, n, mid, group, groupCnt, float *inputSums,
-                float *iscales, float *izeros, permuteType);
+            quantizedMiddleScales_.clear();
+            quantizedMiddleZeros_.clear();
+            quantizedMiddleInput_.clear();
+            quantizedMiddleLowBitConfigs_.clear();
+            quantizedMiddleSums_.clear();
+
+            quantizedMiddleScales_[index].resize(n * group);
+            quantizedMiddleZeros_[index].resize(n * group);
+            quantizedMiddleInput_[index].resize(n * mid);
+            quantizedMiddleLowBitConfigs_[index].resize(n * group);
+            quantizedMiddleSums_[index].resize(n * group);
+
+            new MultiThreadOnlineQuantizationOp(middle.data(), quantizedMiddleInput_[index].data(), quantizedMiddleLowBitConfigs_[index].data(),
+                n, mid, group, groupCnt, quantizedMiddleSums_[index].data(), quantizedMiddleScales_[index].data(),
+                quantizedMiddleZeros_[index].data(), permuteType);
         }
 
         it = std::next(endIt);

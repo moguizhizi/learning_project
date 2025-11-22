@@ -1885,3 +1885,15 @@ void MultiCudaCpuDoMergeMOEOp::Run() {
 
     FastllmCudaCopyFromHostToDevice(partOutput, output->cpuData, output->GetBytes());
 }
+
+void MultiThreadMultiOps::Run() {
+    for (int i = 0; i < ops.size(); i++) {
+        ops[i]->Run();
+    }
+}
+
+MultiThreadMultiOps::~MultiThreadMultiOps() {
+    for (int i = 0; i < ops.size(); i++) {
+        delete[] ops[i];
+    }
+}

@@ -99,6 +99,11 @@ class MoEQuantizedExecutor {
     std::vector<LowBitConfig> quantizedLowBitConfigs_;
     std::vector<float> quantizedSums_;
     std::vector<std::vector<float>> middles_;
+    std::vector<std::vector<float>> quantizedMiddleScales_;
+    std::vector<std::vector<float>> quantizedMiddleZeros_;
+    std::vector<std::vector<uint8_t>> quantizedMiddleInput_;
+    std::vector<std::vector<LowBitConfig>> quantizedMiddleLowBitConfigs_;
+    std::vector<std::vector<float>> quantizedMiddleSums_;
 
    public:
     std::vector<std::vector<float>> results;
