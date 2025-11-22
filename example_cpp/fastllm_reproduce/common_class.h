@@ -104,14 +104,14 @@ class MoEQuantizedExecutor {
     std::vector<std::vector<uint8_t>> quantizedMiddleInputs_;
     std::vector<std::vector<LowBitConfig>> quantizedMiddleLowBitConfigs_;
     std::vector<std::vector<float>> quantizedMiddleSums_;
+    std::vector<std::vector<float>> results_;
 
    public:
-    std::vector<std::vector<float>> results;
-
     void prepareBuffer(size_t n, size_t m, size_t group);
     void ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts);
     void ensureQuantBuffersSize(size_t idx, size_t n, size_t mid, size_t group);
     void AccumulateExpertOutputs(
         Data &output, int o, size_t k, const std::vector<ExpertRoute> &routedExperts, const std::vector<std::vector<float>> &results);
-    void ExecuteForOuterIndex(int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType);
+    void ExecuteForOuterIndex(
+        Data &output, int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType);
 };
