@@ -2952,6 +2952,31 @@ void CpuPermuteOp::Reshape(const std::string &opType, const DataDict &datas, con
     output.Resize(new_dims);
 }
 
+void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &gateBias = *(datas.find("gateBias")->second);
+    Data &logits = *(datas.find("logits")->second);
+    Data &w1 = *(datas.find("w1")->second);
+    Data &w2 = *(datas.find("w2")->second);
+    Data &w3 = *(datas.find("w3")->second);
+    Data **weights = (Data **)(datas.find("weights")->second);
+    Data **biass = (Data **)(datas.find("biass")->second);
+    int topk = intParams.find("topk") != intParams.end() ? intParams.find("topk")->second : 1;
+    int needNorm = intParams.find("needNorm") != intParams.end() ? intParams.find("needNorm")->second : 0;
+    float sharedScale = floatParams.find("sharedScale") != floatParams.end() ? floatParams.find("sharedScale")->second : 1.0f;
+    float routeScale = floatParams.find("routeScale") != floatParams.end() ? floatParams.find("routeScale")->second : 1.0f;
+    output.Allocate();
+
+    std::vector<float> logitsbuf;
+    std::vector<float> biasbuf;
+
+    float *fp32logits = MOEConvertToFloat32(logits, logitsbuf);
+    float *fp32bias = MOEConvertToFloat32(gateBias, biasbuf);
+
+    // CpuRouteMoE((float *)logits.cpuData, cpuData, int m, topk, float routeScale, needNorm, &sharedScale)
+}
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     if (n < 4 || m < 4) {
         for (int i = 0; i < n; i++) {
@@ -3147,6 +3172,21 @@ void SwigluMultiThreadFloat16(
     for (int i = 0; i < threadNum; i++) {
         pool->Wait(i);
         delete ops[i];
+    }
+}
+
+float *MOEConvertToFloat32(const Data &src, std::vector<float> &buffer) {
+    const int len = src.Count(0);
+
+    if (src.dataType == DataType::FLOAT32) {
+        return reinterpret_cast<float *>(src.cpuData);
+    } else if (src.dataType == DataType::FLOAT16) {
+        const uint16_t *fp16buffer = reinterpret_cast<uint16_t *>(src.cpuData);
+        buffer.resize(len);
+        for (int i = 0; i < len; i++) {
+            buffer[i] = g_fp16ToFp32Manager.dict[fp16buffer[i]];
+        }
+        return buffer.data();
     }
 }
 

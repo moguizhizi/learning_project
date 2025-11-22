@@ -391,6 +391,7 @@ void SwigluMultiThread(float *input, int mid, int len, float *output, int n, int
 void SwigluMultiThreadFloat16(
     uint16_t *input, int mid, int len, uint16_t *output, int n, int inputStride, int outputStride, AliveThreadPool *pool);
 
+float *MOEConvertToFloat32(const Data &src, std::vector<float> &buffer);
 std::vector<std::pair<float, int>> CpuComputeRouterScores(const float *logits, const float *bias, int m);
 std::vector<int> CpuSelectTopExperts(std::vector<std::pair<float, int>> &routerScores, int topk);
 std::vector<ExpertRoute> CpuNormalizeExpertWeights(
