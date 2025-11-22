@@ -2974,7 +2974,13 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
     float *fp32logits = MOEConvertToFloat32(logits, logitsbuf);
     float *fp32bias = MOEConvertToFloat32(gateBias, biasbuf);
 
-    // CpuRouteMoE((float *)logits.cpuData, cpuData, int m, topk, float routeScale, needNorm, &sharedScale)
+    const int num_expert = logits.dims[logits.dims.size() - 1];
+    const int outer = logits.Count(0) / num_expert;
+
+    for (int o = 0; o < outer; o++) {
+        const std::vector<ExpertRoute> &routedExperts =
+            CpuRouteMoE(fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, &sharedScale);
+    }
 }
 
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
