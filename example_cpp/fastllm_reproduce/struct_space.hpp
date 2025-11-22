@@ -426,3 +426,11 @@ struct MultiCudaCpuDoMergeMOEOp : MultiThreadBaseOp {
 
     void Run();
 };
+
+struct MultiThreadMultiOps : MultiThreadBaseOp {
+    std::vector<MultiThreadBaseOp *> ops;
+
+    void Run();
+
+    ~MultiThreadMultiOps();
+};
