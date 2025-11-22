@@ -1012,11 +1012,11 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             groupCnt = downWeight.groupCnt;
             group = (mid - 1) / groupCnt + 1;
 
-            quantizedMiddleScales_.clear();
-            quantizedMiddleZeros_.clear();
-            quantizedMiddleInput_.clear();
-            quantizedMiddleLowBitConfigs_.clear();
-            quantizedMiddleSums_.clear();
+            quantizedMiddleScales_[index].clear();
+            quantizedMiddleZeros_[index].clear();
+            quantizedMiddleInput_[index].clear();
+            quantizedMiddleLowBitConfigs_[index].clear();
+            quantizedMiddleSums_[index].clear();
 
             quantizedMiddleScales_[index].resize(n * group);
             quantizedMiddleZeros_[index].resize(n * group);
