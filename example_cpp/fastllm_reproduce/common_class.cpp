@@ -920,7 +920,7 @@ void MoEQuantizedExecutor::ensureMiddleAndResultBuffers(const std::vector<Expert
 }
 
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
-    int o, float *floatInput, int n, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
+    int o, float *floatInput, int m, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
     int groupCnt = weights_[2]->groupCnt;
     int group = (m - 1) / groupCnt + 1;
     int n = 1;
