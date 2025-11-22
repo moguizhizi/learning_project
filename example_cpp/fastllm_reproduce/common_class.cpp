@@ -967,22 +967,22 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
         for (auto jt = beginIt; jt != std::next(endIt); jt++) {
             const ExpertRoute &expert = *jt;
-            Data &expertWeight = *(weights_[2 * expert.expertIndex]);
-            const int curk = expertWeight.dims[0];
+            Data &upWeight = *(weights_[2 * expert.expertIndex]);
+            const int curk = upWeight.dims[0];
             int curThread = (curk / k) * base;
             const int index = jt - routedExperts.begin();
             std::vector<float> &middle = this->middles_[index];
 
-            expertWeight.CalcWeightSum();
+            upWeight.CalcWeightSum();
 
             n = 1;
-            if (expertWeight.dataType == DataType::INT8) {
-                LaunchLinearInt8Int8(globalInput_.data(), expertWeight.cpuData, middle.data(), n, m, curk, expertWeight.weightSum.data(),
-                    expertWeight.zeros.data(), expertWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(),
+            if (upWeight.dataType == DataType::INT8) {
+                LaunchLinearInt8Int8(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
+                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, globalSums_.data(), globalScales_.data(),
                     globalZeros_.data(), ops, pool, threadSt, curThread);
             } else {
-                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), expertWeight.cpuData, middle.data(), n, m, curk,
-                    expertWeight.weightSum.data(), expertWeight.mins.data(), expertWeight.scales.data(), nullptr, globalSums_, globalScales_,
+                MultiplyInt4GroupMultiThreadLaunch(globalInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
+                    upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, globalSums_, globalScales_,
                     globalZeros_, globalLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
             }
 
@@ -996,8 +996,8 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
         for (auto jt = beginIt; jt != std::next(endIt); jt++) {
             const ExpertRoute &expert = *jt;
-            Data &expertWeight = *(weights_[2 * expert.expertIndex]);
-            const int curk = expertWeight.dims[0];
+            Data &upWeight = *(weights_[2 * expert.expertIndex]);
+            const int curk = upWeight.dims[0];
             const int index = jt - routedExperts.begin();
             std::vector<float> &middle = this->middles_[index];
             int mid = curk / 2;
@@ -1005,7 +1005,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             n = 1;
             new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk);
 
-            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, int n, int m, group, int groupCnt,
+            new MultiThreadOnlineQuantizationOp(middle.data(), uint8_t *output, LowBitConfig *configs, n, mid, group, int groupCnt,
                 float *inputSums, float *iscales, float *izeros, permuteType);
         }
 
