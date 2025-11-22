@@ -994,9 +994,9 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             n = 1;
             if (upWeight.dataType == DataType::INT8) {
-                LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
-                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
-                    quantizedZeros_.data(), ops, pool, threadSt, curThread);
+                // LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
+                //     upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
+                //     quantizedZeros_.data(), ops, pool, threadSt, curThread);
             } else {
                 MultiplyInt4GroupMultiThreadLaunch(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
                     upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
@@ -1080,9 +1080,9 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             n = 1;
             if (downWeight.dataType == DataType::INT8) {
-                LaunchLinearInt8Int8(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk, downWeight.weightSum.data(),
-                    downWeight.zeros.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum.data(), quantizedMiddleScale.data(),
-                    quantizedMiddleZero.data(), ops, pool, threadSt, curThread);
+                // LaunchLinearInt8Int8(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk, downWeight.weightSum.data(),
+                //     downWeight.zeros.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum.data(), quantizedMiddleScale.data(),
+                //     quantizedMiddleZero.data(), ops, pool, threadSt, curThread);
             } else {
                 MultiplyInt4GroupMultiThreadLaunch(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk,
                     downWeight.weightSum.data(), downWeight.mins.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum,
