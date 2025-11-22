@@ -934,6 +934,38 @@ void MoEQuantizedExecutor::ensureQuantBuffersSize(size_t idx, size_t n, size_t m
     ensure(quantizedMiddleSums_, n * group);
 }
 
+void MoEQuantizedExecutor::AccumulateExpertOutputs(
+    Data &output, int o, size_t k, const std::vector<ExpertRoute> &routedExperts, const std::vector<std::vector<float>> &results) {
+    const bool isFp16 = (output.dataType == DataType::FLOAT16);
+
+    // 最终输出地址（FP32 或 FP16）
+    float *finalFp32Output = reinterpret_cast<float *>(output.cpuData) + o * k;
+    uint16_t *finalFp16Output = reinterpret_cast<uint16_t *>(output.cpuData) + o * k;
+
+    // 用临时 FP32 缓冲进行累加（FP16 也需要先在 FP32 中累积）
+    std::vector<float> accum(k, 0.0f);
+
+    // ---- Accumulate experts ----
+    for (size_t idx = 0; idx < routedExperts.size(); ++idx) {
+        float weight = routedExperts[idx].weight;
+        const auto &result = results[idx]; // 引用，不拷贝
+
+        // 累加：accum += result * weight
+        for (size_t i = 0; i < k; ++i) {
+            accum[i] += result[i] * weight;
+        }
+    }
+
+    // ---- Write back ----
+    if (!isFp16) {
+        // FP32 -> FP32
+        memcpy(finalFp32Output, accum.data(), k * sizeof(float));
+    } else {
+        // FP32 -> FP16
+        Float32ToFloat16(accum.data(), finalFp16Output, k);
+    }
+}
+
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
     int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
     int groupCnt = weights_[2]->groupCnt;
