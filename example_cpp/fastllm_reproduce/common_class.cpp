@@ -906,16 +906,16 @@ void MoEQuantizedExecutor::prepareBuffer(size_t n, size_t m, size_t group) {
 
 void MoEQuantizedExecutor::ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts) {
     this->middles_.clear();
-    this->results.clear();
+    this->results_.clear();
 
     this->middles_.resize(routedExperts.size());
-    this->results.resize(routedExperts.size());
+    this->results_.resize(routedExperts.size());
 
     for (int i = 0; i < routedExperts.size(); i++) {
         int expertIndex = routedExperts[i].expertIndex;
         Data &weight = *(weights_[expertIndex]);
         this->middles_[i].resize(weight.dims[0]);
-        this->results[i].resize(weight.dims[0]);
+        this->results_[i].resize(weight.dims[0]);
     }
 }
 
@@ -967,7 +967,7 @@ void MoEQuantizedExecutor::AccumulateExpertOutputs(
 }
 
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
-    int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
+    Data &output, int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
     int groupCnt = weights_[2]->groupCnt;
     int group = (m - 1) / groupCnt + 1;
     int n = 1;
@@ -1098,7 +1098,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             const int curk = downWeight.dims[0];
             int curThread = (curk / expertK) * base;
             const int index = jt - routedExperts.begin();
-            std::vector<float> &result = this->results[index];
+            std::vector<float> &result = this->results_[index];
             std::vector<uint8_t> &quantizedMiddleInput = quantizedMiddleInputs_[index];
             std::vector<float> &quantizedMiddleSum = quantizedMiddleSums_[index];
             std::vector<float> &quantizedMiddleScale = quantizedMiddleScales_[index];
@@ -1131,4 +1131,6 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
         it = std::next(endIt);
     }
+
+    AccumulateExpertOutputs(output, o, k, routedExperts, results_);
 }
