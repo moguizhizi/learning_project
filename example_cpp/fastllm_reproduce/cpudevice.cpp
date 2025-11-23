@@ -2990,8 +2990,7 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
     bool isFP8 = (inType == DataType::FLOAT32) && (wType == DataType::FP8_E4M3);
 
-    if (!smallBatch) {
-    } else if (isLowbit || isFP8) {
+    if ((isLowbit || isFP8) && smallBatch) {
         int permuteType = 1;
         if (wType == DataType::INT8) {
             permuteType = 0;
