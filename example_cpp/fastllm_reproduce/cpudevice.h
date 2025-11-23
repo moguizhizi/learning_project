@@ -397,4 +397,4 @@ std::vector<int> CpuSelectTopExperts(std::vector<std::pair<float, int>> &routerS
 std::vector<ExpertRoute> CpuNormalizeExpertWeights(
     const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
 std::vector<ExpertRoute> CpuRouteMoE(
-    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale);
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, int sharedExpertIndex, float *sharedScale);
