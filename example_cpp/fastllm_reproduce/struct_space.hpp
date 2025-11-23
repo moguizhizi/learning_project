@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cpuid.h>
+#include <immintrin.h>
 #include <unicode/unistr.h>
 
 #include <algorithm>
@@ -433,4 +435,129 @@ struct MultiThreadMultiOps : MultiThreadBaseOp {
     void Run();
 
     ~MultiThreadMultiOps();
+};
+
+struct MultiThreadLinearBFloat16FP8E4M3Op : MultiThreadBaseOp {
+    uint16_t *inputData;
+    uint8_t *weightData;
+    float *biasData, *outputData;
+    int n, m, k, st, end;
+    int blockK, blockM;
+    float *scales;
+
+    MultiThreadLinearBFloat16FP8E4M3Op(uint16_t *inputData, uint8_t *weightData, float *biasData, float *outputData, int n, int m, int k, int st,
+        int end, float *scales, int blockK, int blockM);
+
+    void Run();
+};
+
+struct MultiThreadLinearInt8Int4GroupOp : MultiThreadBaseOp {
+    uint8_t *a, *b;
+    float *c;
+    int n, m, k, kstride;
+    int *weightSums;
+    float *weightMins;
+    float *scales;
+    float *bias;
+    float *iscales, *izeros;
+    float *inputSums;
+    int group, groupCnt;
+
+    MultiThreadLinearInt8Int4GroupOp(uint8_t *a, uint8_t *b, float *c, int n, int m, int k, int kstride, int *weightSums, float *weightMins,
+        float *scales, float *bias, float *iscales, float *izeros, float *inputSums, int group, int groupCnt);
+
+    void Run();
+};
+
+struct MultiThreadLinearFloat32Float32Op : MultiThreadBaseOp {
+    float *inputData;
+    float *weightData;
+    float *biasData, *outputData;
+    int n, m, k, st, end;
+
+    MultiThreadLinearFloat32Float32Op(
+        float *inputData, float *weightData, float *biasData, float *outputData, int n, int m, int k, int st, int end);
+
+    void Run();
+};
+
+struct MultiThreadLinearFloat32Float16Op : MultiThreadBaseOp {
+    float *inputData;
+    uint16_t *weightData;
+    float *biasData, *outputData;
+    int n, m, k, st, end;
+
+    MultiThreadLinearFloat32Float16Op(
+        float *inputData, uint16_t *weightData, float *biasData, float *outputData, int n, int m, int k, int st, int end);
+
+    void Run();
+};
+
+struct CPUInstructInfo {
+    bool hasAVX512F = false;
+    bool hasAVX512BF16 = false;
+    bool hasAVX512VNNI = false;
+    // You could add more, e.g., hasAVX, hasAVX2
+    CPUInstructInfo() {
+#ifndef __aarch64__
+#    if defined(_MSC_VER) || defined(__GNUC__) || defined(__clang__)
+        std::array<int, 4> regs; // For EAX, EBX, ECX, EDX
+        // Step 1: Check OSXSAVE bit (CPUID EAX=1, ECX bit 27)
+        // This indicates if the OS supports XGETBV to query enabled AVX features
+        bool os_supports_xsave = false;
+#        if defined(_MSC_VER)
+        __cpuid(regs.data(), 1);
+#        else // GCC/Clang
+        __get_cpuid(1, (unsigned int *)&regs[0], (unsigned int *)&regs[1], (unsigned int *)&regs[2], (unsigned int *)&regs[3]);
+#        endif
+        if (regs[2] & (1 << 27)) { // Check ECX bit 27 (OSXSAVE)
+            os_supports_xsave = true;
+        }
+        bool os_avx_enabled = false;
+        if (os_supports_xsave) {
+            // Step 2: Check if AVX states (and by extension AVX512 states) are enabled by OS
+            // XCR0 register:
+            // Bit 1 (SSE state) must be 1
+            // Bit 2 (AVX state - YMM registers) must be 1
+            // Bits 5,6,7 (AVX512 OPMASK, ZMM_Hi256, Hi16_ZMM states) must be 1 for AVX512
+            // We check for mask 0xE6 (binary 11100110) which means SSE, AVX, and AVX512 states are enabled
+            uint64_t xcr0 = _xgetbv(0); // _XCR_XFEATURE_ENABLED_MASK is typically 0
+            if ((xcr0 & 0xE6) == 0xE6) {
+                os_avx_enabled = true;
+            }
+        }
+        if (os_avx_enabled) {
+// CPUID with EAX=7, ECX=0 for extended features
+#        if defined(_MSC_VER)
+            __cpuidex(regs.data(), 7, 0);
+#        else // GCC/Clang
+            __get_cpuid_count(7, 0, (unsigned int *)&regs[0], (unsigned int *)&regs[1], (unsigned int *)&regs[2], (unsigned int *)&regs[3]);
+#        endif
+            // AVX512F: EAX=7, ECX=0, EBX bit 16
+            hasAVX512F = (regs[1] & (1 << 16)) != 0;
+            // AVX512VNNI: EAX=7, ECX=0, ECX bit 11
+            hasAVX512VNNI = (regs[2] & (1 << 11)) != 0;
+// AVX512_BF16: EAX=7, ECX=1, EAX bit 5
+// Need to make another CPUID call with ECX=1
+#        if defined(_MSC_VER)
+            __cpuidex(regs.data(), 7, 1);
+#        else // GCC/Clang
+            __get_cpuid_count(7, 1, (unsigned int *)&regs[0], (unsigned int *)&regs[1], (unsigned int *)&regs[2], (unsigned int *)&regs[3]);
+#        endif
+            hasAVX512BF16 = (regs[0] & (1 << 5)) != 0;
+            // Important: If a feature (like AVX512_BF16) depends on another (like AVX512F),
+            // you might want to ensure the base feature is also true.
+            // e.g., hasAVX512BF16 = hasAVX512BF16 && hasAVX512F; (Though CPUID should report correctly)
+        }
+// If os_avx_enabled is false, all 'has...' flags will remain false.
+#    endif // Compiler check
+        // Print the results
+        std::string x[2] = {"OFF", "ON"};
+        printf("CPU Instruction Info: ");
+        printf("[AVX512F: %s] ", x[hasAVX512F].c_str());
+        printf("[AVX512_VNNI: %s] ", x[hasAVX512VNNI].c_str());
+        printf("[AVX512_BF16: %s] ", x[hasAVX512BF16].c_str());
+        printf("\n");
+#endif // ifndef __aarch64__
+    }
 };
