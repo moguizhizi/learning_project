@@ -2985,10 +2985,13 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
     const auto wType = weights[2]->dataType;
     const bool smallBatch = (input.dims[0] < 32);
 
+    bool isLowbit = (inType == DataType::FLOAT32 || inType == DataType::FLOAT16) &&
+                    (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO || wType == DataType::INT8);
+
+    bool isFP8 = (inType == DataType::FLOAT32) && (wType == DataType::FP8_E4M3);
+
     if (!smallBatch) {
-    } else if ((inType == DataType::FLOAT32 || inType == DataType::FLOAT16) &&
-                   (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO || wType == DataType::INT8) ||
-               wType == DataType::FP8_E4M3) {
+    } else if (isLowbit || isFP8) {
         int permuteType = 1;
         if (wType == DataType::INT8) {
             permuteType = 0;
