@@ -24,3 +24,5 @@ struct AliveThreadPool {
 
     void Shutdown();
 };
+
+void RunMultiThreadMemcpyMultiLines(std::vector<MultiThreadMemcpyMultiLinesTask> &tasks, AliveThreadPool *pool);
