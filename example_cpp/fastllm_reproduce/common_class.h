@@ -90,7 +90,6 @@ class Data {
 
 class MoEQuantizedExecutor {
     Data **weights_;
-    MoEQuantizedExecutor(Data **weights);
 
    private:
     std::vector<float> quantizedScales_;
@@ -107,6 +106,7 @@ class MoEQuantizedExecutor {
     std::vector<std::vector<float>> results_;
 
    public:
+    MoEQuantizedExecutor(Data **weights);
     void prepareBuffer(size_t n, size_t m, size_t group);
     void ensureMiddleAndResultBuffers(const std::vector<ExpertRoute> &routedExperts);
     void ensureQuantBuffersSize(size_t idx, size_t n, size_t mid, size_t group);

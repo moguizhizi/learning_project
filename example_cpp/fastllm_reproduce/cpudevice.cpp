@@ -2970,16 +2970,39 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
     std::vector<float> logitsbuf;
     std::vector<float> biasbuf;
+    std::vector<float> inputbuf;
 
     float *fp32logits = MOEConvertToFloat32(logits, logitsbuf);
     float *fp32bias = MOEConvertToFloat32(gateBias, biasbuf);
+    float *fp32input = MOEConvertToFloat32(input, inputbuf);
 
     const int num_expert = logits.dims[logits.dims.size() - 1];
     const int outer = logits.Count(0) / num_expert;
 
-    for (int o = 0; o < outer; o++) {
-        const std::vector<ExpertRoute> &routedExperts =
-            CpuRouteMoE(fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, &sharedScale);
+    MoEQuantizedExecutor quantizedExecutor(weights);
+
+    const auto inType = input.dataType;
+    const auto wType = weights[2]->dataType;
+    const bool smallBatch = (input.dims[0] < 32);
+
+    if (!smallBatch) {
+    } else if ((inType == DataType::FLOAT32 || inType == DataType::FLOAT16) &&
+               (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO || wType == DataType::INT8)) {
+        int permuteType = 1;
+        if (weights[2]->dataType == DataType::INT8) {
+            permuteType = 0;
+        }
+
+        for (int o = 0; o < outer; o++) {
+            const int m = input.dims[1];
+
+            float *input = fp32input + o * m;
+
+            const std::vector<ExpertRoute> &routedExperts =
+                CpuRouteMoE(fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, &sharedScale);
+
+            quantizedExecutor.ExecuteForOuterIndex(output, o, input, m, m, routedExperts, permuteType);
+        }
     }
 }
 
