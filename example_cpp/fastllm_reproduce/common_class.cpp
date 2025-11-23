@@ -1029,10 +1029,11 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
                 // LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
                 //     upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
                 //     quantizedZeros_.data(), ops, pool, threadSt, curThread);
-            } else {
+            } else if (upWeight.dataType == DataType::INT4_GROUP || upWeight.dataType == DataType::INT4_NOZERO) {
                 MultiplyInt4GroupMultiThreadLaunch(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
                     upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
                     quantizedZeros_, quantizedLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
+            } else if (upWeight.dataType == DataType::FP8_E4M3) {
             }
 
             threadSt += curThread;
