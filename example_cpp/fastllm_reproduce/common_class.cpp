@@ -1122,7 +1122,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             std::vector<float> &quantizedMiddleZero = quantizedMiddleZeros_[index];
             std::vector<LowBitConfig> &quantizedMiddleLowBitConfig = quantizedMiddleLowBitConfigs_[index];
 
-            const int groupCnt = downWeight.groupCnt;
+            const int groupCnt = downWeight.groupCnt == -1 ? curk : downWeight.groupCnt;
             const int group = (curk + groupCnt - 1) / groupCnt;
 
             downWeight.CalcWeightSum();
