@@ -2966,7 +2966,7 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
     int needNorm = intParams.find("needNorm") != intParams.end() ? intParams.find("needNorm")->second : 0;
     float sharedScale = floatParams.find("sharedScale") != floatParams.end() ? floatParams.find("sharedScale")->second : 1.0f;
     float routeScale = floatParams.find("routeScale") != floatParams.end() ? floatParams.find("routeScale")->second : 1.0f;
-    output.Allocate();
+    output.Allocate(0.0f);
 
     std::vector<float> logitsbuf;
     std::vector<float> biasbuf;
@@ -2981,9 +2981,10 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
     MoEQuantizedExecutor quantizedExecutor(weights);
 
+    const int bs = input.dims[0];
     const auto inType = input.dataType;
     const auto wType = weights[2]->dataType;
-    const bool smallBatch = (input.dims[0] < 32);
+    const bool smallBatch = (bs < 32);
 
     bool isLowbit = (inType == DataType::FLOAT32 || inType == DataType::FLOAT16) &&
                     (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO || wType == DataType::INT8);
@@ -3005,6 +3006,22 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 CpuRouteMoE(fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, &sharedScale);
 
             quantizedExecutor.ExecuteForOuterIndex(output, o, input, m, m, routedExperts, permuteType);
+        }
+    } else {
+        if (bs == 1) {
+            const std::vector<ExpertRoute> &routedExperts =
+                CpuRouteMoE(fp32logits, fp32bias, num_expert, topk, routeScale, needNorm, &sharedScale);
+
+            for (auto &it : routedExperts) {
+                const ExpertRoute &expert = it;
+                int expertIndex = it.expertIndex;
+                float weight = it.weight;
+
+                Linear(input, *weights[2 * expertIndex], Data(), w3);
+                Swiglu(w3, w1);
+                Linear(w1, *weights[2 * expertIndex + 1], Data(), w2);
+                AddTo(output, w2, weight);
+            }
         }
     }
 }

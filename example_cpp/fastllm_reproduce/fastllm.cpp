@@ -577,3 +577,7 @@ void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
     curExecutor->Run(
         "CatBatch", {{"input", (Data *)input.data()}, {"output", (Data *)&outputs}}, {}, {{"axis", axis}, {"input___batch", (int)input.size()}});
 }
+
+void Linear(Data &input, Data &weight, const Data &bias, Data &output) {
+    curExecutor->Run("Linear", {{"input", &input}, {"weight", &weight}, {"bias", (Data *)&bias}, {"output", &output}}, {}, {});
+}
