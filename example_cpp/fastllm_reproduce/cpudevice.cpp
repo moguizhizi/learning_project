@@ -3253,7 +3253,7 @@ std::vector<int> CpuSelectTopExperts(std::vector<std::pair<float, int>> &routerS
 /**
  * @brief Normalize routing weights for selected experts.
  */
-std::vector<ExpertRoute> CudaNormalizeExpertWeights(
+std::vector<ExpertRoute> CpuNormalizeExpertWeights(
     const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm) {
     float sum = 0.0f;
     if (needNorm) {
