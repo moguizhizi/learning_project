@@ -1958,3 +1958,24 @@ void MultiThreadMemcpyMultiLinesOp::Run() {
         memcpy(tasks[i].output, tasks[i].input, tasks[i].len);
     }
 }
+
+MultiThreadMoeReduceOp::MultiThreadMoeReduceOp(
+    std::vector<std::pair<int, float>> *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end) {
+    this->task = task;
+    this->tempResult = tempResult;
+    this->curOutput = curOutput;
+    this->dim = dim;
+    this->st = st;
+    this->end = end;
+};
+
+void MultiThreadMoeReduceOp::Run() {
+    for (int i = st; i < end; i++) {
+        float value = (*task)[i].second;
+        float *lastResult = tempResult->data() + (*task)[i].first * dim;
+        float *curResult = curOutput + i * dim;
+        for (int j = 0; j < dim; j++) {
+            lastResult[j] += value * curResult[j];
+        }
+    }
+}
