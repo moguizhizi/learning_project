@@ -10,8 +10,8 @@
 #include "file_utils.hpp"
 #include "utils.h"
 
-constexpr float EPSILON = 1e-9f;     // For numerical safety
-constexpr int SharedExpertIndex = 0; // Reserved expert ID
+constexpr float EPSILON = 1e-9f; // For numerical safety
+constexpr int SharedExpertIndex = 0;
 
 CpuDevice::CpuDevice() {
     this->deviceType = "cpu";
@@ -3002,15 +3002,15 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
             float *input = fp32input + o * m;
 
-            const std::vector<ExpertRoute> &routedExperts =
-                CpuRouteMoE(fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, &sharedScale);
+            const std::vector<ExpertRoute> &routedExperts = CpuRouteMoE(
+                fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, SharedExpertIndex, &sharedScale);
 
             quantizedExecutor.ExecuteForOuterIndex(output, o, input, m, m, routedExperts, permuteType);
         }
     } else {
         if (bs == 1) {
             const std::vector<ExpertRoute> &routedExperts =
-                CpuRouteMoE(fp32logits, fp32bias, num_expert, topk, routeScale, needNorm, &sharedScale);
+                CpuRouteMoE(fp32logits, fp32bias, num_expert, topk, routeScale, needNorm, SharedExpertIndex, &sharedScale);
 
             for (auto &it : routedExperts) {
                 const ExpertRoute &expert = it;
@@ -3295,17 +3295,17 @@ std::vector<ExpertRoute> CpuNormalizeExpertWeights(
 }
 
 std::vector<ExpertRoute> CpuRouteMoE(
-    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, float *sharedScale) {
+    const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, int sharedExpertIndex, float *sharedScale) {
     auto scores = CpuComputeRouterScores(logits, bias, m);
     auto selectedExperts = CpuSelectTopExperts(scores, topk);
     auto routedExperts = CpuNormalizeExpertWeights(logits, selectedExperts, routeScale, needNorm);
 
     if (sharedScale != nullptr) {
-        routedExperts.push_back({SharedExpertIndex, *sharedScale});
+        routedExperts.push_back({sharedExpertIndex, *sharedScale});
     } else {
         float shareWeight =
             std::accumulate(routedExperts.begin(), routedExperts.end(), 0.0f, [](float acc, ExpertRoute &r) { return acc + r.weight; });
-        routedExperts.push_back({SharedExpertIndex, shareWeight});
+        routedExperts.push_back({sharedExpertIndex, shareWeight});
     }
 
     return routedExperts;
