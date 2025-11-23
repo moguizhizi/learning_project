@@ -974,7 +974,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
     float *curInput = floatInput + o * m;
 
     std::vector<uint16_t> bf16Input;
-    const auto wType = weights_[2]->dataType;
+    auto wType = weights_[2]->dataType;
     if (wType == DataType::FP8_E4M3) {
         bf16Input.resize(m);
         Float32ToBFloat16(curInput, bf16Input.data(), m);
@@ -1031,16 +1031,18 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             upWeight.CalcWeightSum();
 
+            auto wType = upWeight.dataType;
+
             n = 1;
-            if (upWeight.dataType == DataType::INT8) {
+            if (wType == DataType::INT8) {
                 // LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
                 //     upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
                 //     quantizedZeros_.data(), ops, pool, threadSt, curThread);
-            } else if (upWeight.dataType == DataType::INT4_GROUP || upWeight.dataType == DataType::INT4_NOZERO) {
+            } else if (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO) {
                 MultiplyInt4GroupMultiThreadLaunch(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
                     upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
                     quantizedZeros_, quantizedLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
-            } else if (upWeight.dataType == DataType::FP8_E4M3) {
+            } else if (wType == DataType::FP8_E4M3) {
                 // LaunchLinearBFloat16FP8E4M3(bf16Input.data(), upWeight, middle.data(), nullptr, 1, m, curk, ops, pool, threadSt, curThread);
             }
 
@@ -1088,9 +1090,15 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             auto &qConfigs = quantizedMiddleLowBitConfigs_[expertIdx];
             auto &qSums = quantizedMiddleSums_[expertIdx];
 
+            auto wType = downWeight.dataType;
+
             // ====== 添加 OnlineQuantization OP ======
-            multiOps->ops.push_back(new MultiThreadOnlineQuantizationOp(middle.data(), qInput.data(), qConfigs.data(), n, mid, group, groupCnt,
-                qSums.data(), qScales.data(), qZeros.data(), permuteType));
+            if (wType == DataType::INT8 || wType == DataType::INT4_NOZERO || wType == DataType::INT4_GROUP) {
+                multiOps->ops.push_back(new MultiThreadOnlineQuantizationOp(middle.data(), qInput.data(), qConfigs.data(), n, mid, group,
+                    groupCnt, qSums.data(), qScales.data(), qZeros.data(), permuteType));
+            } else if (wType == DataType::FP8_E4M3) {
+                multiOps->ops.push_back(new MultiThreadFloat32ToBFloat16Op(middle.data(), (uint16_t *)middle.data(), mid));
+            }
 
             // ====== 推入线程池 ======
             pool->PushOp(expertIdx, multiOps);
