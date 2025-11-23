@@ -4,11 +4,102 @@
 #include "computeutils.h"
 #include "cpudevice.h"
 #include "utils.h"
+#include "file_utils.hpp"
+
+CPUInstructInfo cpuInstructInfo;
 
 MultiThreadLinearBFloat16FP8E4M3Op::MultiThreadLinearBFloat16FP8E4M3Op(uint16_t *inputData, uint8_t *weightData, float *biasData,
-    float *outputData, int n, int m, int k, int st, int end, float *scales, int blockK, int blockM) {}
+    float *outputData, int n, int m, int k, int st, int end, float *scales, int blockK, int blockM) {
+    this->inputData = inputData;
+    this->weightData = weightData;
+    this->biasData = biasData;
+    this->outputData = outputData;
 
-void MultiThreadLinearBFloat16FP8E4M3Op::Run() {}
+    this->n = n;
+    this->m = m;
+    this->k = k;
+
+    this->st = st;
+    this->end = end;
+
+    this->scales = scales;
+    this->blockK = blockK;
+    this->blockM = blockM;
+}
+
+void MultiThreadLinearBFloat16FP8E4M3Op::Run() {
+    static struct FP8E4M3ToFP32Manager fp8e4m3tofp32;
+    static float magicScale = pow(2, 120);
+    int ks = (k - 1) / blockK + 1;
+    int ms = (m - 1) / blockM + 1;
+
+    if (cpuInstructInfo.hasAVX512BF16) {
+        if (LinearBFloat16FP8E4M3_AVX512BF16_Kernel(
+                inputData, weightData, biasData, outputData, n, m, k, st, end, blockK, blockM, scales, ks, ms, magicScale)) {
+            return;
+        }
+    }
+#ifdef __AVX2__
+    if (m % blockM == 0 && blockM % 8 == 0) {
+        for (int i = 0; i < n; i++) {
+            for (int j = st; j < end; j++) {
+                float now = biasData ? biasData[j] : 0.0f;
+                __m256 lastSum = _mm256_setzero_ps();
+                for (int midx = 0; midx < ms; midx++) {
+                    float curScale = scales[j / blockK * ms + midx];
+                    int l = midx * blockM;
+
+                    __m256 vsum = _mm256_setzero_ps();
+                    for (; l + 7 < (midx + 1) * blockM; l += 8) {
+                        // __m256 vi = _mm256_loadu_ps(inputData + i * m + l);
+                        __m128i bf16_vec_128 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(inputData + i * m + l));
+                        __m256i bf16_extended_to_32 = _mm256_cvtepu16_epi32(bf16_vec_128);
+                        __m256i fp32_bits_int = _mm256_slli_epi32(bf16_extended_to_32, 16);
+                        __m256 vi = _mm256_castsi256_ps(fp32_bits_int);
+
+                        __m128i vw_u8 = _mm_loadl_epi64((const __m128i *)(weightData + j * m + l));
+                        __m256 vw = _mm256_fp8e4m3_to_fp32_fast_ps(vw_u8);
+                        vsum = _mm256_fmadd_ps(vi, vw, vsum);
+                    }
+                    // now += Floatsum(vsum) * curScale;
+                    lastSum = _mm256_fmadd_ps(vsum, _mm256_set1_ps(curScale), lastSum);
+                }
+                now += Floatsum(lastSum) * pow(2, 120);
+                outputData[i * k + j] = now;
+            }
+        }
+    } else {
+        for (int i = 0; i < n; i++) {
+            for (int j = st; j < end; j++) {
+                float now = biasData ? biasData[j] : 0.0f;
+                for (int midx = 0; midx < ms; midx++) {
+                    float curScale = scales[j / blockK * ms + midx] * magicScale;
+                    int l = midx * blockM;
+                    __m256 vsum = _mm256_setzero_ps();
+                    for (; l + 7 < m && l + 7 < (midx + 1) * blockM; l += 8) {
+                        // __m256 vi = _mm256_loadu_ps(inputData + i * m + l);
+                        __m128i bf16_vec_128 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(inputData + i * m + l));
+                        __m256i bf16_extended_to_32 = _mm256_cvtepu16_epi32(bf16_vec_128);
+                        __m256i fp32_bits_int = _mm256_slli_epi32(bf16_extended_to_32, 16);
+                        __m256 vi = _mm256_castsi256_ps(fp32_bits_int);
+
+                        __m128i vw_u8 = _mm_loadl_epi64((const __m128i *)(weightData + j * m + l));
+                        __m256 vw = _mm256_fp8e4m3_to_fp32_fast_ps(vw_u8);
+                        vsum = _mm256_fmadd_ps(vi, vw, vsum);
+                    }
+                    now += Floatsum(vsum) * curScale;
+                    for (; l < m && l < (midx + 1) * blockM; l++) {
+                        now += curScale * inputData[i * m + l] * fp8e4m3tofp32.dict[weightData[j * m + l]];
+                    }
+                }
+                outputData[i * k + j] = now;
+            }
+        }
+    }
+#else
+    ErrorInFastLLM("Unsupport MultiThreadLinearBFloat16FP8E4M3Op");
+#endif
+}
 
 MultiThreadLinearInt8Int4GroupOp::MultiThreadLinearInt8Int4GroupOp(uint8_t *a, uint8_t *b, float *c, int n, int m, int k, int kstride,
     int *weightSums, float *weightMins, float *scales, float *bias, float *iscales, float *izeros, float *inputSums, int group, int groupCnt) {
@@ -1258,4 +1349,76 @@ void LaunchLinearInt8Int8(uint8_t *a, uint8_t *b, float *c, int n, int m, int k,
     for (int i = 0; i < threadNum; i++) {
         pool->PushOp(startTid + i, ops[startTid + i]);
     }
+}
+
+void LaunchLinearBFloat16FP8E4M3(uint16_t *inputData, Data &weight, float *outputData, float *biasData, int n, int m, int k,
+    std::vector<MultiThreadBaseOp *> &ops, AliveThreadPool *pool, int startTid, int threadNum) {
+    int per = k / threadNum;
+    int cur = 0;
+    for (int i = 0; i < threadNum; i++) {
+        int end = cur + per + (cur + per * (threadNum - i) < k);
+        if (i == threadNum - 1) {
+            end = k;
+        }
+        ops[startTid + i] = new MultiThreadLinearBFloat16FP8E4M3Op(
+            inputData, weight.cpuData, biasData, outputData, n, m, k, cur, end, weight.scales.data(), weight.blockK, weight.blockM);
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(startTid + i, ops[startTid + i]);
+    }
+}
+
+bool LinearBFloat16FP8E4M3_AVX512BF16_Kernel(uint16_t *inputData, uint8_t *weightData, float *biasData, float *outputData, int n, int m, int k,
+    int st, int end, int blockK, int blockM, float *scales, int ks, int ms, float magicScale) {
+    if (!(m % blockM == 0 && blockM % 32 == 0)) {
+        return false;
+    }
+#ifdef __AVX512BF16__
+    for (int i = 0; i < n; i++) {
+        int j = st;
+        __m256i v_a_mask_byte = _mm256_set1_epi8(0x80);
+        __m256i v_b_mask_byte = _mm256_set1_epi8(0x7F);
+        for (; j < end; j++) {
+            float now = biasData ? biasData[j] : 0.0f;
+            __m512 last_sum = _mm512_setzero_ps(); // Accumulator for 16 parallel sums
+
+            for (int midx = 0; midx < ms; midx++) {
+                float curScale = scales[j / blockK * ms + midx];
+                __m512 vScale = _mm512_set1_ps(curScale);
+
+                int l = midx * blockM;
+                __m512 v_sum = _mm512_setzero_ps(); // Accumulator for 16 parallel sums
+                for (; l + 31 < m && l + 31 < (midx + 1) * blockM; l += 32) {
+                    // 1. Load 32 BF16 inputs
+                    // Treat uint16_t* as __m512bh* - use loadu for unaligned access
+                    __m512bh v_input_bf16 = (__m512bh)_mm512_loadu_si512((__m512i const *)(inputData + i * m + l));
+                    // 2. Load 32 FP8 weights
+                    __m256i va_bytes = _mm256_loadu_si256((__m256i *)&weightData[j * m + l]);
+
+                    __m256i va_masked_bytes = _mm256_and_si256(va_bytes, v_a_mask_byte);
+                    __m512i va_promoted_words = _mm512_cvtepu8_epi16(va_masked_bytes);
+                    __m512i v_a_term_shifted = _mm512_slli_epi16(va_promoted_words, 8);
+
+                    __m256i vb_masked_bytes = _mm256_and_si256(va_bytes, v_b_mask_byte);
+                    __m512i vb_promoted_words = _mm512_cvtepu8_epi16(vb_masked_bytes);
+                    __m512i v_b_term_shifted = _mm512_slli_epi16(vb_promoted_words, 4);
+
+                    __m512i v_result = _mm512_or_si512(v_a_term_shifted, v_b_term_shifted);
+                    __m512bh v_weights_bf16 = (__m512bh)v_result;
+
+                    // 3. Compute dot product: v_sum += v_input_bf16 * v_weights_bf16
+                    v_sum = _mm512_dpbf16_ps(v_sum, v_input_bf16, v_weights_bf16);
+                }
+
+                last_sum = _mm512_fmadd_ps(v_sum, vScale, last_sum);
+            }
+
+            now += _mm512_reduce_add_ps(last_sum) * magicScale;
+            outputData[i * k + j] = now;
+        }
+    }
+    return true;
+#endif
+    return false;
 }
