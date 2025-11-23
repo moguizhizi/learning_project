@@ -561,3 +561,10 @@ struct CPUInstructInfo {
 #endif // ifndef __aarch64__
     }
 };
+
+struct MultiThreadMemcpyMultiLinesTask {
+    uint8_t *output, *input;
+    size_t len;
+
+    MultiThreadMemcpyMultiLinesTask(uint8_t *output, uint8_t *input, size_t len);
+};
