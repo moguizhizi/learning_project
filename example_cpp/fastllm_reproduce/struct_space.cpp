@@ -1940,3 +1940,9 @@ void MultiThreadLinearFloat32Float32Op::Run() {
         }
     }
 }
+
+MultiThreadMemcpyMultiLinesTask::MultiThreadMemcpyMultiLinesTask(uint8_t *output, uint8_t *input, size_t len) {
+    this->output = output;
+    this->input = input;
+    this->len = len;
+}
