@@ -973,10 +973,17 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
     int n = 1;
     float *curInput = floatInput + o * m;
 
-    prepareBuffer(n, m, group);
+    std::vector<uint16_t> bf16Input;
+    const auto wType = weights_[2]->dataType;
+    if (wType == DataType::FP8_E4M3) {
+        bf16Input.resize(m);
+        Float32ToBFloat16(curInput, bf16Input.data(), m);
+    } else if (wType == DataType::INT4_GROUP || wType == DataType::INT8 || wType == INT4_NOZERO) {
+        prepareBuffer(n, m, group);
 
-    OnlineQuantization(curInput, quantizedInput_, quantizedLowBitConfigs_, 1, m, group, groupCnt, quantizedSums_, quantizedScales_,
-        quantizedZeros_, permuteType);
+        OnlineQuantization(curInput, quantizedInput_, quantizedLowBitConfigs_, 1, m, group, groupCnt, quantizedSums_, quantizedScales_,
+            quantizedZeros_, permuteType);
+    }
 
     ensureMiddleAndResultBuffers(routedExperts);
 
@@ -1034,6 +1041,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
                     upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
                     quantizedZeros_, quantizedLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
             } else if (upWeight.dataType == DataType::FP8_E4M3) {
+                // LaunchLinearBFloat16FP8E4M3(bf16Input.data(), upWeight, middle.data(), nullptr, 1, m, curk, ops, pool, threadSt, curThread);
             }
 
             threadSt += curThread;
