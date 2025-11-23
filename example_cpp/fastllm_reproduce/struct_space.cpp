@@ -1946,3 +1946,15 @@ MultiThreadMemcpyMultiLinesTask::MultiThreadMemcpyMultiLinesTask(uint8_t *output
     this->input = input;
     this->len = len;
 }
+
+MultiThreadMemcpyMultiLinesOp::MultiThreadMemcpyMultiLinesOp(MultiThreadMemcpyMultiLinesTask *tasks, int st, int end) {
+    this->tasks = tasks;
+    this->st = st;
+    this->end = end;
+};
+
+void MultiThreadMemcpyMultiLinesOp::Run() {
+    for (int i = st; i < end; i++) {
+        memcpy(tasks[i].output, tasks[i].input, tasks[i].len);
+    }
+}

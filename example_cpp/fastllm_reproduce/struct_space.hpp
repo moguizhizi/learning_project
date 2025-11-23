@@ -568,3 +568,11 @@ struct MultiThreadMemcpyMultiLinesTask {
 
     MultiThreadMemcpyMultiLinesTask(uint8_t *output, uint8_t *input, size_t len);
 };
+
+struct MultiThreadMemcpyMultiLinesOp : MultiThreadBaseOp {
+    MultiThreadMemcpyMultiLinesTask *tasks;
+    int st, end;
+
+    MultiThreadMemcpyMultiLinesOp(MultiThreadMemcpyMultiLinesTask *tasks, int st, int end);
+    void Run();
+};
