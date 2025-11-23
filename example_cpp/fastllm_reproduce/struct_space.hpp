@@ -576,3 +576,15 @@ struct MultiThreadMemcpyMultiLinesOp : MultiThreadBaseOp {
     MultiThreadMemcpyMultiLinesOp(MultiThreadMemcpyMultiLinesTask *tasks, int st, int end);
     void Run();
 };
+
+struct MultiThreadMoeReduceOp : MultiThreadBaseOp {
+    std::vector<std::pair<int, float> > *task;
+    std::vector<float> *tempResult;
+    float *curOutput;
+    int dim, st, end;
+
+    MultiThreadMoeReduceOp(
+        std::vector<std::pair<int, float> > *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end);
+
+    void Run();
+};
