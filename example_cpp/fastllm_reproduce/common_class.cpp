@@ -968,7 +968,7 @@ void MoEQuantizedExecutor::AccumulateExpertOutputs(
 
 void MoEQuantizedExecutor::ExecuteForOuterIndex(
     Data &output, int o, float *floatInput, int m, int k, const std::vector<ExpertRoute> &routedExperts, int permuteType) {
-    int groupCnt = weights_[2]->groupCnt;
+    int groupCnt = weights_[2]->groupCnt == -1 ? m : weights_[2]->groupCnt;
     int group = (m - 1) / groupCnt + 1;
     int n = 1;
     float *curInput = floatInput + o * m;
@@ -1066,7 +1066,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             multiOps->ops.push_back(new MultiThreadSwigluOp(middle.data(), mid, mid, middle.data(), n, curk, curk));
 
             // ====== 计算量化参数大小 ======
-            const int groupCnt = downWeight.groupCnt;
+            const int groupCnt = downWeight.groupCnt == -1 ? mid : downWeight.groupCnt;
             const int group = (mid + groupCnt - 1) / groupCnt; // 等价于 ceil(mid / groupCnt)
 
             // ====== 确保量化缓冲区存在 ======
