@@ -1097,7 +1097,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
                 multiOps->ops.push_back(new MultiThreadOnlineQuantizationOp(middle.data(), qInput.data(), qConfigs.data(), n, mid, group,
                     groupCnt, qSums.data(), qScales.data(), qZeros.data(), permuteType));
             } else if (wType == DataType::FP8_E4M3) {
-                multiOps->ops.push_back(new MultiThreadFloat32ToBFloat16Op(middle.data(), (uint16_t *)middle.data(), mid));
+                multiOps->ops.push_back(new MultiThreadFloat32ToBFloat16Op(middle.data(), (uint16_t *)qInput.data(), mid));
             }
 
             // ====== 推入线程池 ======
@@ -1111,6 +1111,7 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
         for (auto jt = beginIt; jt != std::next(endIt); jt++) {
             const ExpertRoute &expert = *jt;
+            Data &upWeight = *(weights_[2 * expert.expertIndex]);
             Data &downWeight = *(weights_[2 * expert.expertIndex + 1]);
             const int curk = downWeight.dims[0];
             int curThread = (curk / expertK) * base;
@@ -1122,20 +1123,28 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
             std::vector<float> &quantizedMiddleZero = quantizedMiddleZeros_[index];
             std::vector<LowBitConfig> &quantizedMiddleLowBitConfig = quantizedMiddleLowBitConfigs_[index];
 
+            const int mid = upWeight.dims[0] / 2;
+
             const int groupCnt = downWeight.groupCnt == -1 ? curk : downWeight.groupCnt;
             const int group = (curk + groupCnt - 1) / groupCnt;
 
             downWeight.CalcWeightSum();
 
+            auto wType = downWeight.dataType;
+
             n = 1;
-            if (downWeight.dataType == DataType::INT8) {
+            if (wType == DataType::INT8) {
                 // LaunchLinearInt8Int8(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk, downWeight.weightSum.data(),
                 //     downWeight.zeros.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum.data(), quantizedMiddleScale.data(),
                 //     quantizedMiddleZero.data(), ops, pool, threadSt, curThread);
-            } else {
-                MultiplyInt4GroupMultiThreadLaunch(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, m, curk,
+            } else if (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO) {
+                MultiplyInt4GroupMultiThreadLaunch(quantizedMiddleInput.data(), downWeight.cpuData, result.data(), n, mid, curk,
                     downWeight.weightSum.data(), downWeight.mins.data(), downWeight.scales.data(), nullptr, quantizedMiddleSum,
                     quantizedMiddleScale, quantizedMiddleZero, quantizedMiddleLowBitConfig, threadSt, curThread, group, groupCnt, ops, pool);
+            } else if (wType == DataType::FP8_E4M3) {
+                // LaunchLinearBFloat16FP8E4M3(
+                //     (uint16_t *)quantizedMiddleInput.data(), downWeight, result.data(), nullptr, 1, mid, curk, ops, pool, threadSt,
+                //     curThread);
             }
 
             threadSt += curThread;
