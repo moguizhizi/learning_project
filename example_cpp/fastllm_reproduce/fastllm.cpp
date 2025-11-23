@@ -581,3 +581,7 @@ void CatBatch(std::vector<Data *> &input, int axis, Data &outputs) {
 void Linear(Data &input, Data &weight, const Data &bias, Data &output) {
     curExecutor->Run("Linear", {{"input", &input}, {"weight", &weight}, {"bias", (Data *)&bias}, {"output", &output}}, {}, {});
 }
+
+void Swiglu(const Data &input, Data &output) {
+    curExecutor->Run("Swiglu", {{"input", (Data *)&input}, {"output", &output}}, {}, {});
+}
