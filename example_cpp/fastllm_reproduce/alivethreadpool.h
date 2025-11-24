@@ -26,3 +26,5 @@ struct AliveThreadPool {
 };
 
 void RunMultiThreadMemcpyMultiLines(std::vector<MultiThreadMemcpyMultiLinesTask> &tasks, AliveThreadPool *pool);
+void RunMultiThreadMoeReduce(
+    std::vector<std::pair<int, float> > *task, std::vector<float> *tempResult, float *curOutput, int dim, AliveThreadPool *pool);
