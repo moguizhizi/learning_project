@@ -3022,6 +3022,7 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 Linear(w1, *weights[2 * expertIndex + 1], Data(), w2);
                 AddTo(output, w2, weight);
             }
+        } else {
         }
     }
 }
