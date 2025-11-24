@@ -3002,14 +3002,14 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
             float *input = fp32input + o * m;
 
-            const std::vector<ExpertRoute> &routedExperts = CpuRouteMoE(
+            std::vector<ExpertRoute> routedExperts = CpuRouteMoE(
                 fp32logits + o * num_expert, fp32bias + o * num_expert, num_expert, topk, routeScale, needNorm, SharedExpertIndex, &sharedScale);
 
             quantizedExecutor.ExecuteForOuterIndex(output, o, input, m, m, routedExperts, permuteType);
         }
     } else {
         if (bs == 1) {
-            const std::vector<ExpertRoute> &routedExperts =
+            std::vector<ExpertRoute> routedExperts =
                 CpuRouteMoE(fp32logits, fp32bias, num_expert, topk, routeScale, needNorm, SharedExpertIndex, &sharedScale);
 
             for (auto &it : routedExperts) {
@@ -3023,6 +3023,19 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 AddTo(output, w2, weight);
             }
         } else {
+            std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> expertTasks;
+            for (int i = 0; i < bs; i++) {
+                std::vector<ExpertRoute> routedExperts = CpuRouteMoE(fp32logits + i * num_expert, fp32bias + i * num_expert, num_expert, topk,
+                    routeScale, needNorm, SharedExpertIndex, &sharedScale);
+
+                for (auto &it : routedExperts) {
+                    auto &entry = expertTasks[it.expertIndex];
+                    if (entry.second.empty()) {
+                        entry.first = it;
+                    }
+                    entry.second.push_back(i);
+                }
+            }
         }
     }
 }
