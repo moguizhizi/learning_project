@@ -1991,3 +1991,9 @@ void MultiThreadMoeReduceOp::Run() {
         }
     }
 }
+
+MultiThreadMemcpyOp::MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int len) {
+    this->output = output;
+    this->input = input;
+    this->len = len;
+}
