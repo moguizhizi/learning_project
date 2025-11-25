@@ -3023,6 +3023,8 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 AddTo(output, w2, weight);
             }
         } else {
+            std::vector<float> *tempResult;
+            tempResult->resize(output.Count(0), 0.0f);
             std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> expertTasks;
             for (int i = 0; i < bs; i++) {
                 std::vector<ExpertRoute> routedExperts = CpuRouteMoE(fp32logits + i * num_expert, fp32bias + i * num_expert, num_expert, topk,
@@ -3051,6 +3053,8 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
 
                 const unsigned long num_tasks = indices.size();
 
+                float *curOutput = nullptr;
+
                 Data tempInput(input.dataType);
                 tempInput.Resize({static_cast<int>(num_tasks), m});
                 tempInput.Allocate(0.0f);
@@ -3065,7 +3069,37 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 DoCpuLinearReshape(tempInput, upWeight, w3);
                 DoCpuLinear(tempInput, upWeight, upBias, w3);
 
+                const int mid = w3.dims[1] / 2;
 
+                w1.dataType = w3.dataType;
+                w1.Resize({w3.dims[0], w3.dims[1] / 2});
+                w1.Allocate(0.0f);
+
+                if (w1.dataType == DataType::FLOAT32) {
+                    SwigluMultiThread((float *)w3.cpuData, mid, mid, ((float *)w1.cpuData), w3.dims[0], w3.dims[1], mid, GetAlivePool());
+                } else if (w1.dataType == DataType::FLOAT16) {
+                    SwigluMultiThreadFloat16(
+                        (uint16_t *)w3.cpuData, mid, mid, ((uint16_t *)w1.cpuData), w3.dims[0], w3.dims[1], mid, GetAlivePool());
+                } else {
+                }
+
+                DoCpuLinearReshape(w1, downWeight, w2);
+                DoCpuLinear(w1, downWeight, downBias, w2);
+
+                if (w2.dataType == DataType::FLOAT32) {
+                    curOutput = (float *)w2.cpuData;
+                } else if (w2.dataType == DataType::FLOAT16) {
+                    std::vector<float> w2buf;
+                    curOutput = MOEConvertToFloat32(w2, w2buf);
+                }
+
+                RunMultiThreadMoeReduce(expertTask, tempResult, curOutput, w2.dims[0], GetAlivePool());
+            }
+
+            if (output.dataType == DataType::FLOAT32) {
+                memcpy(output.cpuData, tempResult->data(), output.GetBytes());
+            } else if (output.dataType == DataType::FLOAT16) {
+                Float32ToFloat16(tempResult->data(), (uint16_t *)output.cpuData, output.Count(0));
             }
         }
     }

@@ -50,11 +50,11 @@ void RunMultiThreadMemcpyMultiLines(std::vector<MultiThreadMemcpyMultiLinesTask>
 }
 
 void RunMultiThreadMoeReduce(
-    std::vector<std::pair<int, float>> *task, std::vector<float> *tempResult, float *curOutput, int dim, AliveThreadPool *pool) {
+    const std::pair<ExpertRoute, std::vector<int>> *task, std::vector<float> *tempResult, float *curOutput, int dim, AliveThreadPool *pool) {
     int threadNum = pool->threads.size();
     threadNum = std::min(threadNum, 8); // 限制最大线程数为8
 
-    int n = task->size();
+    int n = task->second.size();
     int per = n / threadNum;       // 每个线程平均分配的任务数
     int remainder = n % threadNum; // 计算剩余任务数，给前面的线程分配额外的任务
 
