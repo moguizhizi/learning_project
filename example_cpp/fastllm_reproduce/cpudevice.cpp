@@ -3452,3 +3452,30 @@ float *ExpertForwardDown(Data &w1, Data &downWeight, Data &downBias, Data &w2) {
     static std::vector<float> w2buf;
     return MOEConvertToFloat32(w2, w2buf);
 }
+
+float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &expertTask, const Data &input, std::vector<Data *> &weights,
+    Data &w1, Data &w2, Data &w3, AliveThreadPool *pool) {
+    const ExpertRoute &expert = expertTask.first;
+    int expertIndex = expert.expertIndex;
+    const std::vector<int> &indices = expertTask.second;
+
+    int m = input.dims[1];
+    int uintsize = static_cast<int>(input.unitSize / input.unitSizeDiv);
+
+    Data tempInput(input.dataType);
+    PrepareTempInput(tempInput, input, indices, m, uintsize, pool);
+
+    // up
+    Data &upWeight = *(weights[2 * expertIndex]);
+    Data upBias;
+    ExpertForwardUp(w3, tempInput, upWeight, upBias);
+
+    // swiglu
+    ExpertApplySwiglu(w1, w3, pool);
+
+    // down
+    Data &downWeight = *(weights[2 * expertIndex + 1]);
+    Data downBias;
+
+    return ExpertForwardDown(w1, downWeight, downBias, w2);
+}

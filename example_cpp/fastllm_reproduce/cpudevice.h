@@ -406,3 +406,5 @@ void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int>
 void ExpertForwardUp(Data &w3, Data &tempInput, Data &upWeight, Data &upBias);
 void ExpertApplySwiglu(Data &w1, Data &w3, AliveThreadPool *pool);
 float *ExpertForwardDown(Data &w1, Data &downWeight, Data &downBias, Data &w2);
+float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &expertTask, const Data &input, std::vector<Data *> &weights,
+    Data &w1, Data &w2, Data &w3, AliveThreadPool *pool);
