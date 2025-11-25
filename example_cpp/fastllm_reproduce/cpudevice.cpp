@@ -3440,3 +3440,15 @@ void ExpertApplySwiglu(Data &w1, Data &w3, AliveThreadPool *pool) {
         SwigluMultiThreadFloat16((uint16_t *)w3.cpuData, mid, mid, (uint16_t *)w1.cpuData, w3.dims[0], w3.dims[1], mid, pool);
     }
 }
+
+float *ExpertForwardDown(Data &w1, Data &downWeight, Data &downBias, Data &w2) {
+    DoCpuLinearReshape(w1, downWeight, w2);
+    DoCpuLinear(w1, downWeight, downBias, w2);
+
+    if (w2.dataType == DataType::FLOAT32) {
+        return (float *)w2.cpuData;
+    }
+
+    static std::vector<float> w2buf;
+    return MOEConvertToFloat32(w2, w2buf);
+}
