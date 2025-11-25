@@ -3023,77 +3023,18 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 AddTo(output, w2, weight);
             }
         } else {
-            std::vector<float> *tempResult;
-            tempResult->resize(output.Count(0), 0.0f);
             std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> expertTasks;
-            for (int i = 0; i < bs; i++) {
-                std::vector<ExpertRoute> routedExperts = CpuRouteMoE(fp32logits + i * num_expert, fp32bias + i * num_expert, num_expert, topk,
-                    routeScale, needNorm, SharedExpertIndex, &sharedScale);
+            std::vector<float> *tempResult;
+            BuildExpertTasks(expertTasks, bs, fp32logits, fp32bias, num_expert, topk, routeScale, needNorm, SharedExpertIndex, &sharedScale);
 
-                for (auto &it : routedExperts) {
-                    auto &entry = expertTasks[it.expertIndex];
-                    if (entry.second.empty()) {
-                        entry.first = it;
-                    }
-                    entry.second.push_back(i);
-                }
-            }
+            tempResult->resize(output.Count(0), 0.0f);
 
-            const int m = input.dims[1];
-            const int uintsize = static_cast<int>(input.unitSize / input.unitSizeDiv);
+            // 2. 对每个 expert 做前向 + reduce
             for (auto &it : expertTasks) {
-                const std::pair<ExpertRoute, std::vector<int>> &expertTask = it.second;
-                const ExpertRoute expert = expertTask.first;
-                const int expertIndex = expert.expertIndex;
-                Data &upWeight = *(weights[2 * expertIndex]);
-                Data upBias;
-                Data &downWeight = *(weights[2 * expertIndex + 1]);
-                Data downBias;
-                const std::vector<int> indices = expertTask.second;
+                auto &expertTask = it.second;
+                float *curOutput = RunSingleExpertForward(expertTask, input, weights, w1, w2, w3, GetAlivePool());
 
-                const unsigned long num_tasks = indices.size();
-
-                float *curOutput = nullptr;
-
-                Data tempInput(input.dataType);
-                tempInput.Resize({static_cast<int>(num_tasks), m});
-                tempInput.Allocate(0.0f);
-
-                std::vector<MultiThreadMemcpyMultiLinesTask> memcpyTasks;
-                for (int i = 0; i < static_cast<int>(num_tasks); i++) {
-                    memcpyTasks.push_back(MultiThreadMemcpyMultiLinesTask(
-                        tempInput.cpuData + i * m * uintsize, input.cpuData + indices[i] * m * input.unitSize, m * uintsize));
-                }
-
-                RunMultiThreadMemcpyMultiLines(memcpyTasks, GetAlivePool());
-                DoCpuLinearReshape(tempInput, upWeight, w3);
-                DoCpuLinear(tempInput, upWeight, upBias, w3);
-
-                const int mid = w3.dims[1] / 2;
-
-                w1.dataType = w3.dataType;
-                w1.Resize({w3.dims[0], w3.dims[1] / 2});
-                w1.Allocate(0.0f);
-
-                if (w1.dataType == DataType::FLOAT32) {
-                    SwigluMultiThread((float *)w3.cpuData, mid, mid, ((float *)w1.cpuData), w3.dims[0], w3.dims[1], mid, GetAlivePool());
-                } else if (w1.dataType == DataType::FLOAT16) {
-                    SwigluMultiThreadFloat16(
-                        (uint16_t *)w3.cpuData, mid, mid, ((uint16_t *)w1.cpuData), w3.dims[0], w3.dims[1], mid, GetAlivePool());
-                } else {
-                }
-
-                DoCpuLinearReshape(w1, downWeight, w2);
-                DoCpuLinear(w1, downWeight, downBias, w2);
-
-                if (w2.dataType == DataType::FLOAT32) {
-                    curOutput = (float *)w2.cpuData;
-                } else if (w2.dataType == DataType::FLOAT16) {
-                    std::vector<float> w2buf;
-                    curOutput = MOEConvertToFloat32(w2, w2buf);
-                }
-
-                RunMultiThreadMoeReduce(expertTask, tempResult, curOutput, w2.dims[0], GetAlivePool());
+                RunMoeReduceAndAccumulate(expertTask, tempResult, curOutput, w2.dims[1], GetAlivePool());
             }
 
             if (output.dataType == DataType::FLOAT32) {
@@ -3453,8 +3394,8 @@ float *ExpertForwardDown(Data &w1, Data &downWeight, Data &downBias, Data &w2) {
     return MOEConvertToFloat32(w2, w2buf);
 }
 
-float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &expertTask, const Data &input, std::vector<Data *> &weights,
-    Data &w1, Data &w2, Data &w3, AliveThreadPool *pool) {
+float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &expertTask, const Data &input, Data **weights, Data &w1, Data &w2,
+    Data &w3, AliveThreadPool *pool) {
     const ExpertRoute &expert = expertTask.first;
     int expertIndex = expert.expertIndex;
     const std::vector<int> &indices = expertTask.second;
@@ -3478,4 +3419,9 @@ float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &ex
     Data downBias;
 
     return ExpertForwardDown(w1, downWeight, downBias, w2);
+}
+
+void RunMoeReduceAndAccumulate(const std::pair<ExpertRoute, std::vector<int>> &expertTask, std::vector<float> *tempResult, float *curOutput,
+    int dim, AliveThreadPool *pool) {
+    RunMultiThreadMoeReduce(expertTask, tempResult, curOutput, dim, pool);
 }
