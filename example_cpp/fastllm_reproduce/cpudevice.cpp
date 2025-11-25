@@ -3425,3 +3425,18 @@ void ExpertForwardUp(Data &w3, Data &tempInput, Data &upWeight, Data &upBias) {
     DoCpuLinearReshape(tempInput, upWeight, w3);
     DoCpuLinear(tempInput, upWeight, upBias, w3);
 }
+
+void ExpertApplySwiglu(Data &w1, Data &w3, AliveThreadPool *pool) {
+    const int mid = w3.dims[1] / 2;
+
+    w1.dataType = w3.dataType;
+    w1.Resize({w3.dims[0], mid});
+    w1.Allocate(0.0f);
+
+    if (w1.dataType == DataType::FLOAT32) {
+        SwigluMultiThread((float *)w3.cpuData, mid, mid, (float *)w1.cpuData, w3.dims[0], w3.dims[1], mid, pool);
+
+    } else if (w1.dataType == DataType::FLOAT16) {
+        SwigluMultiThreadFloat16((uint16_t *)w3.cpuData, mid, mid, (uint16_t *)w1.cpuData, w3.dims[0], w3.dims[1], mid, pool);
+    }
+}
