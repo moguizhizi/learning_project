@@ -509,13 +509,13 @@ struct MultiThreadMemcpyMultiLinesOp : MultiThreadBaseOp {
 };
 
 struct MultiThreadMoeReduceOp : MultiThreadBaseOp {
-    std::vector<std::pair<int, float> > *task;
+    const std::pair<ExpertRoute, std::vector<int>> *task;
     std::vector<float> *tempResult;
     float *curOutput;
     int dim, st, end;
 
     MultiThreadMoeReduceOp(
-        std::vector<std::pair<int, float> > *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end);
+        const std::pair<ExpertRoute, std::vector<int>> *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end);
 
     void Run();
 };
