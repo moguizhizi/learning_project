@@ -17,6 +17,7 @@ static AliveThreadPool *fastllmAliveThreadPool = nullptr;
 static bool lowMemMode = false;
 static bool cudaEmbedding = false;
 static bool kvCacheInCPU = false;
+static bool historyCacheInCPU = false;
 
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
@@ -520,6 +521,10 @@ bool GetLowMemMode() {
 
 bool GetKVCacheInCPU() {
     return kvCacheInCPU;
+}
+
+bool GetHistoryCacheInCPU() {
+    return historyCacheInCPU;
 }
 
 AliveThreadPool *GetAlivePool() {
