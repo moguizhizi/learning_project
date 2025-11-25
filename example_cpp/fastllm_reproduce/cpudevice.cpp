@@ -3042,6 +3042,11 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
             for (auto &it : expertTasks) {
                 const std::pair<ExpertRoute, std::vector<int>> &expertTask = it.second;
                 const ExpertRoute expert = expertTask.first;
+                const int expertIndex = expert.expertIndex;
+                Data &upWeight = *(weights[2 * expertIndex]);
+                Data upBias;
+                Data &downWeight = *(weights[2 * expertIndex + 1]);
+                Data downBias;
                 const std::vector<int> indices = expertTask.second;
 
                 const unsigned long num_tasks = indices.size();
@@ -3057,6 +3062,10 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                 }
 
                 RunMultiThreadMemcpyMultiLines(memcpyTasks, GetAlivePool());
+                DoCpuLinearReshape(tempInput, upWeight, w3);
+                DoCpuLinear(tempInput, upWeight, upBias, w3);
+
+
             }
         }
     }
