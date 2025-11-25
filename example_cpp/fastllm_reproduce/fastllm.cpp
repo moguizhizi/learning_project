@@ -16,6 +16,7 @@ static int threads = 4;
 static AliveThreadPool *fastllmAliveThreadPool = nullptr;
 static bool lowMemMode = false;
 static bool cudaEmbedding = false;
+static bool kvCacheInCPU = false;
 
 basellm *CreateModelWithType(const std::string &model_type) {
     basellm *model = nullptr;
@@ -515,6 +516,10 @@ bool GetCudaEmbedding() {
 
 bool GetLowMemMode() {
     return lowMemMode;
+}
+
+bool GetKVCacheInCPU() {
+    return kvCacheInCPU;
 }
 
 AliveThreadPool *GetAlivePool() {
