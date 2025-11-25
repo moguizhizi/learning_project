@@ -3479,3 +3479,8 @@ float *RunSingleExpertForward(const std::pair<ExpertRoute, std::vector<int>> &ex
 
     return ExpertForwardDown(w1, downWeight, downBias, w2);
 }
+
+void RunMoeReduceAndAccumulate(const std::pair<ExpertRoute, std::vector<int>> &expertTask, std::vector<float> *tempResult, float *curOutput,
+    int dim, AliveThreadPool *pool) {
+    RunMultiThreadMoeReduce(expertTask, tempResult, curOutput, dim, pool);
+}
