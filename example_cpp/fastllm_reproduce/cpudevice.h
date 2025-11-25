@@ -4,6 +4,9 @@
 #include "device.h"
 #include "struct_space.hpp"
 
+void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> &expertTasks, int bs, const float *fp32logits,
+    const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale);
+
 class CpuDevice : BaseDevice {
    public:
     CpuDevice();
