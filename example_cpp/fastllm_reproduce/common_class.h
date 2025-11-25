@@ -19,6 +19,7 @@ class Data {
     DataDevice dataDevice = DataDevice::CPU;
     WeightType weightType = WeightType::NONE;
 
+    bool lockInCPU = false; // 如果lock在CPU上，那么不允许移动到其余设备
     bool isFake = false;
     bool directMemory = false;
     bool isKVCache = false;
