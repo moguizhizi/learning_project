@@ -401,3 +401,5 @@ std::vector<ExpertRoute> CpuRouteMoE(
 
 void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> &expertTasks, int bs, const float *fp32logits,
     const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale);
+
+void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int> &indices, int m, int uintsize, AliveThreadPool *pool);
