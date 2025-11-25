@@ -5,6 +5,7 @@
 #include "common_class.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
+#include "utils.h"
 
 void Executor::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     auto st = std::chrono::system_clock::now();
