@@ -594,4 +594,5 @@ struct MultiThreadMemcpyOp : MultiThreadBaseOp {
     int len;
 
     MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int len);
+    void Run();
 };
