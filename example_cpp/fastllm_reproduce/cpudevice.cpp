@@ -2952,6 +2952,101 @@ void CpuPermuteOp::Reshape(const std::string &opType, const DataDict &datas, con
     output.Resize(new_dims);
 }
 
+void CpuPermuteOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    Data &axisData = *(datas.find("axis")->second);
+    std::vector<int> axis;
+    for (int i = 0; i < axisData.Count(0); i++) {
+        axis.push_back(((int32_t *)axisData.cpuData)[i]);
+    }
+
+    output.Allocate();
+    uint8_t *tmpData = (uint8_t *)output.cpuData;
+    uint8_t *curData = (uint8_t *)input.cpuData;
+
+    if (axis == std::vector<int>{1, 2, 0} && input.dataType == DataType::FLOAT32) {
+        int n = input.dims[0];
+        int m = input.Count(1);
+
+        int threadNum = 1;
+        int per = m / threadNum;
+        int cur = 0;
+        Transpose(((float *)tmpData) + cur * n, ((float *)curData) + cur, n, m, n, m - cur);
+    } else if (axis == std::vector<int>{1, 0, 2}) {
+        int n = input.dims[0];
+        int m = input.dims[1];
+        int k = input.dims[2];
+        int unitSize = input.unitSize;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                memcpy(tmpData + (j * n + i) * k * unitSize, curData + (i * m + j) * k * unitSize, k * unitSize);
+            }
+        }
+    } else if (axis == std::vector<int>{2, 0, 1, 3}) {
+        int n = input.dims[0] * input.dims[1];
+        int m = input.dims[2];
+        int k = input.dims[3];
+        int unitSize = input.unitSize;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                memcpy(tmpData + (j * n + i) * k * unitSize, curData + (i * m + j) * k * unitSize, k * unitSize);
+            }
+        }
+    } else if (axis == std::vector<int>{0, 2, 1, 3}) {
+        int b = input.dims[0];
+        int n = input.dims[1];
+        int m = input.dims[2];
+        int k = input.dims[3];
+        int unitSize = input.unitSize;
+        for (int o = 0; o < b; o++) {
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < m; j++) {
+                    memcpy(tmpData + (j * n + i) * k * unitSize, curData + (i * m + j) * k * unitSize, k * unitSize);
+                }
+            }
+            tmpData += output.Count(1) * unitSize;
+            curData += input.Count(1) * unitSize;
+        }
+    } else {
+        std::vector<int> oldSteps;
+        std::vector<int> newSteps;
+        int count = input.Count(0);
+        auto oldPos = new int[count];
+        for (int i = 0; i < axis.size(); i++) {
+            oldSteps.push_back(input.Count(i + 1));
+            newSteps.push_back(output.Count(i + 1));
+        }
+
+        for (int i = 0; i < count; ++i) {
+            int old = 0;
+            int idx = i;
+            for (int j = 0; j < axis.size(); ++j) {
+                int order = axis[j];
+                old += (idx / newSteps[j]) * oldSteps[order];
+                idx %= newSteps[j];
+            }
+            oldPos[i] = old;
+        }
+
+        if (input.unitSize == 4) {
+            for (int i = 0; i < count; ++i) {
+                ((float *)tmpData)[i] = ((float *)curData)[oldPos[i]];
+            }
+        } else if (input.unitSize == 2) {
+            for (int i = 0; i < count; ++i) {
+                ((uint16_t *)tmpData)[i] = ((uint16_t *)curData)[oldPos[i]];
+            }
+        } else if (input.unitSize == 1) {
+            for (int i = 0; i < count; ++i) {
+                ((uint8_t *)tmpData)[i] = ((uint8_t *)curData)[oldPos[i]];
+            }
+        }
+
+        delete[] oldPos;
+    }
+}
+
 void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
