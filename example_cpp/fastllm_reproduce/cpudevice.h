@@ -70,6 +70,122 @@ class CpuLinearOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
+class CpuRepeatOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuCatOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuCatDirectOp : BaseOperator {
+   protected:
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuSplitOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMatMulOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMatMulTransBOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuNormalizeOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuSoftMaxOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuSiluOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuTanHOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuReluOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuSigmoidOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuGeluOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuGeluNewOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuSwigluOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMulOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuAddOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMulToOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuAddToOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuAttentionMaskOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuAttentionExtendedMaskOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuAlibiMaskOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuTopKOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuPermuteOp : BaseOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuMergeMOE : BaseOperator {
+   protected:
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+class CpuPermuteSelfOp : BaseOperator {
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
+float erf(float a);
+
 void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
 void DoCpuLinear(Data &input, Data &weight, const Data &bias, Data &output);
 void DoCpuCatDirect(Data &input0, Data &input1, int axis);
@@ -146,11 +262,6 @@ void MultiplyInt4GroupMultiThreadLaunch(uint8_t *a, uint8_t *b, float *c, int n,
     float *bias, std::vector<float> &inputSums, std::vector<float> &iscales, std::vector<float> &izeros, std::vector<LowBitConfig> &configs,
     int startTid, int threadNum, int group, int groupCnt, std::vector<MultiThreadBaseOp *> &ops, AliveThreadPool *pool);
 
-class CpuSplitOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
 struct MultiThreadSliceOp : MultiThreadBaseOp {
     uint8_t *input, *output;
     int outer, inputStride, outputStride, copyLen;
@@ -162,21 +273,6 @@ struct MultiThreadSliceOp : MultiThreadBaseOp {
 
 static void RunMultiThreadSlice(
     uint8_t *output, uint8_t *input, int outer, int inputStride, int outputStride, int copyLen, AliveThreadPool *pool);
-
-class CpuRepeatOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuCatOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuCatDirectOp : BaseOperator {
-   protected:
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
 
 struct MultiThreadMatMulSingleOp : MultiThreadBaseOp {
     float *input0Base, *input1Base, *outputBase;
@@ -227,55 +323,6 @@ struct MultiThreadMatMulTransBFloat16SingleOp : MultiThreadBaseOp {
     void Run();
 };
 
-class CpuMatMulOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuMatMulTransBOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuNormalizeOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuSoftMaxOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuSiluOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuTanHOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuReluOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuSigmoidOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-float erf(float a);
-
-class CpuGeluOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuGeluNewOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuSwigluOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
 struct MultiThreadSwigluOp : MultiThreadBaseOp {
     float *input, *output;
     int mid, len, n, inputStride, outputStride;
@@ -297,18 +344,6 @@ struct MultiThreadSwigluFloat16Op : MultiThreadBaseOp {
 void DoCpuSwigluReshape(Data &input, Data &output);
 void DoCpuSwiglu(Data &input, Data &output);
 
-class CpuMulOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuAddOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuMulToOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
 struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
     float *input, *output;
     int len;
@@ -320,37 +355,6 @@ struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
 };
 
 static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, int len, AliveThreadPool *pool);
-
-class CpuAddToOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuAttentionMaskOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuAttentionExtendedMaskOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuAlibiMaskOp : BaseOperator {
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuTopKOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuPermuteOp : BaseOperator {
-    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
-
-class CpuMergeMOE : BaseOperator {
-   protected:
-    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
-};
 
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 
