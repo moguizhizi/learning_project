@@ -4,9 +4,6 @@
 #include "device.h"
 #include "struct_space.hpp"
 
-void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> &expertTasks, int bs, const float *fp32logits,
-    const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale);
-
 class CpuDevice : BaseDevice {
    public:
     CpuDevice();
@@ -401,3 +398,8 @@ std::vector<ExpertRoute> CpuNormalizeExpertWeights(
     const float *logits, const std::vector<int> &selectedExperts, float routeScale, bool needNorm);
 std::vector<ExpertRoute> CpuRouteMoE(
     const float *logits, const float *bias, int m, int topk, float routeScale, bool needNorm, int sharedExpertIndex, float *sharedScale);
+
+void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> &expertTasks, int bs, const float *fp32logits,
+    const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale);
+
+void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int> &indices, int m, int uintsize, AliveThreadPool *pool);

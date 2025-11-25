@@ -3405,3 +3405,18 @@ void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector
         }
     }
 }
+
+void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int> &indices, int m, int uintsize, AliveThreadPool *pool) {
+    int num_tasks = static_cast<int>(indices.size());
+    tempInput.Resize({num_tasks, m});
+    tempInput.Allocate(0.0f);
+
+    std::vector<MultiThreadMemcpyMultiLinesTask> memcpyTasks;
+    memcpyTasks.reserve(num_tasks);
+
+    for (int i = 0; i < num_tasks; i++) {
+        memcpyTasks.emplace_back(tempInput.cpuData + i * m * uintsize, input.cpuData + indices[i] * m * input.unitSize, m * uintsize);
+    }
+
+    RunMultiThreadMemcpyMultiLines(memcpyTasks, pool);
+}
