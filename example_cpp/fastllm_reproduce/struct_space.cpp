@@ -1997,3 +1997,7 @@ MultiThreadMemcpyOp::MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int le
     this->input = input;
     this->len = len;
 }
+
+void MultiThreadMemcpyOp::Run() {
+    memcpy(output, input, len);
+}
