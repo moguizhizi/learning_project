@@ -76,6 +76,7 @@ class Data {
     void FreeSpace();
     void MallocSpace(uint64_t size_t);
     void Expansion(const std::vector<int> &dims); // dims的格式[num_head, seqlen, head_dim]，且必须与原data的dims只保持seqlen的不同
+    void Data::ToDevice(void *device);
     void ToDevice(DataDevice device);
     void ToDevice(DataDevice device, std::vector<int> &deviceIds);
     void CopyFrom(const Data &ori);
