@@ -1960,7 +1960,7 @@ void MultiThreadMemcpyMultiLinesOp::Run() {
 }
 
 MultiThreadMoeReduceOp::MultiThreadMoeReduceOp(
-    std::vector<std::pair<int, float>> *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end) {
+    const std::pair<ExpertRoute, std::vector<int>> *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end) {
     this->task = task;
     this->tempResult = tempResult;
     this->curOutput = curOutput;
@@ -1970,11 +1970,23 @@ MultiThreadMoeReduceOp::MultiThreadMoeReduceOp(
 };
 
 void MultiThreadMoeReduceOp::Run() {
-    for (int i = st; i < end; i++) {
-        float value = (*task)[i].second;
-        float *lastResult = tempResult->data() + (*task)[i].first * dim;
+    const float value = task->first.weight;
+    const int *idx = task->second.data();
+    float *tempPtr = tempResult->data();
+
+    for (int i = st; i < end; ++i) {
+        float *lastResult = tempPtr + idx[i] * dim;
         float *curResult = curOutput + i * dim;
-        for (int j = 0; j < dim; j++) {
+        int j = 0;
+        for (; j < dim; j += 4) {
+            lastResult[j] += value * curResult[j];
+            lastResult[j + 1] += value * curResult[j + 1];
+            lastResult[j + 2] += value * curResult[j + 2];
+            lastResult[j + 3] += value * curResult[j + 3];
+        }
+
+        // 处理剩余的元素
+        for (; j < dim; ++j) {
             lastResult[j] += value * curResult[j];
         }
     }
