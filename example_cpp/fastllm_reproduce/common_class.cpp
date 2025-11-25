@@ -238,6 +238,15 @@ void Data::Expansion(const std::vector<int> &dims) {
     }
 }
 
+void Data::ToDevice(void *device) {
+    BaseDevice *dev = (BaseDevice *)device;
+    if (dev->deviceType == "cuda" || dev->deviceType == "multicuda") {
+        this->ToDevice(DataDevice::CUDA, dev->deviceIds);
+    } else {
+        this->ToDevice(DataDevice::CPU, dev->deviceIds);
+    }
+}
+
 void Data::ToDevice(DataDevice device) {
     if (device == DataDevice::CUDA) {
     } else if (device == DataDevice::CPU) {
