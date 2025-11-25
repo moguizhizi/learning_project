@@ -493,6 +493,33 @@ struct MultiThreadLinearFloat32Float16Op : MultiThreadBaseOp {
     void Run();
 };
 
+struct MultiThreadMemcpyMultiLinesTask {
+    uint8_t *output, *input;
+    size_t len;
+
+    MultiThreadMemcpyMultiLinesTask(uint8_t *output, uint8_t *input, size_t len);
+};
+
+struct MultiThreadMemcpyMultiLinesOp : MultiThreadBaseOp {
+    MultiThreadMemcpyMultiLinesTask *tasks;
+    int st, end;
+
+    MultiThreadMemcpyMultiLinesOp(MultiThreadMemcpyMultiLinesTask *tasks, int st, int end);
+    void Run();
+};
+
+struct MultiThreadMoeReduceOp : MultiThreadBaseOp {
+    std::vector<std::pair<int, float> > *task;
+    std::vector<float> *tempResult;
+    float *curOutput;
+    int dim, st, end;
+
+    MultiThreadMoeReduceOp(
+        std::vector<std::pair<int, float> > *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end);
+
+    void Run();
+};
+
 struct CPUInstructInfo {
     bool hasAVX512F = false;
     bool hasAVX512BF16 = false;
@@ -560,31 +587,4 @@ struct CPUInstructInfo {
         printf("\n");
 #endif // ifndef __aarch64__
     }
-};
-
-struct MultiThreadMemcpyMultiLinesTask {
-    uint8_t *output, *input;
-    size_t len;
-
-    MultiThreadMemcpyMultiLinesTask(uint8_t *output, uint8_t *input, size_t len);
-};
-
-struct MultiThreadMemcpyMultiLinesOp : MultiThreadBaseOp {
-    MultiThreadMemcpyMultiLinesTask *tasks;
-    int st, end;
-
-    MultiThreadMemcpyMultiLinesOp(MultiThreadMemcpyMultiLinesTask *tasks, int st, int end);
-    void Run();
-};
-
-struct MultiThreadMoeReduceOp : MultiThreadBaseOp {
-    std::vector<std::pair<int, float> > *task;
-    std::vector<float> *tempResult;
-    float *curOutput;
-    int dim, st, end;
-
-    MultiThreadMoeReduceOp(
-        std::vector<std::pair<int, float> > *task, std::vector<float> *tempResult, float *curOutput, int dim, int st, int end);
-
-    void Run();
 };

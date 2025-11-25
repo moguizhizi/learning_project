@@ -3,6 +3,8 @@
 #include <thread>
 #include <vector>
 
+#include "struct_space.hpp"
+
 struct MultiThreadBaseOp {
     virtual void Run() = 0;
 };

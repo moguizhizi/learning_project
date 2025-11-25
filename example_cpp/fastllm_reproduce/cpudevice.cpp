@@ -3036,6 +3036,28 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
                     entry.second.push_back(i);
                 }
             }
+
+            const int m = input.dims[1];
+            const int uintsize = static_cast<int>(input.unitSize / input.unitSizeDiv);
+            for (auto &it : expertTasks) {
+                const std::pair<ExpertRoute, std::vector<int>> &expertTask = it.second;
+                const ExpertRoute expert = expertTask.first;
+                const std::vector<int> indices = expertTask.second;
+
+                const unsigned long num_tasks = indices.size();
+
+                Data tempInput(input.dataType);
+                tempInput.Resize({static_cast<int>(num_tasks), m});
+                tempInput.Allocate(0.0f);
+
+                std::vector<MultiThreadMemcpyMultiLinesTask> memcpyTasks;
+                for (int i = 0; i < static_cast<int>(num_tasks); i++) {
+                    memcpyTasks.push_back(MultiThreadMemcpyMultiLinesTask(
+                        tempInput.cpuData + i * m * uintsize, input.cpuData + indices[i] * m * input.unitSize, m * uintsize));
+                }
+
+                RunMultiThreadMemcpyMultiLines(memcpyTasks, GetAlivePool());
+            }
         }
     }
 }
