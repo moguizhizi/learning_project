@@ -89,6 +89,7 @@ void ToDataType(const Data &input, DataType dataType);
 bool GetCudaEmbedding();
 bool GetLowMemMode();
 bool GetKVCacheInCPU();
+bool GetHistoryCacheInCPU();
 
 AliveThreadPool *GetAlivePool();
 
