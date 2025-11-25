@@ -3389,3 +3389,19 @@ std::vector<ExpertRoute> CpuRouteMoE(
 
     return routedExperts;
 }
+
+void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector<int>>> &expertTasks, int bs, const float *fp32logits,
+    const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale) {
+    for (int i = 0; i < bs; i++) {
+        std::vector<ExpertRoute> routed = CpuRouteMoE(
+            fp32logits + i * num_expert, fp32bias + i * num_expert, num_expert, topk, routeScale, needNorm, SharedExpertIndex, sharedScale);
+
+        for (auto &it : routed) {
+            auto &entry = expertTasks[it.expertIndex];
+            if (entry.second.empty()) {
+                entry.first = it;
+            }
+            entry.second.push_back(i);
+        }
+    }
+}
