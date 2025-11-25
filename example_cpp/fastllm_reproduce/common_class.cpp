@@ -1035,15 +1035,15 @@ void MoEQuantizedExecutor::ExecuteForOuterIndex(
 
             n = 1;
             if (wType == DataType::INT8) {
-                // LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
-                //     upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
-                //     quantizedZeros_.data(), ops, pool, threadSt, curThread);
+                LaunchLinearInt8Int8(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk, upWeight.weightSum.data(),
+                    upWeight.zeros.data(), upWeight.scales.data(), nullptr, quantizedSums_.data(), quantizedScales_.data(),
+                    quantizedZeros_.data(), ops, pool, threadSt, curThread);
             } else if (wType == DataType::INT4_GROUP || wType == DataType::INT4_NOZERO) {
                 MultiplyInt4GroupMultiThreadLaunch(quantizedInput_.data(), upWeight.cpuData, middle.data(), n, m, curk,
                     upWeight.weightSum.data(), upWeight.mins.data(), upWeight.scales.data(), nullptr, quantizedSums_, quantizedScales_,
                     quantizedZeros_, quantizedLowBitConfigs_, threadSt, curThread, group, groupCnt, ops, pool);
             } else if (wType == DataType::FP8_E4M3) {
-                // LaunchLinearBFloat16FP8E4M3(bf16Input.data(), upWeight, middle.data(), nullptr, 1, m, curk, ops, pool, threadSt, curThread);
+                LaunchLinearBFloat16FP8E4M3(bf16Input.data(), upWeight, middle.data(), nullptr, 1, m, curk, ops, pool, threadSt, curThread);
             }
 
             threadSt += curThread;
