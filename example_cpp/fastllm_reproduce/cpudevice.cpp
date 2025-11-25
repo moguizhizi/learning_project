@@ -3420,3 +3420,8 @@ void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int>
 
     RunMultiThreadMemcpyMultiLines(memcpyTasks, pool);
 }
+
+void ExpertForwardUp(Data &w3, Data &tempInput, Data &upWeight, Data &upBias) {
+    DoCpuLinearReshape(tempInput, upWeight, w3);
+    DoCpuLinear(tempInput, upWeight, upBias, w3);
+}

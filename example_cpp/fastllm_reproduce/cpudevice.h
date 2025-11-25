@@ -403,3 +403,4 @@ void BuildExpertTasks(std::unordered_map<int, std::pair<ExpertRoute, std::vector
     const float *fp32bias, int num_expert, int topk, float routeScale, bool needNorm, int SharedExpertIndex, float *sharedScale);
 
 void PrepareTempInput(Data &tempInput, const Data &input, const std::vector<int> &indices, int m, int uintsize, AliveThreadPool *pool);
+void ExpertForwardUp(Data &w3, Data &tempInput, Data &upWeight, Data &upBias);
