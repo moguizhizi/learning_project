@@ -588,3 +588,10 @@ struct CPUInstructInfo {
 #endif // ifndef __aarch64__
     }
 };
+
+struct MultiThreadMemcpyOp : MultiThreadBaseOp {
+    uint8_t *input, *output;
+    int len;
+
+    MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int len);
+};
