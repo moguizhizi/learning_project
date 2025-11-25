@@ -63,6 +63,7 @@ class BaseDevice {
     virtual void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 
     std::string deviceType;
+    std::vector<int> deviceIds;
 
     std::map<std::string, BaseOperator *> ops;
 };
