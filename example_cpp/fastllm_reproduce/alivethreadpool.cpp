@@ -83,3 +83,42 @@ void RunMultiThreadMoeReduce(
         delete ops[i];
     }
 }
+
+void RunMultiThreadMemcpy(uint8_t *output, uint8_t *input, int len, AliveThreadPool *pool, bool force = false) {
+    // ---- Small size: use memcpy directly ----
+    constexpr int kMultiThreadThreshold = 256 * 1024;
+    if (!force && len < kMultiThreadThreshold) {
+        std::memcpy(output, input, len);
+        return;
+    }
+
+    int threadNum = std::min(4, (int)pool->threads.size());
+    if (threadNum <= 1 || len < threadNum) {
+        std::memcpy(output, input, len);
+        return;
+    }
+
+    // ---- Compute segment size ----
+    int base = len / threadNum;
+    int remainder = len % threadNum;
+
+    std::vector<std::unique_ptr<MultiThreadMemcpyOp>> ops;
+    ops.reserve(threadNum);
+
+    int offset = 0;
+
+    // ---- Create tasks ----
+    for (int i = 0; i < threadNum; ++i) {
+        int chunk = base + (i < remainder ? 1 : 0);
+
+        ops.emplace_back(std::make_unique<MultiThreadMemcpyOp>(output + offset, input + offset, chunk));
+
+        pool->PushOp(i, ops.back().get());
+        offset += chunk;
+    }
+
+    // ---- Wait all threads ----
+    for (int i = 0; i < threadNum; ++i) {
+        pool->Wait(i);
+    }
+}
