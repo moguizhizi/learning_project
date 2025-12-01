@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <numeric>
 
 #include "basellm.h"
@@ -2218,6 +2219,69 @@ void CpuMatMulTransBOp::Run(const std::string &opType, const DataDict &datas, co
             for (int i = st; i < ops.size() && i < st + threads; i++) {
                 pool->Wait(i - st);
             }
+        }
+    }
+}
+
+void CpuSoftMaxOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+
+    AssertInFastLLM(
+        input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16, "Softmax error: Data's type should be float32.\n");
+
+    const int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+
+    const int len = input.Count(0);
+    const int outers = input.Count(0) / input.Count(axis);
+    const int channels = input.dims[axis];
+    const int inners = input.Count(axis + 1);
+
+    float *inputCpuData = (float *)input.cpuData;
+    float *inputData = inputCpuData;
+
+    float *outCpuData = (float *)output.cpuData;
+
+    if (input.dataType == DataType::FLOAT16) {
+        inputData = new float[len];
+        uint16_t *fp16InputCpuData = (uint16_t *)inputCpuData;
+        for (int i = 0; i < len; ++i) {
+            inputData[i] = g_fp16ToFp32Manager.dict[fp16InputCpuData[i]];
+        }
+    }
+
+    if (inners == 1) {
+        for (int outer = 0; outer < outers; ++outer) {
+            float *curInputData = inputData + outer * channels;
+            float maxValue = std::numeric_limits<float>::min();
+            for (int j = 0; j < channels; ++j) {
+                maxValue = curInputData[j] > maxValue ? curInputData[j] : maxValue;
+            }
+
+            float expsum = 0.0;
+            for (int j = 0; j < channels; ++j) {
+                curInputData[j] = curInputData[j] - maxValue;
+                curInputData[j] = exp(curInputData[j]);
+                expsum += curInputData[j];
+            }
+
+            for (int j = 0; j < channels; ++j) {
+                curInputData[j] = curInputData[j] / expsum;
+            }
+        }
+    } else {
+    }
+
+    if (input.dataType == DataType::FLOAT32) {
+        for (int i = 0; i < len; i++) {
+            outCpuData[i] = inputData[i];
+        }
+    } else if (input.dataType == DataType::FLOAT16) {
+        for (int i = 0; i < len; i++) {
+            ((uint16_t *)outCpuData)[i] = float_to_half(inputData[i]);
         }
     }
 }
