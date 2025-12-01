@@ -7,6 +7,7 @@
 
 #include "basellm.h"
 #include "computeutils.h"
+#include "device.h"
 #include "fastllm.h"
 #include "file_utils.hpp"
 #include "utils.h"
@@ -3203,6 +3204,18 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
             }
         }
     }
+}
+
+void CpuSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuSoftMaxOp());
+    // int batch = intParams.find("input___batch")->second;
+    // DataDict tempDatas = datas;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["input"] = ((Data **)datas.find("input")->second)[i];
+    //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+    //     op->Run("Softmax", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
 }
 
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
