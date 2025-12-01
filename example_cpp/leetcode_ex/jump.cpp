@@ -8,7 +8,8 @@ class Solution {
         const int len = nums.size();
 
         for (int i = 0; i < len; i++) {
-            if (nums[i] == 0) {
+            int step = nums[i];
+            if (step == 0) {
                 continue;
             }
 
@@ -16,21 +17,26 @@ class Solution {
                 posStep[i] = 0;
             }
 
-            int minStep = posStep[i];
-
-            if (i + nums[i] >= len - 1) {
-                return minStep + 1;
+            if (i == len - 1) {
+                break;
             }
 
-            for (int j = 1; j <= nums[i]; j++) {
+            int minStep = posStep[i];
+            int start = i + 1;
+            int end = i + step;
+            if (end >= len - 1) {
+                posStep[len - 1] = minStep + 1;
+                break;
+            }
+
+            for (int j = start; j <= end; j++) {
                 if (posStep.find(j) == posStep.end()) {
                     posStep[j] = posStep[i] + 1;
                 } else {
-                    posStep[j] = posStep[j] < posStep[i] + 1 ? posStep[j] : posStep[i] + 1;
+                    posStep[j] = posStep[j] > posStep[i] + 1 ? posStep[i] + 1 : posStep[j];
                 }
             }
         }
-
-        return 0;
+        return posStep[len - 1];
     }
 };
