@@ -2224,6 +2224,84 @@ void CpuMatMulTransBOp::Run(const std::string &opType, const DataDict &datas, co
     }
 }
 
+void CpuNormalizeOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    output.Allocate();
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+
+    AssertInFastLLM(input.dataType == DataType::FLOAT32 || input.dataType == DataType::FLOAT16,
+        "Normalize error: Data's type should be float32 or float16.\n");
+
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int outer = input.Count(0) / input.Count(axis);
+    int channels = input.dims[axis];
+    int inner = input.Count(axis + 1);
+
+    float *inputData = (float *)input.cpuData;
+    float *outputData = (float *)output.cpuData;
+
+    if (input.dataType == DataType::FLOAT16) {
+        int len = input.Count(0);
+        inputData = new float[len];
+        outputData = new float[len];
+        for (int i = 0; i < len; i++) {
+            inputData[i] = g_fp16ToFp32Manager.dict[((uint16_t *)input.cpuData)[i]];
+        }
+    }
+    if (inner == 1) {
+        for (int i = 0; i < outer; i++) {
+            float sum = 0;
+            for (int j = 0; j < channels; j++) {
+                sum += inputData[j];
+            }
+            for (int j = 0; j < channels; j++) {
+                inputData[j] /= sum;
+            }
+            inputData += channels;
+            outputData += channels;
+        }
+    } else {
+        /*for (int i = 0; i < outer; i++) {
+            std::vector<float> maxValue(inner, -FLT_MAX);
+            for (int j = 0; j < channels; j++) {
+                for (int k = 0; k < inner; k++) {
+                    maxValue[k] = std::max(maxValue[k], inputData[j * inner + k]);
+                }
+            }
+            std::vector<float> sum(inner, 0.0);
+            for (int j = 0; j < channels; j++) {
+                for (int k = 0; k < inner; k++) {
+                    outputData[j * inner + k] = std::exp(inputData[j * inner + k] - maxValue[k]);
+                    sum[k] += outputData[j * inner + k];
+                }
+            }
+
+            for (int j = 0; j < channels; j++) {
+                for (int k = 0; k < inner; k++) {
+                    outputData[j * inner + k] /= sum[k];
+                }
+            }
+
+            inputData += channels * inner;
+            outputData += channels * inner;
+        }*/
+    }
+
+    if (input.dataType == DataType::FLOAT16) {
+        int len = input.Count(0);
+        inputData -= len;
+        outputData -= len;
+        for (int i = 0; i < len; i++) {
+            ((uint16_t *)output.cpuData)[i] = float_to_half(outputData[i]);
+        }
+
+        delete[] inputData;
+        delete[] outputData;
+    }
+}
+
 void CpuSoftMaxOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
