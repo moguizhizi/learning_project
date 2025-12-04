@@ -2363,6 +2363,10 @@ void CpuSoftMaxOp::Run(const std::string &opType, const DataDict &datas, const F
             ((uint16_t *)outCpuData)[i] = float_to_half(inputData[i]);
         }
     }
+
+    if (inputData != inputCpuData) {
+        delete[] inputData;
+    }
 }
 
 void CpuSiluOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
