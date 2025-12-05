@@ -2352,6 +2352,33 @@ void CpuSoftMaxOp::Run(const std::string &opType, const DataDict &datas, const F
             }
         }
     } else {
+        float *curInputData = nullptr;
+        for (int outer = 0; outer < outers; ++outer) {
+            std::vector<float> maxValue(inners, -FLT_MAX);
+            for (int j = 0; j < channels; ++j) {
+                curInputData = inputData + outer * channels + j * inners;
+                for (int k = 0; k < inners; ++k) {
+                    maxValue[k] = maxValue[k] > curInputData[k] ? maxValue[k] : curInputData[k];
+                }
+            }
+
+            std::vector<float> expsum(inners, 0);
+            for (int j = 0; j < channels; ++j) {
+                curInputData = inputData + outer * channels + j * inners;
+                for (int k = 0; k < inners; ++k) {
+                    curInputData[k] = curInputData[k] - maxValue[k];
+                    curInputData[k] = exp(curInputData[k]);
+                    expsum[k] += curInputData[k];
+                }
+            }
+
+            for (int j = 0; j < channels; ++j) {
+                curInputData = inputData + outer * channels + j * inners;
+                for (int k = 0; k < inners; ++k) {
+                    curInputData[k] = curInputData[k] / expsum[k];
+                }
+            }
+        }
     }
 
     if (input.dataType == DataType::FLOAT32) {
