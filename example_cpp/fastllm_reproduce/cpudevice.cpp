@@ -3037,6 +3037,38 @@ void CpuAttentionExtendedMaskOp::Run(const std::string &opType, const DataDict &
     }
 }
 
+void CpuAlibiMaskOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &mask = *(datas.find("mask")->second);
+    float maskValue = floatParams.find("maskValue") != floatParams.end() ? floatParams.find("maskValue")->second : -10000.0;
+    float *maskData = (float *)mask.cpuData;
+    float *attnData = (float *)input.cpuData;
+
+    const int n = input.dims[0];
+    const int m = input.dims[1];
+    const int spn = input.dims[2];
+    const int spm = input.dims[3];
+
+    const int spartial0 = input.Count(1);
+    const int spartial1 = input.Count(2);
+
+    for (int on = 0; on < n; ++on) {
+        for (int om = 0; om < m; ++om) {
+            float now = maskData[om];
+            float *inputData = attnData + on * spartial0 + om * spartial1;
+            for (int i = 0; i < spn; ++i) {
+                int mid = spm - spn + i;
+                for (int j = 0; j <= mid; ++j) {
+                    inputData[i * spm + j] += now * j;
+                }
+                for (int j = mid + 1; j < spm; ++j) {
+                    inputData[i * spm + j] = maskValue;
+                }
+            }
+        }
+    }
+}
+
 void CpuTopKOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &output = *(datas.find("output")->second);
