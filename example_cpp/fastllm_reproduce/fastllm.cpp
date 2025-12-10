@@ -595,3 +595,12 @@ void Linear(Data &input, Data &weight, const Data &bias, Data &output) {
 void Swiglu(const Data &input, Data &output) {
     curExecutor->Run("Swiglu", {{"input", (Data *)&input}, {"output", &output}}, {}, {});
 }
+
+void Permute(const Data &input, const std::vector<int> &axis, Data &output) {
+    Data axisData = Data(DataType::INT32PARAM, {(int)axis.size()});
+    axisData.Allocate();
+    for (int i = 0; i < axisData.Count(0); i++) {
+        ((int32_t *)axisData.cpuData)[i] = axis[i];
+    }
+    curExecutor->Run("Permute", {{"input", (Data *)&input}, {"axis", &axisData}, {"output", (Data *)&output}}, {}, {});
+}

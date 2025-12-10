@@ -105,3 +105,4 @@ void Softmax(const Data &input, Data &output, int axis);
 void MatMul(const Data &input0, const Data &input1, Data &output, float alpha, int group);
 void Linear(Data &input, Data &weight, const Data &bias, Data &output);
 void Swiglu(const Data &input, Data &output);
+void Permute(const Data &input, const std::vector<int> &axis, Data &output);
