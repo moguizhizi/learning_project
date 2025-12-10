@@ -3452,6 +3452,13 @@ void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, con
     if (TransposeSpecialCase(axis, input, inputDims, newDims)) {
         return;
     }
+
+    auto tmp = new Data();
+    Permute(input, axis, *tmp);
+
+    memcpy(input.cpuData, tmp->cpuData, input.unitSize * input.Count(0));
+    input.Resize(tmp->dims);
+    delete tmp;
 }
 
 void CpuSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
