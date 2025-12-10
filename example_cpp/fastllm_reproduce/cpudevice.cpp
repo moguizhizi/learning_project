@@ -3381,6 +3381,43 @@ bool TrySwapLastTwoDimsAndTranspose(Data &input, const std::vector<int> &newDims
     return true;
 }
 
+bool TransposeSpecialCase(const std::vector<int> &axis, Data &input, const std::vector<int> &inputDims, const std::vector<int> &newDims) {
+    // 只处理两种 axis 情况
+    if (!(axis == std::vector<int>{0, 2, 1, 3} || axis == std::vector<int>{1, 0, 2})) {
+        return false;
+    }
+
+    // 备份 input 数据
+    std::vector<uint8_t> inputBackup;
+    inputBackup.resize(input.GetBytes());
+    uint8_t *backupPtr = inputBackup.data();
+    uint8_t *outputPtr = (uint8_t *)input.cpuData;
+
+    const int n = inputDims[1];
+    const int m = inputDims[2];
+    const int k = inputDims[3];
+    const int unitSize = input.unitSize / input.unitSizeDiv;
+    const int len = input.Count(0);
+
+    // 对 axis == {0,2,1,3}：真实 batch size 为 inputDims[0]
+    // 对 axis == {1,0,2}：bs 固定为 1
+    const int bs = (axis == std::vector<int>{0, 2, 1, 3}) ? inputDims[0] : 1;
+
+    // 先 memcpy 备份
+    RunMultiThreadMemcpy(backupPtr, outputPtr, len, GetAlivePool(), false);
+
+    const int blockSize = n * m * k * unitSize;
+
+    for (int b = 0; b < bs; ++b) {
+        RunMultiThreadTransposeByLine(outputPtr, backupPtr, n, m, k * unitSize, GetAlivePool());
+        outputPtr += blockSize;
+        backupPtr += blockSize;
+    }
+
+    input.Resize(newDims);
+    return true;
+}
+
 void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &axisData = *(datas.find("axis")->second);
@@ -3412,27 +3449,7 @@ void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, con
         return;
     }
 
-    if (axis == std::vector<int>{0, 2, 1, 3}) {
-        std::vector<uint8_t> inputBackup;
-        inputBackup.resize(input.GetBytes());
-        uint8_t *backupPtr = inputBackup.data();
-        uint8_t *output = (uint8_t *)input.cpuData;
-
-        const int bs = inputDims[0];
-        const int n = inputDims[1];
-        const int m = inputDims[2];
-        const int k = inputDims[3];
-        const int unitSize = input.unitSize / input.unitSizeDiv;
-        const int len = input.Count(0);
-
-        RunMultiThreadMemcpy(backupPtr, output, len, GetAlivePool(), false);
-
-        for (int b = 0; b < bs; ++b) {
-            RunMultiThreadTransposeByLine(output, backupPtr, n, m, k * unitSize, GetAlivePool());
-            output = output + n * m * k * unitSize;
-            backupPtr = backupPtr + n * m * k * unitSize;
-        }
-        input.Resize(newDims);
+    if (TransposeSpecialCase(axis, input, inputDims, newDims)) {
         return;
     }
 }
