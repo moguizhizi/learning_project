@@ -3347,6 +3347,33 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
     }
 }
 
+void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data &axisData = *(datas.find("axis")->second);
+    std::vector<int> axis, newDims;
+    const std::vector<int> inputDims = input.dims;
+    const int len = axisData.Count(0);
+    for (int i = 0; i < len; ++i) {
+        axis.push_back(((int32_t *)axisData.cpuData)[i]);
+    }
+
+    for (int i = 0; i < inputDims.size(); ++i) {
+        newDims.push_back(inputDims[axis[i]]);
+    }
+    bool same = false;
+    same |= ((axis == std::vector<int>{1, 2, 0}) && input.dims[0] == 1);
+    same |= ((axis == std::vector<int>{1, 0, 2}) && (input.dims[0] == 1 || input.dims[1] == 1));
+    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[2] == 1);
+    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[0] == 1 && input.dims[1] == 1);
+    same |= ((axis == std::vector<int>{1, 2, 0, 3}) && input.dims[0] == 1);
+    same |= ((axis == std::vector<int>{1, 0, 2, 3}) && (input.dims[0] == 1 || input.dims[1] == 1));
+    same |= ((axis == std::vector<int>{0, 2, 1, 3}) && (input.dims[1] == 1 || input.dims[2] == 1));
+    if (same) {
+        input.Resize(newDims);
+        return;
+    }
+}
+
 void CpuSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     // BaseOperator *op = (BaseOperator *)(new CpuSoftMaxOp());
     // int batch = intParams.find("input___batch")->second;
