@@ -122,3 +122,23 @@ void RunMultiThreadMemcpy(uint8_t *output, uint8_t *input, int len, AliveThreadP
         pool->Wait(i);
     }
 }
+
+void RunMultiThreadTransposeByLine(uint8_t *output, uint8_t *input, int n, int m, int k, AliveThreadPool *pool) {
+    int threadNum = pool->threads.size();
+    int len = n * m;
+    int per = len / pool->threads.size();
+    int cur = 0;
+    std::vector<MultiThreadTransposeByLineOp *> ops;
+    for (int i = 0; i < threadNum; i++) {
+        int end = (i == threadNum - 1 ? len : cur + per + (cur + per * (threadNum - i) < len));
+        ops.push_back(new MultiThreadTransposeByLineOp(output, input, n, m, k, cur, end));
+        cur = end;
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->PushOp(i, ops[i]);
+    }
+    for (int i = 0; i < threadNum; i++) {
+        pool->Wait(i);
+        delete ops[i];
+    }
+}
