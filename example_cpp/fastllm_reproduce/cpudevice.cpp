@@ -3347,6 +3347,40 @@ void CpuMergeMOE::Run(const std::string &opType, const DataDict &datas, const Fl
     }
 }
 
+bool TrySwapLastTwoDimsAndTranspose(Data &input, const std::vector<int> &newDims, const std::vector<int> &inputDims) {
+    int len = inputDims.size();
+    if (len < 2 || len != newDims.size()) {
+        return false;
+    }
+
+    // Step 1: 判断 newDims 是否等于将 inputDims 最后两个维度交换之后的结果
+    std::vector<int> tempDims = inputDims;
+    std::swap(tempDims[len - 2], tempDims[len - 1]);
+    bool swapLastTwoDims = (tempDims == newDims);
+
+    if (!swapLastTwoDims || input.dataType != DataType::FLOAT32) {
+        return false;
+    }
+
+    // Step 2: 进行实际数据转置
+    const int outers = input.Count(0) / input.Count(len - 2);
+    const int n = input.dims[len - 2]; // 交换前的倒数第二维
+    const int m = input.dims[len - 1]; // 交换前的倒数第一维
+
+    float *fp32 = (float *)input.cpuData;
+    float *buffer = new float[n * m];
+
+    for (int o = 0; o < outers; ++o) {
+        float *slice = fp32 + o * n * m;
+        memcpy(buffer, slice, n * m * sizeof(float));
+        Transpose(slice, buffer, n, m, n, m);
+    }
+
+    input.Resize(newDims);
+    delete[] buffer;
+    return true;
+}
+
 void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &axisData = *(datas.find("axis")->second);
@@ -3371,6 +3405,10 @@ void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, con
     same |= ((axis == std::vector<int>{0, 2, 1, 3}) && (input.dims[1] == 1 || input.dims[2] == 1));
     if (same) {
         input.Resize(newDims);
+        return;
+    }
+
+    if (TrySwapLastTwoDimsAndTranspose(input, newDims, input.dims)) {
         return;
     }
 }
