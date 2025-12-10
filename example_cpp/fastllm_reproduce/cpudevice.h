@@ -360,6 +360,8 @@ struct MultiThreadAddToFloatOp : MultiThreadBaseOp {
 
 static void RunMultiThreadAddToFloat(float *output, float *input, float alpha, int len, AliveThreadPool *pool);
 
+bool TrySwapLastTwoDimsAndTranspose(Data &input, const std::vector<int> &newDims, const std::vector<int> &inputDims);
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
 
 void Transpose(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m);
