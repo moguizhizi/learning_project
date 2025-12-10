@@ -3386,8 +3386,8 @@ void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, con
     Data &axisData = *(datas.find("axis")->second);
     std::vector<int> axis, newDims;
     const std::vector<int> inputDims = input.dims;
-    const int len = axisData.Count(0);
-    for (int i = 0; i < len; ++i) {
+    const int axisLen = axisData.Count(0);
+    for (int i = 0; i < axisLen; ++i) {
         axis.push_back(((int32_t *)axisData.cpuData)[i]);
     }
 
@@ -3409,6 +3409,30 @@ void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, con
     }
 
     if (TrySwapLastTwoDimsAndTranspose(input, newDims, input.dims)) {
+        return;
+    }
+
+    if (axis == std::vector<int>{0, 2, 1, 3}) {
+        std::vector<uint8_t> inputBackup;
+        inputBackup.resize(input.GetBytes());
+        uint8_t *backupPtr = inputBackup.data();
+        uint8_t *output = (uint8_t *)input.cpuData;
+
+        const int bs = inputDims[0];
+        const int n = inputDims[1];
+        const int m = inputDims[2];
+        const int k = inputDims[3];
+        const int unitSize = input.unitSize / input.unitSizeDiv;
+        const int len = input.Count(0);
+
+        RunMultiThreadMemcpy(backupPtr, output, len, GetAlivePool(), false);
+
+        for (int b = 0; b < bs; ++b) {
+            RunMultiThreadTransposeByLine(output, backupPtr, n, m, k * unitSize, GetAlivePool());
+            output = output + n * m * k * unitSize;
+            backupPtr = backupPtr + n * m * k * unitSize;
+        }
+        input.Resize(newDims);
         return;
     }
 }
