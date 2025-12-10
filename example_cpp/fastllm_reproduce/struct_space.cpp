@@ -2001,3 +2001,21 @@ MultiThreadMemcpyOp::MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int le
 void MultiThreadMemcpyOp::Run() {
     memcpy(output, input, len);
 }
+
+MultiThreadTransposeByLineOp::MultiThreadTransposeByLineOp(uint8_t *output, uint8_t *input, int n, int m, int k, int st, int end) {
+    this->output = output;
+    this->input = input;
+    this->n = n;
+    this->m = m;
+    this->k = k;
+    this->st = st;
+    this->end = end;
+}
+
+void MultiThreadTransposeByLineOp::Run() {
+    for (int nm = st; nm < end; ++nm) {
+        int i = nm / m;
+        int j = nm % m;
+        memcpy(output + j * n * k + i * k, input + i * m * k + j * k, k);
+    }
+}

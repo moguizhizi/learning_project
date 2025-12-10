@@ -596,3 +596,11 @@ struct MultiThreadMemcpyOp : MultiThreadBaseOp {
     MultiThreadMemcpyOp(uint8_t *output, uint8_t *input, int len);
     void Run();
 };
+
+struct MultiThreadTransposeByLineOp : MultiThreadBaseOp {
+    uint8_t *input, *output;
+    int n, m, k, st, end;
+
+    MultiThreadTransposeByLineOp(uint8_t *output, uint8_t *input, int n, int m, int k, int st, int end);
+    void Run();
+};
