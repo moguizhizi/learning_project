@@ -3418,41 +3418,52 @@ bool TransposeSpecialCase(const std::vector<int> &axis, Data &input, const std::
     return true;
 }
 
+bool CpuPermuteSelfOp::IsSameCase(const std::vector<int> &axis, const std::vector<int> &dims) {
+    return ((axis == std::vector<int>{1, 2, 0}) && dims[0] == 1) || ((axis == std::vector<int>{1, 0, 2}) && (dims[0] == 1 || dims[1] == 1)) ||
+           ((axis == std::vector<int>{2, 0, 1, 3}) && dims[2] == 1) ||
+           ((axis == std::vector<int>{2, 0, 1, 3}) && dims[0] == 1 && dims[1] == 1) ||
+           ((axis == std::vector<int>{1, 2, 0, 3}) && dims[0] == 1) ||
+           ((axis == std::vector<int>{1, 2, 0, 3}) && dims[1] == 1 && dims[2] == 1) ||
+           ((axis == std::vector<int>{1, 0, 2, 3}) && (dims[0] == 1 || dims[1] == 1)) ||
+           ((axis == std::vector<int>{0, 2, 1, 3}) && (dims[1] == 1 || dims[2] == 1));
+}
+
 void CpuPermuteSelfOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     Data &input = *(datas.find("input")->second);
     Data &axisData = *(datas.find("axis")->second);
-    std::vector<int> axis, newDims;
-    const std::vector<int> inputDims = input.dims;
+
+    // ---------- 1. Load axis ----------
     const int axisLen = axisData.Count(0);
+    std::vector<int> axis(axisLen);
     for (int i = 0; i < axisLen; ++i) {
-        axis.push_back(((int32_t *)axisData.cpuData)[i]);
+        axis[i] = ((int32_t *)axisData.cpuData)[i];
     }
 
+    // ---------- 2. Compute new dims ----------
+    const std::vector<int> &inputDims = input.dims;
+    std::vector<int> newDims;
+    newDims.reserve(inputDims.size());
     for (int i = 0; i < inputDims.size(); ++i) {
         newDims.push_back(inputDims[axis[i]]);
     }
-    bool same = false;
-    same |= ((axis == std::vector<int>{1, 2, 0}) && input.dims[0] == 1);
-    same |= ((axis == std::vector<int>{1, 0, 2}) && (input.dims[0] == 1 || input.dims[1] == 1));
-    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[2] == 1);
-    same |= ((axis == std::vector<int>{2, 0, 1, 3}) && input.dims[0] == 1 && input.dims[1] == 1);
-    same |= ((axis == std::vector<int>{1, 2, 0, 3}) && input.dims[0] == 1);
-    same |= ((axis == std::vector<int>{1, 2, 0, 3}) && input.dims[1] == 1 && input.dims[2] == 1);
-    same |= ((axis == std::vector<int>{1, 0, 2, 3}) && (input.dims[0] == 1 || input.dims[1] == 1));
-    same |= ((axis == std::vector<int>{0, 2, 1, 3}) && (input.dims[1] == 1 || input.dims[2] == 1));
-    if (same) {
+
+    // ---------- 3. Fast path: same shape transform ----------
+    if (IsSameCase(axis, inputDims)) {
         input.Resize(newDims);
         return;
     }
 
-    if (TrySwapLastTwoDimsAndTranspose(input, newDims, input.dims)) {
+    // ---------- 4. Fast path: swap last 2 dims ----------
+    if (TrySwapLastTwoDimsAndTranspose(input, newDims, inputDims)) {
         return;
     }
 
+    // ---------- 5. Fast path: special-case transpose ----------
     if (TransposeSpecialCase(axis, input, inputDims, newDims)) {
         return;
     }
 
+    // ---------- 6. Fallback: general permute ----------
     auto tmp = new Data();
     Permute(input, axis, *tmp);
 

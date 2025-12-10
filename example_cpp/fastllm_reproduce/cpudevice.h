@@ -182,6 +182,7 @@ class CpuMergeMOE : BaseOperator {
 
 class CpuPermuteSelfOp : BaseOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    bool IsSameCase(const std::vector<int> &axis, const std::vector<int> &dims);
 };
 
 class CpuSoftmaxBatchOp : BaseBatchOperator {
