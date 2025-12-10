@@ -31,3 +31,4 @@ void RunMultiThreadMemcpyMultiLines(std::vector<MultiThreadMemcpyMultiLinesTask>
 void RunMultiThreadMoeReduce(
     const std::pair<ExpertRoute, std::vector<int>> *task, std::vector<float> *tempResult, float *curOutput, int dim, AliveThreadPool *pool);
 void RunMultiThreadMemcpy(uint8_t *output, uint8_t *input, int len, AliveThreadPool *pool, bool force = false);
+void RunMultiThreadTransposeByLine(uint8_t *output, uint8_t *input, int n, int m, int k, AliveThreadPool *pool);
