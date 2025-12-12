@@ -53,6 +53,7 @@ CpuDevice::CpuDevice() {
     this->ops["AlibiMask"] = (BaseOperator *)(new CpuAlibiMaskOp());
     this->ops["TopK"] = (BaseOperator *)(new CpuTopKOp());
     this->ops["Permute"] = (BaseOperator *)(new CpuPermuteOp());
+    this->ops["SplitBatch"] = (BaseOperator *)(new CpuSplitBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
