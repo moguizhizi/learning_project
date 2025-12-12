@@ -3499,6 +3499,31 @@ void CpuSplitBatchOp::Reshape(const std::string &opType, const DataDict &datas, 
     }
 }
 
+void CpuSplitBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &input = *(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = input.dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int part = input.dims[axis];
+
+    const int outers = input.Count(0) / input.Count(axis);
+    const int inners = input.Count(axis + 1);
+
+    for (int i = 0; i < part; i++) {
+        outputs[i]->Allocate();
+    }
+
+    const int uniteSize = input.unitSize / input.unitSizeDiv;
+    for (int o = 0; o < outers; ++o) {
+        uint8_t *inputCpuData = (uint8_t *)input.cpuData + o * inners * uniteSize;
+        for (int i = 0; i < part; i++) {
+            uint8_t *outputCpuData = (uint8_t *)outputs[i]->cpuData;
+            memcpy(outputCpuData + o * inners * uniteSize, inputCpuData + i * inners * uniteSize, inners * uniteSize);
+        }
+    }
+}
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     if (n < 4 || m < 4) {
         for (int i = 0; i < n; i++) {
