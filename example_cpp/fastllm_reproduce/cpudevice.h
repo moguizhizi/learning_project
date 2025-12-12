@@ -189,6 +189,11 @@ class CpuSoftmaxBatchOp : BaseBatchOperator {
     void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
 };
 
+class CpuSplitBatchOp : BaseBatchOperator {
+    void Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+    void Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams);
+};
+
 float erf(float a);
 
 void DoCpuLinearReshape(Data &input, Data &weight, Data &output);
