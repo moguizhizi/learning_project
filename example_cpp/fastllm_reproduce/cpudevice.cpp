@@ -3539,6 +3539,29 @@ void CpuCatBatchOp::Reshape(const std::string &opType, const DataDict &datas, co
     output.Resize(dims);
 }
 
+void CpuCatBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data &output = *(datas.find("output")->second);
+    int axis = intParams.find("axis") != intParams.end() ? intParams.find("axis")->second : -1;
+    int dimsLen = inputs[0]->dims.size();
+    axis = (axis % dimsLen + dimsLen) % dimsLen;
+    int parts = intParams.find("input___batch")->second;
+
+    const int len = inputs[0]->Count(0);
+    const int inners = inputs[0]->Count(axis);
+    const int outers = len / inners;
+    const int numCat = parts / inputs[0]->dims[axis];
+    const int uniteSize = inputs[0]->unitSize / inputs[0]->unitSizeDiv;
+
+    uint8_t *outputCpuData = (uint8_t *)output.cpuData;
+    for (int o = 0; o < outers; ++o) {
+        for (int i = 0; i < numCat; ++i) {
+            uint8_t *inputCpuData = (uint8_t *)inputs[i]->cpuData + o * inners * uniteSize;
+            memcpy(outputCpuData + o * numCat * inners * uniteSize + i * inners * uniteSize, inputCpuData, inners * uniteSize);
+        }
+    }
+}
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     if (n < 4 || m < 4) {
         for (int i = 0; i < n; i++) {
