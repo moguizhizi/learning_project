@@ -3596,6 +3596,19 @@ void CpuMatMulBatchOp::Reshape(const std::string &opType, const DataDict &datas,
     // delete op;
 }
 
+void CpuMatMulBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuMatMulOp());
+    // int batch = intParams.find("input0___batch")->second;
+    // DataDict tempDatas = datas;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+    //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+    //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+    //     op->Run("MatMulTransB", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
+}
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     if (n < 4 || m < 4) {
         for (int i = 0; i < n; i++) {
