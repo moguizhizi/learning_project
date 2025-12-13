@@ -2000,7 +2000,6 @@ void CpuMatMulOp::Reshape(const std::string &opType, const DataDict &datas, cons
     int batch1 = input1.Count(0) / input1Spatial;
     int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : 1;
     AssertInFastLLM(batch0 == batch1 * group, "MatMul: input0.dims[1] should be equal to input1.dims[0] * group.\n");
-    // AssertInFastLLM(batch0 == batch1, "MatMul's shape error.\n");
 
     std::vector<int> dims = input0.dims;
     dims.back() = input1.dims[input1.dims.size() - 1];
