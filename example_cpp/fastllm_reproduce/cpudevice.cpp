@@ -60,6 +60,7 @@ CpuDevice::CpuDevice() {
     this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CpuMatMulTransBBatchOp());
     this->ops["SoftMaxBatch"] = (BaseOperator *)(new CpuSoftmaxBatchOp());
     this->ops["CatDirectBatch"] = (BaseOperator *)(new CpuCatDirectBatchOp());
+    this->ops["AppendKVCachebatch"] = (BaseOperator *)(new CpuAppendKVCacheBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -3500,6 +3501,26 @@ void CpuCatDirectBatchOp::Run(const std::string &opType, const DataDict &datas, 
     //     op->Run("CatDirect", tempDatas, floatParams, intParams);
     // }
     // delete op;
+}
+
+void CpuAppendKVCacheBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    int batch = intParams.find("caches___batch")->second;
+    Data **caches = (Data **)(datas.find("caches")->second);
+    Data &input = *(datas.find("input")->second);
+
+    int heads = input.dims[1];
+    int elementsPerKV = input.dims[2];
+    int unitSize = input.unitSize / input.unitSizeDiv;
+    for (int b = 0; b < batch; ++b) {
+        uint8_t *inputCpuData = input.cpuData + b * input.Count(1) * unitSize;
+        uint8_t *cachesCpuData = caches[b]->cpuData;
+        std::vector<int> cachesDims = caches[b]->dims;
+        for (int i = 0; i < heads; ++i) {
+            memcpy(cachesCpuData + i * caches[b]->Count(1) * caches[b]->unitSize / caches[b]->unitSizeDiv,
+                inputCpuData + i * elementsPerKV * unitSize, elementsPerKV * unitSize);
+        }
+        cachesDims[1] += elementsPerKV;
+    }
 }
 
 void CpuSplitBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
