@@ -62,6 +62,7 @@ CpuDevice::CpuDevice() {
     this->ops["CatDirectBatch"] = (BaseOperator *)(new CpuCatDirectBatchOp());
     this->ops["AppendKVCachebatch"] = (BaseOperator *)(new CpuAppendKVCacheBatchOp());
     this->ops["AttentionBatch"] = (BaseOperator *)(new CpuAttentionBatchOp());
+    this->ops["MergeMLA"] = (BaseOperator *)(new CpuMergeMLA());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -3713,6 +3714,94 @@ void CpuAttentionBatchOp::Run(const std::string &opType, const DataDict &datas, 
     //     op->Run("Attention", tempDatas, floatParams, tempIntParams);
     // }
     // delete op;
+}
+
+void CpuMergeMLA::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &qNope = *(datas.find("qNope")->second);
+    Data &output = *(datas.find("output")->second);
+    // int b = qNope.dims[0], s = q_nope.dims[1], h = q_nope.dims[2], d = q_nope.dims[3], c = qNope.dims.back();
+    output.dataType = qNope.dataType;
+    output.Resize(qNope.dims);
+}
+
+void CpuMergeMLA::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data &qNope = *(datas.find("qNope")->second);
+    Data &qPe = *(datas.find("qPe")->second);
+    Data &kvCache = *(datas.find("kvCache")->second);
+    Data &peCache = *(datas.find("peCache")->second);
+    Data &mask = *(datas.find("mask")->second);
+    Data &output = *(datas.find("output")->second);
+    float softmaxScale = floatParams.find("softmaxScale") != floatParams.end() ? floatParams.find("softmaxScale")->second : 1.0f;
+    int b = qPe.dims[0], s = qPe.dims[1], h = qPe.dims[2], c = qNope.dims.back(), t = kvCache.dims[1], r = qPe.dims[3];
+    output.Allocate();
+
+    // qNope: {b * s, h, c}
+    // qPe: {b, s, h, r}
+    // kvCache : {1, t, r}
+    // peCache : {1, t, c}
+    // output : {b * s, h, c}
+
+    Data score0, score1;
+    if (b == 1 && s == 1 && false) {
+        // FastllmCudaMLA(qNope, qPe, kvCache, peCache, score0, output, softmaxScale);
+    } else {
+        if ((double)b * s * h * t * 2 * 4 > 1e9) {
+            int parth = 1;
+            Data qNopePart, qPePart;
+            std::vector<Data> outputParts;
+            std::vector<Data *> outputPartPointers;
+            outputParts.resize((h - 1) / parth + 1);
+            for (int i = 0; i < outputParts.size(); i++) {
+                outputPartPointers.push_back(&outputParts[i]);
+            }
+            for (int sth = 0; sth < h; sth += parth) {
+                int idx = sth / parth;
+                int curh = std::min(parth, h - sth);
+                Split(qNope, 1, sth, sth + curh, qNopePart);
+                Split(qPe, 2, sth, sth + curh, qPePart);
+                qNopePart.Reshape({b, s * curh, c});
+                MatMulTransB(qNopePart, peCache, score0);
+                score0.Reshape({b, s, curh, t});
+                qPePart.Reshape({b, s * curh, r});
+                MatMulTransB(qPePart, kvCache, score1);
+                score1.Reshape({b, s, curh, t});
+                AddTo(score1, score0);
+                Mul(score1, softmaxScale, score0);
+                if (mask.dims.size() > 0) {
+                    score0.Reshape({b * s, curh, t});
+                    ToDataType(mask, qNope.dataType);
+                    AttentionMask(score0, mask, -10000);
+                }
+
+                Softmax(score0, score0, -1);
+                score0.Reshape({b, s * curh, t});
+                MatMul(score0, peCache, outputParts[idx]);
+                outputParts[idx].Reshape({b, s, curh, c});
+            }
+            CatBatch(outputPartPointers, 2, output);
+            output.Reshape({b * s, h, c});
+        } else {
+            qNope.Reshape({b, s * h, c});
+            MatMulTransB(qNope, peCache, score0);
+            score0.Reshape({b, s, h, t});
+
+            qPe.Reshape({qPe.dims[0], -1, qPe.dims[3]});
+            MatMulTransB(qPe, kvCache, score1);
+            score1.Reshape({b, s, h, t});
+            AddTo(score1, score0);
+            Mul(score1, softmaxScale, score0);
+
+            if (mask.dims.size() > 0) {
+                score0.Reshape({b * s, h, t});
+                ToDataType(mask, qNope.dataType);
+                AttentionMask(score0, mask, -10000);
+            }
+
+            Softmax(score0, score0, -1);
+            score0.Reshape({b, s * h, t});
+            MatMul(score0, peCache, output);
+        }
+    }
 }
 
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
