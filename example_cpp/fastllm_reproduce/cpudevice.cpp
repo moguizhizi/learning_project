@@ -54,6 +54,7 @@ CpuDevice::CpuDevice() {
     this->ops["TopK"] = (BaseOperator *)(new CpuTopKOp());
     this->ops["Permute"] = (BaseOperator *)(new CpuPermuteOp());
     this->ops["SplitBatch"] = (BaseOperator *)(new CpuSplitBatchOp());
+    this->ops["CatBatch"] = (BaseOperator *)(new CpuCatBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
