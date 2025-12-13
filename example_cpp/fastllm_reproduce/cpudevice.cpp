@@ -59,6 +59,7 @@ CpuDevice::CpuDevice() {
     this->ops["MatMulBatch"] = (BaseOperator *)(new CpuMatMulBatchOp());
     this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CpuMatMulTransBBatchOp());
     this->ops["SoftMaxBatch"] = (BaseOperator *)(new CpuSoftmaxBatchOp());
+    this->ops["CatDirectBatch"] = (BaseOperator *)(new CpuCatDirectBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -3485,6 +3486,18 @@ void CpuSoftmaxBatchOp::Run(const std::string &opType, const DataDict &datas, co
     //     tempDatas["input"] = ((Data **)datas.find("input")->second)[i];
     //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
     //     op->Run("Softmax", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
+}
+
+void CpuCatDirectBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuCatDirectOp());
+    // int batch = intParams.find("input0___batch")->second;
+    // DataDict tempDatas = datas;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+    //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+    //     op->Run("CatDirect", tempDatas, floatParams, intParams);
     // }
     // delete op;
 }
