@@ -3563,6 +3563,25 @@ void CpuCatBatchOp::Run(const std::string &opType, const DataDict &datas, const 
     }
 }
 
+void CpuMulBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **inputs = (Data **)(datas.find("input")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+
+    float v = floatParams.find("v") != floatParams.end() ? floatParams.find("v")->second : 1.0;
+    int batch = intParams.find("input___batch")->second;
+    for (int i = 0; i < batch; i++) {
+        outputs[i]->Allocate();
+        AssertInFastLLM(inputs[i]->dataType == DataType::FLOAT32, "Mul error: Data's type should be float32.\n");
+
+        float *inputData = (float *)inputs[i]->cpuData;
+        float *outputData = (float *)outputs[i]->cpuData;
+        int len = inputs[i]->Count(0);
+        for (int i = 0; i < len; i++) {
+            outputData[i] = inputData[i] * v;
+        }
+    }
+}
+
 void Transpose4x4(float *pDst, float *pSrc, int dstStride, int srcStride, int n, int m) {
     if (n < 4 || m < 4) {
         for (int i = 0; i < n; i++) {
