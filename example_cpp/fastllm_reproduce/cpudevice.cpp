@@ -61,6 +61,7 @@ CpuDevice::CpuDevice() {
     this->ops["SoftMaxBatch"] = (BaseOperator *)(new CpuSoftmaxBatchOp());
     this->ops["CatDirectBatch"] = (BaseOperator *)(new CpuCatDirectBatchOp());
     this->ops["AppendKVCachebatch"] = (BaseOperator *)(new CpuAppendKVCacheBatchOp());
+    this->ops["AttentionBatch"] = (BaseOperator *)(new CpuAttentionBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -3667,6 +3668,49 @@ void CpuMatMulTransBBatchOp::Run(const std::string &opType, const DataDict &data
     //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
     //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
     //     op->Run("MatMulTransB", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
+}
+
+void CpuAttentionBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    Data **qs = (Data **)(datas.find("q")->second);
+    Data **ks = (Data **)(datas.find("k")->second);
+    Data **vs = (Data **)(datas.find("v")->second);
+    Data **outputs = (Data **)(datas.find("output")->second);
+    int group = intParams.find("group") != intParams.end() ? intParams.find("group")->second : 1;
+    int batch = intParams.find("q___batch")->second;
+
+    Data &q = *qs[0], &k = *ks[0], &v = *vs[0];
+    AssertInFastLLM(q.dims.size() == 3 && k.dims.size() == 3 && v.dims.size() == 3, "Attention: dims of q, k, v should be 3.\n");
+    AssertInFastLLM(q.dims[2] == k.dims[2], "Attention: q.dims[2] should be equal to k.dims[2].\n");
+    AssertInFastLLM(k.dims[1] == v.dims[1], "Attention: k.dims[1] should be equal to v.dims[1].\n");
+    AssertInFastLLM(k.dims[0] == v.dims[0], "Attention: k.dims[0] should be equal to v.dims[0].\n");
+    AssertInFastLLM(q.dims[0] == k.dims[0] * group, "Attention: q.dims[0] should be equal to k.dims[0] * group.\n");
+    AssertInFastLLM(q.dataType == k.dataType && q.dataType == v.dataType, "Attention: q, k, v's datatype should be same.\n");
+    AssertInFastLLM(
+        q.dataType == DataType::FLOAT32 || q.dataType == DataType::FLOAT16, "Attention's input's type should be float32 or float16.\n");
+
+    for (int i = 0; i < batch; i++) {
+        outputs[i]->dataType = qs[i]->dataType;
+        outputs[i]->Resize({qs[i]->dims[0], qs[i]->dims[1], vs[i]->dims[2]});
+    }
+}
+
+void CpuAttentionBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuAttention());
+    // int batch = intParams.find("q___batch")->second;
+    // DataDict tempDatas = datas;
+    // IntDict tempIntParams = intParams;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["q"] = ((Data **)datas.find("q")->second)[i];
+    //     tempDatas["k"] = ((Data **)datas.find("k")->second)[i];
+    //     tempDatas["v"] = ((Data **)datas.find("v")->second)[i];
+    //     tempDatas["mask"] = ((Data **)datas.find("mask")->second)[i];
+    //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+    //     if (tempIntParams.find("mask___batch") != intParams.end()) {
+    //         tempIntParams["mask___batch"] = 1;
+    //     }
+    //     op->Run("Attention", tempDatas, floatParams, tempIntParams);
     // }
     // delete op;
 }
