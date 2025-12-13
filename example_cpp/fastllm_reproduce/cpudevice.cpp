@@ -57,6 +57,7 @@ CpuDevice::CpuDevice() {
     this->ops["CatBatch"] = (BaseOperator *)(new CpuCatBatchOp());
     this->ops["MulBatch"] = (BaseOperator *)(new CpuMulBatchOp());
     this->ops["MatMulBatch"] = (BaseOperator *)(new CpuMatMulBatchOp());
+    this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CpuMatMulTransBBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
@@ -3598,6 +3599,32 @@ void CpuMatMulBatchOp::Reshape(const std::string &opType, const DataDict &datas,
 
 void CpuMatMulBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
     // BaseOperator *op = (BaseOperator *)(new CpuMatMulOp());
+    // int batch = intParams.find("input0___batch")->second;
+    // DataDict tempDatas = datas;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+    //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+    //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+    //     op->Run("MatMulTransB", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
+}
+
+void CpuMatMulTransBBatchOp::Reshape(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuMatMulTransBOp());
+    // int batch = intParams.find("input0___batch")->second;
+    // DataDict tempDatas = datas;
+    // for (int i = 0; i < batch; i++) {
+    //     tempDatas["input0"] = ((Data **)datas.find("input0")->second)[i];
+    //     tempDatas["input1"] = ((Data **)datas.find("input1")->second)[i];
+    //     tempDatas["output"] = ((Data **)datas.find("output")->second)[i];
+    //     op->Reshape("MatMulTransB", tempDatas, floatParams, intParams);
+    // }
+    // delete op;
+}
+
+void CpuMatMulTransBBatchOp::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
+    // BaseOperator *op = (BaseOperator *)(new CpuMatMulTransBOp());
     // int batch = intParams.find("input0___batch")->second;
     // DataDict tempDatas = datas;
     // for (int i = 0; i < batch; i++) {
