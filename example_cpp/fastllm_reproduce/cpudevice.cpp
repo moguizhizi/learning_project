@@ -58,6 +58,7 @@ CpuDevice::CpuDevice() {
     this->ops["MulBatch"] = (BaseOperator *)(new CpuMulBatchOp());
     this->ops["MatMulBatch"] = (BaseOperator *)(new CpuMatMulBatchOp());
     this->ops["MatMulTransBBatch"] = (BaseOperator *)(new CpuMatMulTransBBatchOp());
+    this->ops["SoftMaxBatch"] = (BaseOperator *)(new CpuSoftmaxBatchOp());
 }
 
 void CpuToFloat16::Run(const std::string &opType, const DataDict &datas, const FloatDict &floatParams, const IntDict &intParams) {
