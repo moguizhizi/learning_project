@@ -1858,7 +1858,6 @@ void MultiCudaCpuDoMergeMOEOp::Run() {
             int expertIndex = expert.expertIndex;
             float expertWeight = expert.weight;
 
-            // 没有权重 → 该专家无效
             if (weights[2 * expertIndex] == nullptr) {
                 continue;
             }
