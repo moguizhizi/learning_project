@@ -94,3 +94,36 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void safe_softmax(const float *__
         y[elem_id] = __expf(x[elem_id] - shared_max) * shared_divide;
     }
 }
+
+template <int THREADBLOCK_SIZE>
+__launch_bounds__(THREADBLOCK_SIZE) __global__ void online_softmax(const float *__restrict x, float *__restrict y, int V) {
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+
+    x += bid * V;
+    y += bid * V;
+
+    MD md_part;
+    md_part.m = -FLT_MAX;
+    md_part.d = 0.0F;
+    for (int elem_id = tid; elem_id < V; elem_id += THREADBLOCK_SIZE) {
+        MD new_md;
+        new_md.m = x[elem_id];
+        new_md.d = 1.0F;
+        md_part = reduce_max_op(md_part, new_md);
+    }
+
+    typedef cub::BlockReduce<float, THREADBLOCK_SIZE> BlockReduce;
+    __shared__ typename BlockReduce::TempStorage tempStorage;
+    __shared__ float divide_value;
+
+    MD md_value = BlockReduce(tempStorage).Reduce(md_part, reduce_max_op);
+    if (tid == 0) {
+        divide_value = __fdividef(1.0F, md_value.d);
+    }
+    __syncthreads();
+
+    for (int elem_id = tid; elem_id < V; elem_id += THREADBLOCK_SIZE) {
+        y[elem_id] = __expf(x[elem_id] - md_value.m) * divide_value;
+    }
+}
