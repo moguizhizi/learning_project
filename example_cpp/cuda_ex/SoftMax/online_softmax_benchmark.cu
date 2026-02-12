@@ -6,8 +6,25 @@ enum SOFTMAX_TYPE {
     SOFTMAX_TYPE_ONLINE,
 };
 
+struct __align__(8) MD {
+    float m;
+    float d;
+};
+
 __device__ __forceinline__ float max_op(float a, float b) {
     return fmaxf(a, b);
+}
+
+__device__ __forceinline__ MD reduce_max_op(MD a, MD b) {
+    bool bigger = (a.m > b.m);
+    MD bigger_md = bigger ? a : b;
+    MD smaller_md = bigger ? b : a;
+    MD res;
+
+    res.d = bigger_md.d + smaller_md.d * __expf(smaller_md.m - bigger_md.m);
+    res.m = bigger_md.m;
+
+    return res;
 }
 
 template <int THREADBLOCK_SIZE>
