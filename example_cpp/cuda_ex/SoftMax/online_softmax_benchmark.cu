@@ -1,4 +1,23 @@
+#include <curand.h>
+
 #include <cub/cub.cuh>
+
+#define CUDA_CHECK(callstr)                                                                    \
+    {                                                                                          \
+        cudaError_t error_code = callstr;                                                      \
+        if (error_code != cudaSuccess) {                                                       \
+            std::cerr << "CUDA error " << error_code << " at " << __FILE__ << ":" << __LINE__; \
+            assert(0);                                                                         \
+        }                                                                                      \
+    }
+#define CURAND_CHECK(callstr)                                                                    \
+    {                                                                                            \
+        curandStatus_t error_code = callstr;                                                     \
+        if (error_code != CURAND_STATUS_SUCCESS) {                                               \
+            std::cerr << "cuRAND error " << error_code << " at " << __FILE__ << ":" << __LINE__; \
+            assert(0);                                                                           \
+        }                                                                                        \
+    }
 
 enum SOFTMAX_TYPE {
     SOFTMAX_TYPE_NAIVE,
@@ -25,6 +44,14 @@ __device__ __forceinline__ MD reduce_max_op(MD a, MD b) {
     res.m = bigger_md.m;
 
     return res;
+}
+
+void fil_random_values(float *x, int count) {
+    curandGenerator_t gen;
+    CURAND_CHECK(curandCreateGenerator(&gen, curandRngType_t::CURAND_RNG_PSEUDO_DEFAULT));
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 1234ULL));
+    CURAND_CHECK(curandGenerateUniform(gen, x, count));
+    CURAND_CHECK(curandDestroyGenerator(gen));
 }
 
 template <int THREADBLOCK_SIZE>
