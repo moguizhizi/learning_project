@@ -170,6 +170,29 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void online_softmax(const float *
     }
 }
 
+template <int MAX_K>
+struct TopK {
+    int p[MAX_K];
+    float u[MAX_K];
+
+    __device__ __forceinline__ void insert(float elem, int elem_id) {
+        if (elem > u[MAX_K - 1]) {
+            u[MAX_K - 1] = elem;
+            p[MAX_K - 1] = elem_id;
+        }
+        for (int k = MAX_K - 2; k >= 0; --k) {
+            if (u[k + 1] > u[k]) {
+                float u2 = u[k];
+                int p2 = p[k];
+                u[k] = u[k + 1];
+                p[k] = p[k + 1];
+                u[k + 1] = u2;
+                p[k + 1] = p2;
+            }
+        }
+    }
+};
+
 std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     float *x;
     float *y;
