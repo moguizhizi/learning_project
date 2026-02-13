@@ -54,6 +54,21 @@ void fil_random_values(float *x, int count) {
     CURAND_CHECK(curandDestroyGenerator(gen));
 }
 
+std::string getSoftmaxTypeName(SOFTMAX_TYPE t) {
+    switch (t) {
+        case SOFTMAX_TYPE_NAIVE:
+            return "Naive Softmax";
+        case SOFTMAX_TYPE_SAFE:
+            return "Safe Softmax";
+        case SOFTMAX_TYPE_ONLINE:
+            return "Online Softmax";
+        default:
+            assert(0);
+            break;
+    }
+    return "";
+}
+
 template <int THREADBLOCK_SIZE>
 __launch_bounds__(THREADBLOCK_SIZE) __global__ void naive_softmax(const float *__restrict x, float *__restrict y, int V) {
     int tid = threadIdx.x;
