@@ -107,7 +107,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void safe_softmax(const float *__
 
     float max_part = -FLT_MAX;
     for (int elem_id = tid; elem_id < V; elem_id += THREADBLOCK_SIZE) {
-        max_part = max_op(max_part, e[elem_id]);
+        max_part = max_op(max_part, x[elem_id]);
     }
 
     typedef cub::BlockReduce<float, THREADBLOCK_SIZE> BlockReduce;
@@ -155,7 +155,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void online_softmax(const float *
         md_part = reduce_max_op(md_part, new_md);
     }
 
-    typedef cub::BlockReduce<float, THREADBLOCK_SIZE> BlockReduce;
+    typedef cub::BlockReduce<MD, THREADBLOCK_SIZE> BlockReduce;
     __shared__ typename BlockReduce::TempStorage tempStorage;
     __shared__ float divide_value;
 
@@ -211,4 +211,11 @@ void compare_softmax_results(int V, int batch_size, SOFTMAX_TYPE t1, SOFTMAX_TYP
     }
     std::cout << "Comparing " << getSoftmaxTypeName(t1) << " and " << getSoftmaxTypeName(t2) << ": Max diff = " << max_diff
               << ", Avg diff = " << (float)(total_diff / res1.size()) << std::endl;
+}
+
+int main(int argc, char *argv[]) {
+    std::cout << "Softmax correctness check:" << std::endl;
+    compare_softmax_results(300, 100, SOFTMAX_TYPE_NAIVE, SOFTMAX_TYPE_SAFE);
+    compare_softmax_results(300, 100, SOFTMAX_TYPE_NAIVE, SOFTMAX_TYPE_ONLINE);
+    return 0;
 }
