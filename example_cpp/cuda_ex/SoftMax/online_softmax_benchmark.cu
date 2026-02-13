@@ -197,3 +197,18 @@ std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     CUDA_CHECK(cudaMemcpy(res.data(), y, batchSize * V * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     return res;
 }
+
+void compare_softmax_results(int V, int batch_size, SOFTMAX_TYPE t1, SOFTMAX_TYPE t2) {
+    std::vector<float> res1 = run_softmax(V, batch_size, t1);
+    std::vector<float> res2 = run_softmax(V, batch_size, t2);
+
+    float max_diff = 0.0F;
+    double total_diff = 0.0F;
+    for (int i = 0; i < res1.size(); ++i) {
+        float diff = fabs(res1[i] - res2[i]);
+        max_diff = std::max(max_diff, diff);
+        total_diff += diff;
+    }
+    std::cout << "Comparing " << getSoftmaxTypeName(t1) << " and " << getSoftmaxTypeName(t2) << ": Max diff = " << max_diff
+              << ", Avg diff = " << (float)(total_diff / res1.size()) << std::endl;
+}
