@@ -154,3 +154,31 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void online_softmax(const float *
         y[elem_id] = __expf(x[elem_id] - md_value.m) * divide_value;
     }
 }
+
+std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
+    float *x;
+    float *y;
+
+    CUDA_CHECK(cudaMalloc(&x, batchSize * V * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&y, batchSize * V * sizeof(float)));
+
+    switch (type) {
+        case SOFTMAX_TYPE_NAIVE:
+            naive_softmax<256><<<batchSize, 256>>>(x, y, V);
+            break;
+
+        case SOFTMAX_TYPE_SAFE:
+            safe_softmax<256><<<batchSize, 256>>>(x, y, V);
+            break;
+        case SOFTMAX_TYPE_ONLINE:
+            online_softmax<256><<<batchSize, 256>>>(x, y, V);
+            break;
+
+        default:
+            assert(0);
+    }
+
+    std::vector<float> res(batchSize * V);
+    CUDA_CHECK(cudaMemcpy(res.data(), y, batchSize * V * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    return res;
+}
