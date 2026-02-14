@@ -202,6 +202,37 @@ __device__ __forceinline__ TopK<MAX_K> reduce_topk_op(const TopK<MAX_K> &a, cons
     return res;
 }
 
+template <int MAX_K, int THREADBLOCK_SIZE>
+__launch_bounds__(THREADBLOCK_SIZE) __global__ void topk(const float *__restrict y, int V, float *__restrict z, int *__restrict k, int K) {
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+
+    y += bid * V;
+
+    TopK<MAX_K> topk_part;
+    for (int i = 0; i < MAX_K; i++) {
+        topk_part.p[i] = -1;
+        topk_part.u[i] = -FLT_MAX;
+    }
+
+    for (int i = tid; i < V; i += THREADBLOCK_SIZE) {
+        topk_part.insert(y[i], i);
+    }
+
+    typedef cub::BlockReduce<TopK<MAX_K>, THREADBLOCK_SIZE> BlockReduce;
+    __shared__ typename BlockReduce::TempStorage tempStorage;
+
+    TopK<MAX_K> total_topk = BlockReduce(tempStorage).Reduce(topk_part, reduce_topk_op<MAX_K>);
+    z += bid * K;
+    k += bid * K;
+    if (tid == 0) {
+        for (int i = 0; i < min(MAX_K, K); i++) {
+            z[i] = total_topk.u[i];
+            k[i] = total_topk.p[i];
+        }
+    }
+}
+
 std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     float *x;
     float *y;
