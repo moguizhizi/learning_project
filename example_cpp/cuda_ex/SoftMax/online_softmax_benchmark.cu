@@ -193,6 +193,15 @@ struct TopK {
     }
 };
 
+template <int MAX_K>
+__device__ __forceinline__ TopK<MAX_K> reduce_topk_op(const TopK<MAX_K> &a, const TopK<MAX_K> &b) {
+    TopK<MAX_K> res = a;
+    for (int i = 0; i < MAX_K; i++) {
+        res.insert(b.u[i], b.p[i]);
+    }
+    return res;
+}
+
 std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     float *x;
     float *y;
