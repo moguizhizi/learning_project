@@ -194,6 +194,12 @@ struct TopK {
 };
 
 template <int MAX_K>
+struct TopKD {
+    float d;
+    TopK<MAX_K> topk;
+};
+
+template <int MAX_K>
 __device__ __forceinline__ TopK<MAX_K> reduce_topk_op(const TopK<MAX_K> &a, const TopK<MAX_K> &b) {
     TopK<MAX_K> res = a;
     for (int i = 0; i < MAX_K; i++) {
