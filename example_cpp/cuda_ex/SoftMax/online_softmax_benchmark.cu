@@ -239,6 +239,29 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void topk(const float *__restrict
     }
 }
 
+template <int MAX_K, int THREADBLOCK_SIZE>
+__launch_bounds__(THREADBLOCK_SIZE) __global__ void safe_softmax_topk(const float *__restrict x, int V) {
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+
+    x += bid * V;
+
+    float max_part = -FLT_MAX;
+    for (int i = tid; i < V; i += THREADBLOCK_SIZE) {
+        max_part = max_op(max_part, x[i]);
+    }
+
+    typedef cub::BlockReduce<float, THREADBLOCK_SIZE> MAX_BlockReduce;
+    __shared__ typename MAX_BlockReduce::TempStorage tempStorage;
+    __shared__ float max_all;
+
+    float max_value = MAX_BlockReduce(tempStorage).Reduce(max_part, max_op);
+    if (tid == 0) {
+        max_all = max_value;
+    }
+    __syncthreads();
+}
+
 std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     float *x;
     float *y;
