@@ -46,6 +46,16 @@ __device__ __forceinline__ MD reduce_max_op(MD a, MD b) {
     return res;
 }
 
+__device__ __forceinline__ MD reduce_md_op(MD a, MD b) {
+    bool a_bigger = (a.m > b.m);
+    MD bigger_m = a_bigger ? a : b;
+    MD smaller_m = a_bigger ? b : a;
+    MD res;
+    res.d = bigger_m.d + smaller_m.d * __expf(smaller_m.m - bigger_m.m);
+    res.m = bigger_m.m;
+    return res;
+}
+
 void fil_random_values(float *x, int count) {
     curandGenerator_t gen;
     CURAND_CHECK(curandCreateGenerator(&gen, curandRngType_t::CURAND_RNG_PSEUDO_DEFAULT));
