@@ -223,8 +223,8 @@ __device__ __forceinline__ TopKD<MAX_K> reduce_topkd_op(const TopKD<MAX_K> &a, c
 template <int MAX_K>
 __device__ __forceinline__ TopKMD<MAX_K> reduce_topk_md_op(const TopKMD<MAX_K> &a, const TopKMD<MAX_K> &b) {
     TopKMD<MAX_K> res;
-    res.md = reduce_md_op(a.md, b.md);
     res.topk = reduce_topk_op(a.topk, b.topk);
+    res.md = reduce_md_op(a.md, b.md);
     return res;
 }
 
@@ -307,6 +307,48 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
             float val = __expf(total_topkd.topk.u[i] - m_total) * d_total_inverse;
             if (i < K) {
                 z[i] = total_topkd.topk.p[i];
+                v[i] = val;
+            }
+        }
+    }
+}
+
+template <int MAX_K, int THREADBLOCK_SIZE>
+__launch_bounds__(THREADBLOCK_SIZE) __global__
+    void online_softmax_topk(const float *__restrict x, int *__restrict z, float *__restrict v, int V, int K) {
+    int thread_id = threadIdx.x;
+    int vector_id = blockIdx.x;
+
+    // reposition y to data for the current vector
+    x += vector_id * V;
+
+    typedef cub::BlockReduce<TopKMD<MAX_K>, THREADBLOCK_SIZE> BlockReduce;
+
+    __shared__ typename BlockReduce::TempStorage temp_storage;
+
+    TopKMD<MAX_K> partial;
+    for (int i = 0; i < MAX_K; ++i) partial.topk.p[i] = -1;
+    for (int i = 0; i < MAX_K; ++i) partial.topk.u[i] = -FLT_MAX;
+    partial.md.m = -FLT_MAX;
+    partial.md.d = 0.0F;
+    for (int elem_id = thread_id; elem_id < V; elem_id += THREADBLOCK_SIZE) {
+        float elem = x[elem_id];
+        MD new_elem{elem, 1.0F};
+        partial.md = reduce_md_op(partial.md, new_elem);
+        partial.topk.insert(elem, elem_id);
+    }
+
+    TopKMD<MAX_K> total = BlockReduce(temp_storage).Reduce(partial, reduce_topk_md_op<MAX_K>);
+
+    if (thread_id == 0) {
+        z += vector_id * K;
+        v += vector_id * K;
+
+        float d_total_inverse = __fdividef(1.0F, total.md.d);
+        for (int i = 0; i < MAX_K; ++i) {
+            float val = __expf(total.topk.u[i] - total.md.m) * d_total_inverse;
+            if (i < K) {
+                z[i] = total.topk.p[i];
                 v[i] = val;
             }
         }
