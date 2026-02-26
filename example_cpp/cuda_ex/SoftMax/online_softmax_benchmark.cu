@@ -208,6 +208,14 @@ __device__ __forceinline__ TopK<MAX_K> reduce_topk_op(const TopK<MAX_K> &a, cons
     return res;
 }
 
+template <int MAX_K>
+__device__ __forceinline__ TopKD<MAX_K> reduce_topkd_op(const TopKD<MAX_K> &a, const TopKD<MAX_K> &b) {
+    TopKD<MAX_K> res = a;
+    res.d += b.d;
+    res.topk = reduce_topk_op(a.topk, b.topk);
+    return res;
+}
+
 template <int MAX_K, int THREADBLOCK_SIZE>
 __launch_bounds__(THREADBLOCK_SIZE) __global__ void topk(const float *__restrict y, int V, float *__restrict z, int *__restrict k, int K) {
     int tid = threadIdx.x;
@@ -240,7 +248,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void topk(const float *__restrict
 }
 
 template <int MAX_K, int THREADBLOCK_SIZE>
-__launch_bounds__(THREADBLOCK_SIZE) __global__ void safe_softmax_topk(const float *__restrict x, int V) {
+__launch_bounds__(THREADBLOCK_SIZE) __global__
+    void safe_softmax_topk(const float *__restrict x, int *__restrict z, float *__restrict v, int V, int K) {
     int tid = threadIdx.x;
     int bid = blockIdx.x;
 
@@ -260,6 +269,36 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void safe_softmax_topk(const floa
         max_all = max_value;
     }
     __syncthreads();
+
+    TopKD<MAX_K> topkd_part;
+    topkd_part.d = 0.0F;
+    for (int i = 0; i < MAX_K; i++) {
+        topkd_part.topk.p[i] = -1;
+        topkd_part.topk.u[i] = -FLT_MAX;
+    }
+
+    for (int i = tid; i < V; i += THREADBLOCK_SIZE) {
+        topkd_part.d += __expf(x[i] - max_all);
+        topkd_part.topk.insert(x[i], i);
+    }
+
+    typedef cub::BlockReduce<TopKD<MAX_K>, THREADBLOCK_SIZE> BlockReduce;
+    __shared__ typename BlockReduce::TempStorage tempStorage;
+
+    TopKD<MAX_K> total_topkd = BlockReduce(tempStorage).Reduce(topkd_part, reduce_topkd_op<MAX_K>);
+    if (tid == 0) {
+        z += vector_id * K;
+        v += vector_id * K;
+
+        float d_total_inverse = __fdividef(1.0F, total_topkd.d);
+        for (int i = 0; i < MAX_K; ++i) {
+            float val = __expf(total_topkd.topk.u[i] - m_total) * d_total_inverse;
+            if (i < K) {
+                z[i] = total_topkd.topk.p[i];
+                v[i] = val;
+            }
+        }
+    }
 }
 
 std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
