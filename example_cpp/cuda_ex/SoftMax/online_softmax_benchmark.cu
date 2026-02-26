@@ -220,6 +220,14 @@ __device__ __forceinline__ TopKD<MAX_K> reduce_topkd_op(const TopKD<MAX_K> &a, c
     return res;
 }
 
+template <int MAX_K>
+__device__ __forceinline__ TopKMD<MAX_K> reduce_topk_md_op(const TopKMD<MAX_K> &a, const TopKMD<MAX_K> &b) {
+    TopKMD<MAX_K> res;
+    res.md = reduce_md_op(a.md, b.md);
+    res.topk = reduce_topk_op(a.topk, b.topk);
+    return res;
+}
+
 template <int MAX_K, int THREADBLOCK_SIZE>
 __launch_bounds__(THREADBLOCK_SIZE) __global__ void topk(const float *__restrict y, int V, float *__restrict z, int *__restrict k, int K) {
     int tid = threadIdx.x;
