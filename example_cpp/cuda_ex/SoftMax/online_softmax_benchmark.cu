@@ -44,7 +44,7 @@ __device__ __forceinline__ MD reduce_md_op(MD a, MD b) {
     return res;
 }
 
-void fil_random_values(float *x, int count) {
+void fill_random_values(float *x, int count) {
     curandGenerator_t gen;
     CURAND_CHECK(curandCreateGenerator(&gen, curandRngType_t::CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 1234ULL));
@@ -360,6 +360,7 @@ std::vector<float> run_softmax(int V, int batchSize, SOFTMAX_TYPE type) {
     float *y;
 
     CUDA_CHECK(cudaMalloc(&x, batchSize * V * sizeof(float)));
+    fill_random_values(x, V * batchSize);
     CUDA_CHECK(cudaMalloc(&y, batchSize * V * sizeof(float)));
 
     switch (type) {
@@ -396,6 +397,73 @@ void compare_softmax_results(int V, int batch_size, SOFTMAX_TYPE t1, SOFTMAX_TYP
     }
     std::cout << "Comparing " << getSoftmaxTypeName(t1) << " and " << getSoftmaxTypeName(t2) << ": Max diff = " << max_diff
               << ", Avg diff = " << (float)(total_diff / res1.size()) << std::endl;
+}
+
+// Returns runtime, in seconds
+float benchmark_softmax(int V, int batch_size, SOFTMAX_TYPE t, int run_iterations) {
+    float *x;
+    float *y;
+    CUDA_CHECK(cudaMalloc(&x, (size_t)V * batch_size * sizeof(float)));
+    fill_random_values(x, V * batch_size);
+    CUDA_CHECK(cudaMalloc(&y, (size_t)V * batch_size * sizeof(float)));
+
+    // Heuristic to have at least 8 iterations of the loop
+    int max_threadblock_size = V / 8;
+
+    cudaEvent_t start, stop;
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
+
+    CUDA_CHECK(cudaEventRecord(start, 0));
+    for (int i = 0; i < run_iterations; ++i) {
+        switch (t) {
+            case SOFTMAX_TYPE_NAIVE:
+                if (max_threadblock_size >= 256)
+                    naive_softmax<256><<<batch_size, 256>>>(x, y, V);
+                else if (max_threadblock_size >= 128)
+                    naive_softmax<128><<<batch_size, 128>>>(x, y, V);
+                else if (max_threadblock_size >= 64)
+                    naive_softmax<64><<<batch_size, 64>>>(x, y, V);
+                else
+                    naive_softmax<32><<<batch_size, 32>>>(x, y, V);
+                break;
+            case SOFTMAX_TYPE_SAFE:
+                if (max_threadblock_size >= 256)
+                    safe_softmax<256><<<batch_size, 256>>>(x, y, V);
+                else if (max_threadblock_size >= 128)
+                    safe_softmax<128><<<batch_size, 128>>>(x, y, V);
+                else if (max_threadblock_size >= 64)
+                    safe_softmax<64><<<batch_size, 64>>>(x, y, V);
+                else
+                    safe_softmax<32><<<batch_size, 32>>>(x, y, V);
+                break;
+            case SOFTMAX_TYPE_ONLINE:
+                if (max_threadblock_size >= 256)
+                    online_softmax<256><<<batch_size, 256>>>(x, y, V);
+                else if (max_threadblock_size >= 128)
+                    online_softmax<128><<<batch_size, 128>>>(x, y, V);
+                else if (max_threadblock_size >= 64)
+                    online_softmax<64><<<batch_size, 64>>>(x, y, V);
+                else
+                    online_softmax<32><<<batch_size, 32>>>(x, y, V);
+                break;
+            default:
+                assert(0);
+        }
+        CUDA_CHECK(cudaGetLastError());
+    }
+    CUDA_CHECK(cudaEventRecord(stop, 0));
+    CUDA_CHECK(cudaEventSynchronize(stop));
+    float elapsedTime;
+    CUDA_CHECK(cudaEventElapsedTime(&elapsedTime, start, stop));
+
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+
+    CUDA_CHECK(cudaFree(x));
+    CUDA_CHECK(cudaFree(y));
+
+    return elapsedTime / run_iterations * 0.001F;
 }
 
 int main(int argc, char *argv[]) {
