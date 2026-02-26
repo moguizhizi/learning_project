@@ -34,18 +34,6 @@ __device__ __forceinline__ float max_op(float a, float b) {
     return fmaxf(a, b);
 }
 
-__device__ __forceinline__ MD reduce_max_op(MD a, MD b) {
-    bool bigger = (a.m > b.m);
-    MD bigger_md = bigger ? a : b;
-    MD smaller_md = bigger ? b : a;
-    MD res;
-
-    res.d = bigger_md.d + smaller_md.d * __expf(smaller_md.m - bigger_md.m);
-    res.m = bigger_md.m;
-
-    return res;
-}
-
 __device__ __forceinline__ MD reduce_md_op(MD a, MD b) {
     bool a_bigger = (a.m > b.m);
     MD bigger_m = a_bigger ? a : b;
@@ -162,14 +150,14 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void online_softmax(const float *
         MD new_md;
         new_md.m = x[elem_id];
         new_md.d = 1.0F;
-        md_part = reduce_max_op(md_part, new_md);
+        md_part = reduce_md_op(md_part, new_md);
     }
 
     typedef cub::BlockReduce<MD, THREADBLOCK_SIZE> BlockReduce;
     __shared__ typename BlockReduce::TempStorage tempStorage;
     __shared__ float divide_value;
 
-    MD md_value = BlockReduce(tempStorage).Reduce(md_part, reduce_max_op);
+    MD md_value = BlockReduce(tempStorage).Reduce(md_part, reduce_md_op);
     if (tid == 0) {
         divide_value = __fdividef(1.0F, md_value.d);
     }
