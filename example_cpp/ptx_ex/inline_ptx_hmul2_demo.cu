@@ -4,11 +4,9 @@
 
 __device__ __forceinline__ __half2 my_mul_f16x2(__half2 a, __half2 b) {
     __half2 val;
-
     asm("{ mul.f16x2 %0,%1,%2; }"
         : "=r"(*reinterpret_cast<unsigned int *>(&val))
         : "r"(*reinterpret_cast<unsigned int *>(&a)), "r"(*reinterpret_cast<unsigned int *>(&b)));
-
     return val;
 }
 
