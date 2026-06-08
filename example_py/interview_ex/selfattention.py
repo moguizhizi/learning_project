@@ -21,5 +21,6 @@ class SelfAttention(nn.modules):
              scores.masked_fill(mask==0, "-inf")
 
         atten_weight = F.softmax(scores, dim=-1)
-        out = self.out_proj(atten_weight, v)
+        atten_out = torch.matmul(atten_weight, v)
+        out = self.out_proj(atten_out)
         return out    
