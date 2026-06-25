@@ -16,7 +16,8 @@ __global__ void helloFromGPU(void) {
   }
   __syncthreads();
 
-  int aTile_index = tidx * 8;
+  int lane = threadIdx.x & 31;
+  int aTile_index = (lane % 16) * 8;
   uint32_t my_register[2];
   uint32_t smem = __cvta_generic_to_shared(aTile + aTile_index);
   asm("ldmatrix.sync.aligned.m8n8.x2.trans.shared.b16 { %0, %1 }, [ %2 ];\n"
