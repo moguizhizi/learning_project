@@ -25,9 +25,7 @@ __global__ void ldmatrix_x1_demo() {
       : "=r"(reg)
       : "r"(smem_addr));
 
-  if (lane < 8) {
-    printf("lane=%d reg=0x%08x\n", lane, reg);
-  }
+  printf("lane=%d reg=0x%08x\n", lane, reg);
 }
 
 int main() {
