@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/usr/local/lib/python3.10/dist-packages/torch/include",
+        "/usr/local/lib/python3.10/dist-packages/torch/include/torch/csrc/api/include",
+        "/usr/include/python3.10"
+      ],
+      "defines": [
+        "TORCH_API_INCLUDE_EXTENSION_H",
+        "TORCH_EXTENSION_NAME=cpp_ops_demo"
+      ],
+      "compilerPath": "/usr/bin/g++",
+      "cppStandard": "c++20",
+      "intelliSenseMode": "linux-gcc-x64"
+    }
+  ],
+  "version": 4
+}
