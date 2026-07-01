@@ -4,5 +4,6 @@ CompileFlags:
     - "-I/usr/local/lib/python3.10/dist-packages/torch/include"
     - "-I/usr/local/lib/python3.10/dist-packages/torch/include/torch/csrc/api/include"
     - "-I/usr/include/python3.10"
+    - "-I/usr/local/cuda/include"
     - "-DTORCH_API_INCLUDE_EXTENSION_H"
     - "-DTORCH_EXTENSION_NAME=cpp_ops_demo"

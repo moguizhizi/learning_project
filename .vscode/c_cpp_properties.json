@@ -6,7 +6,8 @@
         "${workspaceFolder}/**",
         "/usr/local/lib/python3.10/dist-packages/torch/include",
         "/usr/local/lib/python3.10/dist-packages/torch/include/torch/csrc/api/include",
-        "/usr/include/python3.10"
+        "/usr/include/python3.10",
+        "/usr/local/cuda/include"
       ],
       "defines": [
         "TORCH_API_INCLUDE_EXTENSION_H",

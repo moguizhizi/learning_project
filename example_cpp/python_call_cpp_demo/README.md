@@ -1,22 +1,20 @@
-# Python Call C++ Demo
+# Python Call C++ Demos
 
-This demo shows Python calling C++ functions through a PyTorch C++ extension.
+This directory contains small demos for Python calling C++/CUDA code.
 
-Run from the project root:
+## Pybind11 C++ Demo
 
 ```bash
-python3 example_cpp/python_call_cpp_demo/run_demo.py
+python3 example_cpp/python_call_cpp_demo/pybind11_cpp_demo/run_demo.py
 ```
 
-Call path:
+This demo imports a generated Python extension module and calls C++ functions.
 
-```text
-Python run_demo.py
-  -> setup.py build_ext --inplace
-  -> compile cpp_ops.cpp
-  -> import generated extension module
-  -> call C++ functions add_int and add_tensor
+## Torch CUDA Custom Op Demo
+
+```bash
+python3 example_cpp/python_call_cpp_demo/torch_cuda_custom_op_demo/run_cuda_custom_op_demo.py
 ```
 
-This is simpler than vLLM's `torch.ops._C.xxx` custom-op registration, but the
-core idea is the same: Python enters compiled C++ code.
+This demo registers a CUDA implementation with PyTorch's dispatcher and calls it
+through `torch.ops.my_cuda_ops.add_cuda(...)`.
